@@ -42,7 +42,5 @@ services:
         condition: service_healthy
     networks:
     - observability
-    expose:
-    - '4317'
 volumes:
   phoenix-postgres-data: null
