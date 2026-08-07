@@ -1,0 +1,260 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 384
+    spike_limit_mib: 96
+  resource/normalize:
+    attributes:
+    - key: ai_context.environment.profile
+      value: core
+      action: upsert
+    - key: deployment.environment.name
+      value: personal-local
+      action: upsert
+    - key: service.name
+      value: unknown-ai-client
+      action: insert
+  transform/privacy:
+    error_mode: propagate
+    trace_statements:
+    - context: resource
+      statements:
+      - delete_key(attributes, "prompt")
+      - delete_key(attributes, "completion")
+      - delete_key(attributes, "response")
+      - delete_key(attributes, "input")
+      - delete_key(attributes, "output")
+      - delete_key(attributes, "content")
+      - delete_key(attributes, "message")
+      - delete_key(attributes, "messages")
+      - delete_key(attributes, "tool.arguments")
+      - delete_key(attributes, "tool.result")
+      - delete_key(attributes, "tool.output")
+      - delete_key(attributes, "tool.input")
+      - delete_matching_keys(attributes, "(?i)(^|\.)(prompt\.(?:content|text)|completion\.(?:content|text)|messages?|content|input\.(?:value|body|content|text|messages?)|output\.(?:value|body|content|text|messages?)|response\.(?:body|content|text|messages?)|gen_ai\.(?:prompt|completion|input\.(?:messages?|content|text)|output\.(?:messages?|content|text)|response\.(?:body|content|text))|openinference\.(?:input|output)|tool(?:\.call)?\.(?:arguments|args|result|output|input)|mcp\.(?:arguments|result|payload)|request\.(?:body|headers?)|response\.(?:body|headers?)|http\.request\.(?:body|headers?)|http\.response\.(?:body|headers?)|file\.(?:path|content|name)|repository\.(?:url|path|name)|code\.(?:content|diff|filepath|file_path)|process\.(?:command(?:_line)?|command_args|executable\.path)|command\.(?:line|output)|shell\.command|db\.(?:statement|query\.text)|exception\.(?:message|stacktrace)|error\.message|url\.(?:full|path|query)|http\.(?:url|target)|user\.(?:email|name)|email|account\.id|organization\.id|auth(?:orization)?|cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|absolute[_-]?path)(\.|$)")
+    - context: scope
+      statements:
+      - delete_key(attributes, "prompt")
+      - delete_key(attributes, "completion")
+      - delete_key(attributes, "response")
+      - delete_key(attributes, "input")
+      - delete_key(attributes, "output")
+      - delete_key(attributes, "content")
+      - delete_key(attributes, "message")
+      - delete_key(attributes, "messages")
+      - delete_key(attributes, "tool.arguments")
+      - delete_key(attributes, "tool.result")
+      - delete_key(attributes, "tool.output")
+      - delete_key(attributes, "tool.input")
+      - delete_matching_keys(attributes, "(?i)(^|\.)(prompt\.(?:content|text)|completion\.(?:content|text)|messages?|content|input\.(?:value|body|content|text|messages?)|output\.(?:value|body|content|text|messages?)|response\.(?:body|content|text|messages?)|gen_ai\.(?:prompt|completion|input\.(?:messages?|content|text)|output\.(?:messages?|content|text)|response\.(?:body|content|text))|openinference\.(?:input|output)|tool(?:\.call)?\.(?:arguments|args|result|output|input)|mcp\.(?:arguments|result|payload)|request\.(?:body|headers?)|response\.(?:body|headers?)|http\.request\.(?:body|headers?)|http\.response\.(?:body|headers?)|file\.(?:path|content|name)|repository\.(?:url|path|name)|code\.(?:content|diff|filepath|file_path)|process\.(?:command(?:_line)?|command_args|executable\.path)|command\.(?:line|output)|shell\.command|db\.(?:statement|query\.text)|exception\.(?:message|stacktrace)|error\.message|url\.(?:full|path|query)|http\.(?:url|target)|user\.(?:email|name)|email|account\.id|organization\.id|auth(?:orization)?|cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|absolute[_-]?path)(\.|$)")
+    - context: span
+      statements:
+      - delete_key(attributes, "prompt")
+      - delete_key(attributes, "completion")
+      - delete_key(attributes, "response")
+      - delete_key(attributes, "input")
+      - delete_key(attributes, "output")
+      - delete_key(attributes, "content")
+      - delete_key(attributes, "message")
+      - delete_key(attributes, "messages")
+      - delete_key(attributes, "tool.arguments")
+      - delete_key(attributes, "tool.result")
+      - delete_key(attributes, "tool.output")
+      - delete_key(attributes, "tool.input")
+      - delete_matching_keys(attributes, "(?i)(^|\.)(prompt\.(?:content|text)|completion\.(?:content|text)|messages?|content|input\.(?:value|body|content|text|messages?)|output\.(?:value|body|content|text|messages?)|response\.(?:body|content|text|messages?)|gen_ai\.(?:prompt|completion|input\.(?:messages?|content|text)|output\.(?:messages?|content|text)|response\.(?:body|content|text))|openinference\.(?:input|output)|tool(?:\.call)?\.(?:arguments|args|result|output|input)|mcp\.(?:arguments|result|payload)|request\.(?:body|headers?)|response\.(?:body|headers?)|http\.request\.(?:body|headers?)|http\.response\.(?:body|headers?)|file\.(?:path|content|name)|repository\.(?:url|path|name)|code\.(?:content|diff|filepath|file_path)|process\.(?:command(?:_line)?|command_args|executable\.path)|command\.(?:line|output)|shell\.command|db\.(?:statement|query\.text)|exception\.(?:message|stacktrace)|error\.message|url\.(?:full|path|query)|http\.(?:url|target)|user\.(?:email|name)|email|account\.id|organization\.id|auth(?:orization)?|cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|absolute[_-]?path)(\.|$)")
+      - set(status.message, "")
+      - set(trace_state, "")
+    - context: spanevent
+      statements:
+      - delete_key(attributes, "prompt")
+      - delete_key(attributes, "completion")
+      - delete_key(attributes, "response")
+      - delete_key(attributes, "input")
+      - delete_key(attributes, "output")
+      - delete_key(attributes, "content")
+      - delete_key(attributes, "message")
+      - delete_key(attributes, "messages")
+      - delete_key(attributes, "tool.arguments")
+      - delete_key(attributes, "tool.result")
+      - delete_key(attributes, "tool.output")
+      - delete_key(attributes, "tool.input")
+      - delete_matching_keys(attributes, "(?i)(^|\.)(prompt\.(?:content|text)|completion\.(?:content|text)|messages?|content|input\.(?:value|body|content|text|messages?)|output\.(?:value|body|content|text|messages?)|response\.(?:body|content|text|messages?)|gen_ai\.(?:prompt|completion|input\.(?:messages?|content|text)|output\.(?:messages?|content|text)|response\.(?:body|content|text))|openinference\.(?:input|output)|tool(?:\.call)?\.(?:arguments|args|result|output|input)|mcp\.(?:arguments|result|payload)|request\.(?:body|headers?)|response\.(?:body|headers?)|http\.request\.(?:body|headers?)|http\.response\.(?:body|headers?)|file\.(?:path|content|name)|repository\.(?:url|path|name)|code\.(?:content|diff|filepath|file_path)|process\.(?:command(?:_line)?|command_args|executable\.path)|command\.(?:line|output)|shell\.command|db\.(?:statement|query\.text)|exception\.(?:message|stacktrace)|error\.message|url\.(?:full|path|query)|http\.(?:url|target)|user\.(?:email|name)|email|account\.id|organization\.id|auth(?:orization)?|cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|absolute[_-]?path)(\.|$)")
+    log_statements:
+    - context: resource
+      statements:
+      - delete_key(attributes, "prompt")
+      - delete_key(attributes, "completion")
+      - delete_key(attributes, "response")
+      - delete_key(attributes, "input")
+      - delete_key(attributes, "output")
+      - delete_key(attributes, "content")
+      - delete_key(attributes, "message")
+      - delete_key(attributes, "messages")
+      - delete_key(attributes, "tool.arguments")
+      - delete_key(attributes, "tool.result")
+      - delete_key(attributes, "tool.output")
+      - delete_key(attributes, "tool.input")
+      - delete_matching_keys(attributes, "(?i)(^|\.)(prompt\.(?:content|text)|completion\.(?:content|text)|messages?|content|input\.(?:value|body|content|text|messages?)|output\.(?:value|body|content|text|messages?)|response\.(?:body|content|text|messages?)|gen_ai\.(?:prompt|completion|input\.(?:messages?|content|text)|output\.(?:messages?|content|text)|response\.(?:body|content|text))|openinference\.(?:input|output)|tool(?:\.call)?\.(?:arguments|args|result|output|input)|mcp\.(?:arguments|result|payload)|request\.(?:body|headers?)|response\.(?:body|headers?)|http\.request\.(?:body|headers?)|http\.response\.(?:body|headers?)|file\.(?:path|content|name)|repository\.(?:url|path|name)|code\.(?:content|diff|filepath|file_path)|process\.(?:command(?:_line)?|command_args|executable\.path)|command\.(?:line|output)|shell\.command|db\.(?:statement|query\.text)|exception\.(?:message|stacktrace)|error\.message|url\.(?:full|path|query)|http\.(?:url|target)|user\.(?:email|name)|email|account\.id|organization\.id|auth(?:orization)?|cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|absolute[_-]?path)(\.|$)")
+    - context: scope
+      statements:
+      - delete_key(attributes, "prompt")
+      - delete_key(attributes, "completion")
+      - delete_key(attributes, "response")
+      - delete_key(attributes, "input")
+      - delete_key(attributes, "output")
+      - delete_key(attributes, "content")
+      - delete_key(attributes, "message")
+      - delete_key(attributes, "messages")
+      - delete_key(attributes, "tool.arguments")
+      - delete_key(attributes, "tool.result")
+      - delete_key(attributes, "tool.output")
+      - delete_key(attributes, "tool.input")
+      - delete_matching_keys(attributes, "(?i)(^|\.)(prompt\.(?:content|text)|completion\.(?:content|text)|messages?|content|input\.(?:value|body|content|text|messages?)|output\.(?:value|body|content|text|messages?)|response\.(?:body|content|text|messages?)|gen_ai\.(?:prompt|completion|input\.(?:messages?|content|text)|output\.(?:messages?|content|text)|response\.(?:body|content|text))|openinference\.(?:input|output)|tool(?:\.call)?\.(?:arguments|args|result|output|input)|mcp\.(?:arguments|result|payload)|request\.(?:body|headers?)|response\.(?:body|headers?)|http\.request\.(?:body|headers?)|http\.response\.(?:body|headers?)|file\.(?:path|content|name)|repository\.(?:url|path|name)|code\.(?:content|diff|filepath|file_path)|process\.(?:command(?:_line)?|command_args|executable\.path)|command\.(?:line|output)|shell\.command|db\.(?:statement|query\.text)|exception\.(?:message|stacktrace)|error\.message|url\.(?:full|path|query)|http\.(?:url|target)|user\.(?:email|name)|email|account\.id|organization\.id|auth(?:orization)?|cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|absolute[_-]?path)(\.|$)")
+    - context: log
+      statements:
+      - delete_key(attributes, "prompt")
+      - delete_key(attributes, "completion")
+      - delete_key(attributes, "response")
+      - delete_key(attributes, "input")
+      - delete_key(attributes, "output")
+      - delete_key(attributes, "content")
+      - delete_key(attributes, "message")
+      - delete_key(attributes, "messages")
+      - delete_key(attributes, "tool.arguments")
+      - delete_key(attributes, "tool.result")
+      - delete_key(attributes, "tool.output")
+      - delete_key(attributes, "tool.input")
+      - delete_matching_keys(attributes, "(?i)(^|\.)(prompt\.(?:content|text)|completion\.(?:content|text)|messages?|content|input\.(?:value|body|content|text|messages?)|output\.(?:value|body|content|text|messages?)|response\.(?:body|content|text|messages?)|gen_ai\.(?:prompt|completion|input\.(?:messages?|content|text)|output\.(?:messages?|content|text)|response\.(?:body|content|text))|openinference\.(?:input|output)|tool(?:\.call)?\.(?:arguments|args|result|output|input)|mcp\.(?:arguments|result|payload)|request\.(?:body|headers?)|response\.(?:body|headers?)|http\.request\.(?:body|headers?)|http\.response\.(?:body|headers?)|file\.(?:path|content|name)|repository\.(?:url|path|name)|code\.(?:content|diff|filepath|file_path)|process\.(?:command(?:_line)?|command_args|executable\.path)|command\.(?:line|output)|shell\.command|db\.(?:statement|query\.text)|exception\.(?:message|stacktrace)|error\.message|url\.(?:full|path|query)|http\.(?:url|target)|user\.(?:email|name)|email|account\.id|organization\.id|auth(?:orization)?|cookie|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|absolute[_-]?path)(\.|$)")
+      - set(body, "AI telemetry metadata event")
+    metric_statements:
+    - context: resource
+      statements:
+      - keep_keys(attributes, ["service.name", "service.namespace", "service.version", "deployment.environment.name", "ai_context.environment.profile", "ai_context.framework.version",
+        "ai_context.workflow.type", "ai_context.task.type"])
+    - context: scope
+      statements:
+      - delete_matching_keys(attributes, ".*")
+    - context: metric
+      statements:
+      - set(description, "")
+    - context: datapoint
+      statements:
+      - keep_keys(attributes, ["event.name", "tool", "tool_name", "model", "model_family", "operation", "success", "status", "type", "token_type", "task_type", "workflow_type", "stage",
+        "skill", "skill_id", "rule", "rule_id", "state", "outcome", "error_category", "source", "unit", "tier", "reused", "reason", "framework_version", "validation_type", "validation_tier",
+        "wait_reason", "cost_unit", "cost_source", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "ai_context.environment.profile",
+        "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage", "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state",
+        "ai_context.validation.type", "ai_context.validation.tier", "ai_context.validation.reused", "ai_context.retry.reason", "ai_context.wait.reason", "ai_context.outcome", "ai_context.evidence.class",
+        "ai_context.tool.category", "ai_context.model.family", "ai_context.token.type", "ai_context.error.category", "ai_context.cost.unit", "ai_context.cost.source"])
+    - context: exemplar
+      statements:
+      - keep_keys(attributes, ["ai_context.safe_exemplar_attribute"])
+  batch/logs:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+  batch/metrics:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+  batch/traces:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+exporters:
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 2048
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    send_timestamps: true
+    metric_expiration: 30m
+    resource_to_telemetry_conversion:
+      enabled: true
+    enable_open_metrics: false
+    without_scope_info: true
+    translation_strategy: UnderscoreEscapingWithoutSuffixes
+  otlp/tempo:
+    endpoint: tempo:4317
+    compression: gzip
+    tls:
+      insecure: true
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 2048
+service:
+  extensions:
+  - health_check
+  - zpages
+  pipelines:
+    logs:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/normalize
+      - transform/privacy
+      - batch/logs
+      exporters:
+      - otlphttp/loki
+    metrics:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/normalize
+      - transform/privacy
+      - batch/metrics
+      exporters:
+      - prometheus
+    traces:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/normalize
+      - transform/privacy
+      - batch/traces
+      exporters:
+      - otlp/tempo
+  telemetry:
+    logs:
+      level: warn
+      encoding: json
+    metrics:
+      level: detailed
+      readers:
+      - pull:
+          exporter:
+            prometheus:
+              host: 0.0.0.0
+              port: 8888

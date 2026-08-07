@@ -1,0 +1,200 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 384
+    spike_limit_mib: 96
+  resource/normalize:
+    attributes:
+    - key: ai_context.environment.profile
+      value: corporate-redacted
+      action: upsert
+    - key: deployment.environment.name
+      value: corporate-local
+      action: upsert
+    - key: service.name
+      value: unknown-ai-client
+      action: insert
+  batch/logs:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+  batch/metrics:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+  batch/traces:
+    timeout: 2s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+  transform/corporate_allowlist:
+    error_mode: propagate
+    trace_statements:
+    - context: resource
+      statements:
+      - keep_keys(attributes, ["service.name", "service.namespace", "service.version", "deployment.environment.name", "telemetry.sdk.name", "telemetry.sdk.language", "telemetry.sdk.version",
+        "ai_context.environment.profile", "ai_context.user.pseudonym", "ai_context.framework.name", "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage",
+        "ai_context.task.type", "ai_context.tool.category", "ai_context.model.family", "ai_context.evidence.class"])
+    - context: scope
+      statements:
+      - delete_matching_keys(attributes, ".*")
+    - context: span
+      statements:
+      - keep_keys(attributes, ["event.name", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens",
+        "gen_ai.usage.cached_input_tokens", "gen_ai.usage.reasoning_tokens", "ai_context.operation.type", "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage",
+        "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state", "ai_context.context.loaded_files", "ai_context.context.loaded_bytes", "ai_context.context.estimated_tokens",
+        "ai_context.validation.type", "ai_context.validation.tier", "ai_context.validation.fingerprint_hash", "ai_context.validation.reused", "ai_context.validation.invalidation_reason",
+        "ai_context.retry.count", "ai_context.retry.reason", "ai_context.state", "ai_context.wait.reason", "ai_context.outcome", "ai_context.evidence.class", "ai_context.manual_correction",
+        "ai_context.tool.category", "ai_context.model.family", "ai_context.token.type", "ai_context.error.category", "ai_context.duration.bucket", "ai_context.cost.value", "ai_context.cost.unit",
+        "ai_context.cost.source", "ai_context.cost.rate_card.version", "ai_context.cost.attribution.confidence", "duration_ms", "success", "error.type"])
+      - set(name, "AI telemetry operation")
+      - set(status.message, "")
+      - set(trace_state, "")
+    - context: spanevent
+      statements:
+      - keep_keys(attributes, ["event.name", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens",
+        "gen_ai.usage.cached_input_tokens", "gen_ai.usage.reasoning_tokens", "ai_context.operation.type", "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage",
+        "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state", "ai_context.context.loaded_files", "ai_context.context.loaded_bytes", "ai_context.context.estimated_tokens",
+        "ai_context.validation.type", "ai_context.validation.tier", "ai_context.validation.fingerprint_hash", "ai_context.validation.reused", "ai_context.validation.invalidation_reason",
+        "ai_context.retry.count", "ai_context.retry.reason", "ai_context.state", "ai_context.wait.reason", "ai_context.outcome", "ai_context.evidence.class", "ai_context.manual_correction",
+        "ai_context.tool.category", "ai_context.model.family", "ai_context.token.type", "ai_context.error.category", "ai_context.duration.bucket", "ai_context.cost.value", "ai_context.cost.unit",
+        "ai_context.cost.source", "ai_context.cost.rate_card.version", "ai_context.cost.attribution.confidence", "duration_ms", "success", "error.type"])
+      - set(name, "AI telemetry event")
+    log_statements:
+    - context: resource
+      statements:
+      - keep_keys(attributes, ["service.name", "service.namespace", "service.version", "deployment.environment.name", "telemetry.sdk.name", "telemetry.sdk.language", "telemetry.sdk.version",
+        "ai_context.environment.profile", "ai_context.user.pseudonym", "ai_context.framework.name", "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage",
+        "ai_context.task.type", "ai_context.tool.category", "ai_context.model.family", "ai_context.evidence.class"])
+    - context: scope
+      statements:
+      - delete_matching_keys(attributes, ".*")
+    - context: log
+      statements:
+      - keep_keys(attributes, ["event.name", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens",
+        "gen_ai.usage.cached_input_tokens", "gen_ai.usage.reasoning_tokens", "ai_context.operation.type", "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage",
+        "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state", "ai_context.context.loaded_files", "ai_context.context.loaded_bytes", "ai_context.context.estimated_tokens",
+        "ai_context.validation.type", "ai_context.validation.tier", "ai_context.validation.fingerprint_hash", "ai_context.validation.reused", "ai_context.validation.invalidation_reason",
+        "ai_context.retry.count", "ai_context.retry.reason", "ai_context.state", "ai_context.wait.reason", "ai_context.outcome", "ai_context.evidence.class", "ai_context.manual_correction",
+        "ai_context.tool.category", "ai_context.model.family", "ai_context.token.type", "ai_context.error.category", "ai_context.duration.bucket", "ai_context.cost.value", "ai_context.cost.unit",
+        "ai_context.cost.source", "ai_context.cost.rate_card.version", "ai_context.cost.attribution.confidence", "duration_ms", "success", "error.type"])
+      - set(body, "AI telemetry metadata event")
+    metric_statements:
+    - context: resource
+      statements:
+      - keep_keys(attributes, ["service.name", "service.namespace", "service.version", "deployment.environment.name", "ai_context.environment.profile", "ai_context.framework.version",
+        "ai_context.workflow.type", "ai_context.task.type"])
+    - context: scope
+      statements:
+      - delete_matching_keys(attributes, ".*")
+    - context: metric
+      statements:
+      - set(description, "")
+    - context: datapoint
+      statements:
+      - keep_keys(attributes, ["event.name", "tool", "tool_name", "model", "model_family", "operation", "success", "status", "type", "token_type", "task_type", "workflow_type", "stage",
+        "skill", "skill_id", "rule", "rule_id", "state", "outcome", "error_category", "source", "unit", "tier", "reused", "reason", "framework_version", "validation_type", "validation_tier",
+        "wait_reason", "cost_unit", "cost_source", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "ai_context.environment.profile",
+        "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage", "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state",
+        "ai_context.validation.type", "ai_context.validation.tier", "ai_context.validation.reused", "ai_context.retry.reason", "ai_context.wait.reason", "ai_context.outcome", "ai_context.evidence.class",
+        "ai_context.tool.category", "ai_context.model.family", "ai_context.token.type", "ai_context.error.category", "ai_context.cost.unit", "ai_context.cost.source"])
+    - context: exemplar
+      statements:
+      - keep_keys(attributes, ["ai_context.safe_exemplar_attribute"])
+exporters:
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 2048
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    send_timestamps: true
+    metric_expiration: 30m
+    resource_to_telemetry_conversion:
+      enabled: true
+    enable_open_metrics: false
+    without_scope_info: true
+    translation_strategy: UnderscoreEscapingWithoutSuffixes
+  otlp/tempo:
+    endpoint: tempo:4317
+    compression: gzip
+    tls:
+      insecure: true
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 2048
+service:
+  extensions:
+  - health_check
+  - zpages
+  pipelines:
+    logs:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/normalize
+      - transform/corporate_allowlist
+      - batch/logs
+      exporters:
+      - otlphttp/loki
+    metrics:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/normalize
+      - transform/corporate_allowlist
+      - batch/metrics
+      exporters:
+      - prometheus
+    traces:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/normalize
+      - transform/corporate_allowlist
+      - batch/traces
+      exporters:
+      - otlp/tempo
+  telemetry:
+    logs:
+      level: warn
+      encoding: json
+    metrics:
+      level: detailed
+      readers:
+      - pull:
+          exporter:
+            prometheus:
+              host: 0.0.0.0
+              port: 8888

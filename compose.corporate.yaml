@@ -1,0 +1,4 @@
+services:
+  otel-collector:
+    volumes:
+      - ./config/otel-collector/corporate.yaml:/etc/otelcol/config.yaml:ro

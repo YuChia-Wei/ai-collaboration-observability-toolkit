@@ -1,0 +1,48 @@
+services:
+  otel-collector:
+    volumes:
+    - ./config/otel-collector/evaluation.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+      phoenix:
+        condition: service_started
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:18.4-alpine3.24}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PHOENIX_POSTGRES_USER:-phoenix}
+      POSTGRES_PASSWORD: ${PHOENIX_POSTGRES_PASSWORD:-change-me-local-only}
+      POSTGRES_DB: ${PHOENIX_POSTGRES_DB:-phoenix}
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    volumes:
+    - phoenix-postgres-data:/var/lib/postgresql
+    networks:
+    - observability
+  phoenix:
+    image: ${PHOENIX_IMAGE:-arizephoenix/phoenix:version-19.19.0-nonroot}
+    restart: unless-stopped
+    environment:
+      PHOENIX_SQL_DATABASE_URL: postgresql://${PHOENIX_POSTGRES_USER:-phoenix}:${PHOENIX_POSTGRES_PASSWORD:-change-me-local-only}@postgres:5432/${PHOENIX_POSTGRES_DB:-phoenix}
+      PHOENIX_TELEMETRY_ENABLED: 'false'
+      PHOENIX_ALLOW_EXTERNAL_RESOURCES: 'false'
+    ports:
+    - 127.0.0.1:${PHOENIX_PORT:-6006}:6006
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+    - observability
+    expose:
+    - '4317'
+volumes:
+  phoenix-postgres-data: null
