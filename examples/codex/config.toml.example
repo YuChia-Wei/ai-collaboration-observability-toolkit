@@ -1,0 +1,10 @@
+# Merge this section into the user-level ~/.codex/config.toml.
+# Windows: %USERPROFILE%\.codex\config.toml
+# Restart Codex after changing the configuration.
+
+[otel]
+environment = "personal-local"
+log_user_prompt = false
+exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/logs", protocol = "binary" } }
+trace_exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/traces", protocol = "binary" } }
+metrics_exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/metrics", protocol = "binary" } }

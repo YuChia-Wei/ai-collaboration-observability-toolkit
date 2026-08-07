@@ -1,0 +1,78 @@
+name: Validate configuration and core runtime
+
+"on":
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install Python requirements
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+      - name: Validate repository and all merged Compose modes
+        run: python scripts/toolkit.py validate --mode all
+      - name: Validate pinned backend configurations with their images
+        shell: bash
+        run: |
+          set -euo pipefail
+          for profile in core evaluation corporate; do
+            docker run --rm \
+              -v "$PWD/config/otel-collector:/etc/otelcol:ro" \
+              otel/opentelemetry-collector-contrib:0.158.0 \
+              validate --config="/etc/otelcol/${profile}.yaml"
+          done
+
+          docker run --rm \
+            --entrypoint=/bin/promtool \
+            -v "$PWD/config/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.13.2 \
+            check config /etc/prometheus/prometheus.yml
+
+          docker run --rm \
+            -v "$PWD/config/loki:/etc/loki:ro" \
+            grafana/loki:3.7.6 \
+            -config.file=/etc/loki/loki.yml \
+            -verify-config=true
+
+          docker run --rm \
+            -v "$PWD/config/tempo:/etc/tempo:ro" \
+            grafana/tempo:3.0.2 \
+            -config.file=/etc/tempo/tempo.yml \
+            -config.verify
+      - name: Run repository tests and language syntax checks
+        run: |
+          python -m unittest discover -s tests -v
+          python -m compileall -q scripts tests
+          bash -n scripts/*.sh
+      - name: Prepare local environment
+        run: cp .env.example .env
+      - name: Start core stack
+        run: python scripts/toolkit.py up --mode core
+      - name: Run core smoke and persistence checks
+        run: python scripts/toolkit.py smoke --mode core --persistence-check --report artifacts/smoke-core.json
+      - name: Capture runtime evidence
+        if: always()
+        run: |
+          mkdir -p artifacts
+          python scripts/toolkit.py snapshot --mode core --output artifacts/resource-core.json || true
+          docker compose --env-file .env -f compose.yaml logs --no-color > artifacts/compose-core.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-runtime-evidence
+          path: artifacts/
+          if-no-files-found: warn
+      - name: Destroy CI stack and volumes
+        if: always()
+        run: python scripts/toolkit.py reset --mode core --confirm ai-collaboration-observability || true

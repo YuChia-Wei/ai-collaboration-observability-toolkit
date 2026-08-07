@@ -1,0 +1,519 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "ai-observability-fixture"
+            }
+          },
+          {
+            "key": "service.namespace",
+            "value": {
+              "stringValue": "ai-collaboration"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.1.0"
+            }
+          },
+          {
+            "key": "ai_context.schema.version",
+            "value": {
+              "stringValue": "1.0"
+            }
+          },
+          {
+            "key": "ai_context.framework.name",
+            "value": {
+              "stringValue": "ai-collaboration-framework"
+            }
+          },
+          {
+            "key": "ai_context.framework.version",
+            "value": {
+              "stringValue": "fixture-v1"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "ai-observability-fixture"
+          },
+          "metrics": [
+            {
+              "name": "ai_context_token_usage_total",
+              "unit": "{token}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "tool",
+                        "value": {
+                          "stringValue": "codex"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "input"
+                        }
+                      },
+                      {
+                        "key": "model_family",
+                        "value": {
+                          "stringValue": "fixture"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1200"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_cost_value_total",
+              "unit": "{credit}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "tool",
+                        "value": {
+                          "stringValue": "codex"
+                        }
+                      },
+                      {
+                        "key": "source",
+                        "value": {
+                          "stringValue": "estimated"
+                        }
+                      },
+                      {
+                        "key": "unit",
+                        "value": {
+                          "stringValue": "credit"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "7"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_tool_calls_total",
+              "unit": "{call}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "tool",
+                        "value": {
+                          "stringValue": "codex"
+                        }
+                      },
+                      {
+                        "key": "operation",
+                        "value": {
+                          "stringValue": "shell"
+                        }
+                      },
+                      {
+                        "key": "success",
+                        "value": {
+                          "stringValue": "true"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "3"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_validation_runs_total",
+              "unit": "{run}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "tier",
+                        "value": {
+                          "stringValue": "quick"
+                        }
+                      },
+                      {
+                        "key": "outcome",
+                        "value": {
+                          "stringValue": "success"
+                        }
+                      },
+                      {
+                        "key": "reused",
+                        "value": {
+                          "stringValue": "false"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "4"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_validation_duplicate_total",
+              "unit": "{run}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "tier",
+                        "value": {
+                          "stringValue": "quick"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_retry_total",
+              "unit": "{retry}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "reason",
+                        "value": {
+                          "stringValue": "environment"
+                        }
+                      },
+                      {
+                        "key": "stage",
+                        "value": {
+                          "stringValue": "validation"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_task_outcome_total",
+              "unit": "{task}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "outcome",
+                        "value": {
+                          "stringValue": "success"
+                        }
+                      },
+                      {
+                        "key": "framework_version",
+                        "value": {
+                          "stringValue": "fixture-v1"
+                        }
+                      },
+                      {
+                        "key": "task_type",
+                        "value": {
+                          "stringValue": "release"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_manual_correction_total",
+              "unit": "{correction}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "framework_version",
+                        "value": {
+                          "stringValue": "fixture-v1"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_loaded_bytes_total",
+              "unit": "By",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "framework_version",
+                        "value": {
+                          "stringValue": "fixture-v1"
+                        }
+                      },
+                      {
+                        "key": "skill",
+                        "value": {
+                          "stringValue": "fixture-skill"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "4096"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_estimated_context_tokens_total",
+              "unit": "{token}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "framework_version",
+                        "value": {
+                          "stringValue": "fixture-v1"
+                        }
+                      },
+                      {
+                        "key": "skill",
+                        "value": {
+                          "stringValue": "fixture-skill"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1024"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "ai_context_rule_state_total",
+              "unit": "{transition}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "rule",
+                        "value": {
+                          "stringValue": "fixture-rule"
+                        }
+                      },
+                      {
+                        "key": "state",
+                        "value": {
+                          "stringValue": "affected_action"
+                        }
+                      },
+                      {
+                        "key": "framework_version",
+                        "value": {
+                          "stringValue": "fixture-v1"
+                        }
+                      },
+                      {
+                        "key": "session.id",
+                        "value": {
+                          "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                        }
+                      },
+                      {
+                        "key": "absolute_path",
+                        "value": {
+                          "stringValue": "/secret/project/file.cs"
+                        }
+                      }
+                    ],
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

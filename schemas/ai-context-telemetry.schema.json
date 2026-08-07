@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-collaboration-observability/ai-context-telemetry.schema.json",
+  "title": "AI Context normalized telemetry event",
+  "description": "Content-free event envelope for workflow hooks and redacted feedback generation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "occurred_at",
+    "environment",
+    "framework",
+    "workflow",
+    "operation",
+    "privacy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "environment": {
+      "type": "object",
+      "required": ["profile"],
+      "properties": {
+        "profile": {
+          "enum": ["core", "evaluation", "corporate-redacted"]
+        },
+        "deployment": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "user_pseudonym": {
+          "type": "string",
+          "description": "Optional HMAC-derived pseudonym; never a real name or email.",
+          "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+        },
+        "pseudonym_key_version": {
+          "type": "string",
+          "maxLength": 32
+        }
+      },
+      "additionalProperties": false
+    },
+    "framework": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "commit_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{7,64}$"
+        },
+        "rule_set_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{16,128}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["type", "stage"],
+      "properties": {
+        "id_hash": {
+          "type": "string",
+          "description": "Optional non-reversible workflow identifier for local correlation.",
+          "pattern": "^[0-9a-fA-F]{16,128}$"
+        },
+        "type": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "stage": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "task": {
+      "type": "object",
+      "properties": {
+        "id_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{16,128}$"
+        },
+        "type": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "complexity": {
+          "enum": ["small", "medium", "large", "unknown"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "operation": {
+      "type": "object",
+      "required": ["type", "state", "outcome", "evidence_class"],
+      "properties": {
+        "type": {
+          "enum": [
+            "model",
+            "tool",
+            "validation",
+            "wait",
+            "git",
+            "review",
+            "handoff",
+            "workflow"
+          ]
+        },
+        "state": {
+          "enum": [
+            "active",
+            "wait",
+            "blocked",
+            "paused",
+            "sleep",
+            "resumed",
+            "completed"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "success",
+            "passed",
+            "failed",
+            "blocked-by-environment",
+            "skipped",
+            "not-applicable",
+            "deferred",
+            "unknown"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "repository-record",
+            "git-fact",
+            "provider-readback",
+            "conversation-observation",
+            "derived-interval",
+            "manual-annotation"
+          ]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ai": {
+      "type": "object",
+      "properties": {
+        "tool_category": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "model_family": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "token_usage": {
+          "type": "object",
+          "properties": {
+            "input": {"type": "integer", "minimum": 0},
+            "cached_input": {"type": "integer", "minimum": 0},
+            "output": {"type": "integer", "minimum": 0},
+            "reasoning": {"type": "integer", "minimum": 0},
+            "cache_write": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        },
+        "cost": {
+          "type": "object",
+          "required": ["value", "unit", "source", "attribution_confidence"],
+          "properties": {
+            "value": {"type": "number", "minimum": 0},
+            "unit": {"enum": ["credits", "USD", "internal_unit", "unknown"]},
+            "source": {
+              "enum": ["official", "vendor_reported", "estimated", "allocated", "unknown"]
+            },
+            "rate_card_version": {"type": "string", "maxLength": 64},
+            "attribution_confidence": {
+              "enum": ["exact", "bounded", "proportional", "manual", "unattributed"]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "manifest_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{16,128}$"
+        },
+        "loaded_files": {"type": "integer", "minimum": 0},
+        "loaded_bytes": {"type": "integer", "minimum": 0},
+        "estimated_tokens": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string", "maxLength": 64},
+        "tier": {"type": "string", "maxLength": 32},
+        "fingerprint_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{16,128}$"
+        },
+        "reused": {"type": "boolean"},
+        "invalidation_reason": {"type": "string", "maxLength": 64}
+      },
+      "additionalProperties": false
+    },
+    "rule": {
+      "type": "object",
+      "properties": {
+        "id": {"type": "string", "maxLength": 128},
+        "state": {
+          "enum": ["declared", "loaded", "evaluated", "triggered", "affected_action"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "privacy": {
+      "type": "object",
+      "required": ["content_captured", "policy_profile"],
+      "properties": {
+        "content_captured": {"const": false},
+        "policy_profile": {
+          "enum": ["personal-minimized", "corporate-allowlist"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

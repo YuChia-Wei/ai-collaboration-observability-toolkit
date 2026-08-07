@@ -1,0 +1,185 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "ai-observability-fixture"
+            }
+          },
+          {
+            "key": "service.namespace",
+            "value": {
+              "stringValue": "ai-collaboration"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.1.0"
+            }
+          },
+          {
+            "key": "ai_context.schema.version",
+            "value": {
+              "stringValue": "1.0"
+            }
+          },
+          {
+            "key": "ai_context.framework.name",
+            "value": {
+              "stringValue": "ai-collaboration-framework"
+            }
+          },
+          {
+            "key": "ai_context.framework.version",
+            "value": {
+              "stringValue": "fixture-v1"
+            }
+          },
+          {
+            "key": "ai_context.export.phoenix",
+            "value": {
+              "boolValue": false
+            }
+          },
+          {
+            "key": "user.email",
+            "value": {
+              "stringValue": "fixture@example.invalid"
+            }
+          },
+          {
+            "key": "organization.id",
+            "value": {
+              "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+            }
+          },
+          {
+            "key": "openinference.project.name",
+            "value": {
+              "stringValue": "ai-collaboration-observability-fixture"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "ai-observability-fixture",
+            "version": "0.1.0"
+          },
+          "spans": [
+            {
+              "traceId": "33333333333333333333333333333333",
+              "spanId": "3333333333333333",
+              "name": "ai.collaboration.workflow.run",
+              "kind": 1,
+              "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+              "endTimeUnixNano": "{{END_TIME_UNIX_NANO}}",
+              "attributes": [
+                {
+                  "key": "openinference.span.kind",
+                  "value": {
+                    "stringValue": "CHAIN"
+                  }
+                },
+                {
+                  "key": "ai_context.workflow.id",
+                  "value": {
+                    "stringValue": "fixture-phoenix-rejected"
+                  }
+                },
+                {
+                  "key": "ai_context.workflow.type",
+                  "value": {
+                    "stringValue": "release-closeout"
+                  }
+                },
+                {
+                  "key": "ai_context.workflow.stage",
+                  "value": {
+                    "stringValue": "validation"
+                  }
+                },
+                {
+                  "key": "ai_context.task.type",
+                  "value": {
+                    "stringValue": "release"
+                  }
+                },
+                {
+                  "key": "ai_context.validation.tier",
+                  "value": {
+                    "stringValue": "quick"
+                  }
+                },
+                {
+                  "key": "ai_context.validation.fingerprint",
+                  "value": {
+                    "stringValue": "raw-fingerprint-must-not-be-a-metric-label"
+                  }
+                },
+                {
+                  "key": "ai_context.state",
+                  "value": {
+                    "stringValue": "completed"
+                  }
+                },
+                {
+                  "key": "ai_context.outcome",
+                  "value": {
+                    "stringValue": "success"
+                  }
+                },
+                {
+                  "key": "prompt.content",
+                  "value": {
+                    "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                  }
+                },
+                {
+                  "key": "tool.result",
+                  "value": {
+                    "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D: synthetic command output"
+                  }
+                },
+                {
+                  "key": "absolute_path",
+                  "value": {
+                    "stringValue": "C:\\Sensitive\\Project\\secret.cs"
+                  }
+                }
+              ],
+              "events": [
+                {
+                  "timeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                  "name": "tool.completed",
+                  "attributes": [
+                    {
+                      "key": "tool.output",
+                      "value": {
+                        "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                      }
+                    },
+                    {
+                      "key": "ai_context.tool.category",
+                      "value": {
+                        "stringValue": "shell"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

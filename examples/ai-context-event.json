@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0",
+  "occurred_at": "2026-08-07T12:00:00Z",
+  "environment": {
+    "profile": "corporate-redacted",
+    "deployment": "company-workstation",
+    "user_pseudonym": "hmac-v1:4e94f5fa5c4f4f6e",
+    "pseudonym_key_version": "v1"
+  },
+  "framework": {
+    "name": "ai-collaboration-framework",
+    "version": "0.8.0",
+    "commit_hash": "2d7917c43452668bb129ae14392781c13c9040fd",
+    "rule_set_hash": "f2194cc3ab80ee9c7a46f71dd6c74877"
+  },
+  "workflow": {
+    "id_hash": "cc2ba820adf9cb643acee68cd840c396",
+    "type": "release-closeout",
+    "stage": "validation"
+  },
+  "task": {
+    "id_hash": "c1827b9c35e84df28280512ab47229cc",
+    "type": "release",
+    "complexity": "medium"
+  },
+  "operation": {
+    "type": "validation",
+    "state": "completed",
+    "outcome": "passed",
+    "evidence_class": "repository-record",
+    "duration_ms": 483400
+  },
+  "ai": {
+    "tool_category": "codex-cli",
+    "model_family": "reasoning",
+    "token_usage": {
+      "input": 1200,
+      "cached_input": 800,
+      "output": 240,
+      "reasoning": 160
+    },
+    "cost": {
+      "value": 7,
+      "unit": "credits",
+      "source": "estimated",
+      "rate_card_version": "example-2026-08",
+      "attribution_confidence": "bounded"
+    }
+  },
+  "context": {
+    "manifest_hash": "352225b307aad76040b5d7286e918135",
+    "loaded_files": 14,
+    "loaded_bytes": 89633,
+    "estimated_tokens": 11558
+  },
+  "validation": {
+    "type": "aggregate-gate",
+    "tier": "quick",
+    "fingerprint_hash": "c80522422b2bc9ee8749357e61ea6b98",
+    "reused": false,
+    "invalidation_reason": "changed-input"
+  },
+  "rule": {
+    "id": "validation-fail-closed",
+    "state": "affected_action"
+  },
+  "privacy": {
+    "content_captured": false,
+    "policy_profile": "corporate-allowlist"
+  }
+}

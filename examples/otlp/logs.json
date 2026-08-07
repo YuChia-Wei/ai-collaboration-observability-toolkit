@@ -1,0 +1,109 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "ai-observability-fixture"
+            }
+          },
+          {
+            "key": "service.namespace",
+            "value": {
+              "stringValue": "ai-collaboration"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.1.0"
+            }
+          },
+          {
+            "key": "ai_context.schema.version",
+            "value": {
+              "stringValue": "1.0"
+            }
+          },
+          {
+            "key": "ai_context.framework.name",
+            "value": {
+              "stringValue": "ai-collaboration-framework"
+            }
+          },
+          {
+            "key": "ai_context.framework.version",
+            "value": {
+              "stringValue": "fixture-v1"
+            }
+          },
+          {
+            "key": "user.email",
+            "value": {
+              "stringValue": "fixture@example.invalid"
+            }
+          }
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {
+            "name": "ai-observability-fixture",
+            "version": "0.1.0"
+          },
+          "logRecords": [
+            {
+              "timeUnixNano": "{{TIME_UNIX_NANO}}",
+              "observedTimeUnixNano": "{{TIME_UNIX_NANO}}",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {
+                "stringValue": "synthetic body containing AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+              },
+              "attributes": [
+                {
+                  "key": "ai_context.workflow.type",
+                  "value": {
+                    "stringValue": "fixture"
+                  }
+                },
+                {
+                  "key": "ai_context.workflow.stage",
+                  "value": {
+                    "stringValue": "smoke"
+                  }
+                },
+                {
+                  "key": "ai_context.outcome",
+                  "value": {
+                    "stringValue": "success"
+                  }
+                },
+                {
+                  "key": "tool.output",
+                  "value": {
+                    "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                  }
+                },
+                {
+                  "key": "authorization",
+                  "value": {
+                    "stringValue": "Bearer synthetic-secret"
+                  }
+                },
+                {
+                  "key": "absolute_path",
+                  "value": {
+                    "stringValue": "C:\\Sensitive\\Project\\secret.cs"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "environment_profile": "corporate-redacted",
+  "framework_version": "0.8.0",
+  "metrics": {
+    "task_count": 12,
+    "validation_runs": 37,
+    "duplicate_validation_runs": 8,
+    "late_preflight_failures": 3,
+    "unattributed_wait_seconds": 2120
+  },
+  "skill_results": [
+    {
+      "skill_id": "software-development-orchestrator",
+      "invocations": 12,
+      "successful": 9,
+      "manual_corrections": 4
+    }
+  ],
+  "rule_results": [
+    {
+      "rule_id": "validation-fail-closed",
+      "evaluated": 15,
+      "triggered": 2,
+      "affected_action": 2
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-collaboration-observability/feedback-bundle.schema.json",
+  "title": "Redacted AI Context feedback bundle",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "environment_profile",
+    "framework_version",
+    "metrics"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "environment_profile": {
+      "const": "corporate-redacted"
+    },
+    "framework_version": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "integer",
+          "number",
+          "string",
+          "boolean"
+        ]
+      }
+    },
+    "skill_results": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "rule_results": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "additionalProperties": false
+}

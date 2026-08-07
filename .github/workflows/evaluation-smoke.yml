@@ -1,0 +1,48 @@
+name: Optional evaluation and corporate runtime smoke
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [evaluation, corporate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install Python requirements
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+      - name: Prepare local environment
+        run: cp .env.example .env
+      - name: Start stack
+        run: python scripts/toolkit.py up --mode ${{ matrix.mode }}
+      - name: Run smoke tests
+        run: python scripts/toolkit.py smoke --mode ${{ matrix.mode }} --persistence-check --report artifacts/smoke-${{ matrix.mode }}.json
+      - name: Capture runtime evidence
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p artifacts
+          python scripts/toolkit.py snapshot --mode "${{ matrix.mode }}" --output "artifacts/resource-${{ matrix.mode }}.json"
+          files=(-f compose.yaml -f "compose.${{ matrix.mode }}.yaml")
+          docker compose --env-file .env "${files[@]}" logs --no-color > "artifacts/compose-${{ matrix.mode }}.log" 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-${{ matrix.mode }}
+          path: artifacts/
+          if-no-files-found: warn
+      - name: Destroy CI stack and volumes
+        if: always()
+        run: python scripts/toolkit.py reset --mode ${{ matrix.mode }} --confirm ai-collaboration-observability || true
