@@ -1,0 +1,57 @@
+{
+  "cwd": "/secret/customer/project",
+  "session_id": "ec33ebf9-0cba-4100-8142-c61503f6c587",
+  "conversation_id": "ec33ebf9-0cba-4100-8142-c61503f6c587",
+  "transcript_path": "/home/user/.gemini/antigravity-cli/brain/ec33ebf9-0cba-4100-8142-c61503f6c587/.system_generated/logs/transcript.jsonl",
+  "model": {
+    "id": "Gemini 3.6 Flash (High)",
+    "display_name": "Gemini 3.6 Flash (High)"
+  },
+  "workspace": {
+    "current_dir": "/secret/customer/project",
+    "project_dir": "/secret/customer/project"
+  },
+  "version": "2.0.0-example",
+  "context_window": {
+    "total_input_tokens": 88244,
+    "total_output_tokens": 61074,
+    "context_window_size": 1048576,
+    "used_percentage": 14.24,
+    "remaining_percentage": 85.76,
+    "current_usage": {
+      "input_tokens": 63382,
+      "output_tokens": 346,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 20857
+    }
+  },
+  "product": "antigravity-cli",
+  "quota": {
+    "gemini-weekly": {
+      "remaining_fraction": 0.9378,
+      "reset_time": "2026-08-15T00:00:00Z"
+    }
+  },
+  "agent_state": "working",
+  "vcs": {
+    "type": "git",
+    "branch": "customer-secret-feature",
+    "dirty": true
+  },
+  "sandbox": {
+    "enabled": false
+  },
+  "plan_tier": "Enterprise",
+  "email": "developer@internal.example",
+  "subagents": [
+    {
+      "name": "reviewer",
+      "role": "review",
+      "status": "working"
+    }
+  ],
+  "pending_input_count": 1,
+  "tool_confirmation_pending": false,
+  "terminal_width": 120,
+  "execution_mode": "implementation"
+}

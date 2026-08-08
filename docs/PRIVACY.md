@@ -91,3 +91,10 @@ key version. The key must not be passed as telemetry, stored in `.env`, or commi
 Published ports bind to loopback. Grafana has authentication, but Prometheus, Loki, Tempo, Collector,
 and Phoenix local endpoints do not. Treat the workstation account as the security boundary. Do not
 change bind addresses for team sharing; design an authenticated internal deployment instead.
+
+## Antigravity JSON Hooks bridge
+
+The committed Antigravity example does not read transcript contents, artifacts, prompts, tool
+arguments/results, workspace paths, raw errors, or raw conversation IDs. A local HMAC key derives
+trace identifiers, and the selected Collector profile remains the authoritative minimization boundary.
+The bridge is best-effort and must not alter tool permissions or agent termination behavior.

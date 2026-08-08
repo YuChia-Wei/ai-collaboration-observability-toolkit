@@ -1,0 +1,37 @@
+{
+  "ai-observability": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python .agents\\observability\\antigravity_otel_exporter.py hook PreInvocation --profile personal-local",
+        "timeout": 2
+      }
+    ],
+    "PostInvocation": [
+      {
+        "type": "command",
+        "command": "python .agents\\observability\\antigravity_otel_exporter.py hook PostInvocation --profile personal-local",
+        "timeout": 2
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .agents\\observability\\antigravity_otel_exporter.py hook PostToolUse --profile personal-local",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python .agents\\observability\\antigravity_otel_exporter.py hook Stop --profile personal-local",
+        "timeout": 2
+      }
+    ]
+  }
+}

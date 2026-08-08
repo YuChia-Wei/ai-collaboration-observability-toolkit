@@ -3,8 +3,8 @@
 ## Metadata
 
 - Repository: `ai-collaboration-observability-toolkit`
-- Version: `0.1.0`
-- Validation date: `2026-08-07`
+- Version: `0.1.1`
+- Validation date: `2026-08-08`
 - Generation environment: Linux, Python 3.13.5
 - Validation principle: unavailable checks are recorded as **NOT EXECUTED**, never inferred as passed.
 
@@ -13,12 +13,13 @@
 | Validation surface | Status | Evidence |
 | --- | --- | --- |
 | Repository static policy validator | PASS | `python3 scripts/toolkit.py validate --mode all --static-only` |
-| Python unit tests | PASS | `25` tests passed |
-| Python syntax/bytecode compilation | PASS | `python3 -m compileall -q scripts tests` |
+| Python unit tests | PASS | `27` tests passed |
+| Python syntax/bytecode compilation | PASS | `python3 -m compileall -q scripts tests examples/antigravity/plugin/scripts` |
 | Bash syntax | PASS | `bash -n scripts/*.sh` |
 | YAML, JSON, TOML parsing | PASS | Included in the static policy validator |
 | Duplicate YAML key rejection | PASS | Included in validator and unit tests |
 | JSON Schema examples | PASS | AI Context event and feedback bundle both validated |
+| Antigravity JSON Hooks bridge | PASS | Passive hook contract, HMAC identifiers, OTLP logs/traces, and sensitive-input exclusion tested |
 | Local Markdown link targets | PASS | Included in the static policy validator |
 | Compose policy and mode boundaries | PASS (static) | Exact image defaults, matching override variables, loopback ports, no `container_name`, mutually exclusive modes |
 | Collector component references and processor ordering | PASS (static) | All pipeline references resolve; minimization precedes batching and Phoenix routing |
@@ -54,7 +55,8 @@ The repository validator and tests verify the following invariants:
 12. Synthetic OTLP fixtures render to valid JSON and contain deterministic trace IDs for runtime assertions.
 13. Grafana dashboard/provisioning JSON/YAML parses and datasource UIDs are internally consistent.
 14. Codex examples export logs, traces, and metrics to loopback OTLP/HTTP endpoints with `log_user_prompt=false`.
-15. Destructive reset refuses to run without the exact Compose project confirmation.
+15. Antigravity hooks remain passive, do not use `PreToolUse`, and exclude transcript, path, raw error, and raw conversation identifiers from OTLP payloads.
+16. Destructive reset refuses to run without the exact Compose project confirmation.
 
 ## Commands executed
 
@@ -63,10 +65,10 @@ python3 scripts/toolkit.py validate --mode all --static-only
 PASS: repository configuration and policy validation
 
 python3 -m unittest discover -s tests -v
-Ran 25 tests
+Ran 27 tests
 OK
 
-python3 -m compileall -q scripts tests
+python3 -m compileall -q scripts tests examples/antigravity/plugin/scripts
 (exit code 0)
 
 bash -n scripts/*.sh

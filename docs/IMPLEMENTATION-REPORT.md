@@ -13,6 +13,7 @@ Version `0.1.0` implements the first executable baseline from
 - PostgreSQL 18 persistence mounted at `/var/lib/postgresql`.
 - Provisioned Grafana datasources and four initial dashboards.
 - Codex configuration examples and Claude Code/Copilot integration notes.
+- Version 0.1.1 adds an Antigravity JSON Hooks plugin with metadata-only OTLP/HTTP export.
 - Synthetic OTLP fixtures with positive and negative Phoenix routes plus privacy sentinel assertions.
 - Cross-platform operations, static policy validation, native-validator hooks, runtime smoke tests,
   and GitHub Actions workflows.
@@ -25,7 +26,7 @@ Version `0.1.0` implements the first executable baseline from
 | YAML/JSON/TOML parsing and duplicate-key rejection | PASS | `python scripts/toolkit.py validate --mode all --static-only` |
 | Repository policy, local Markdown links, schemas, dashboards, fixtures | PASS | Same static validator |
 | Python syntax | PASS | `python -m py_compile scripts/toolkit.py` |
-| Repository unit tests | PASS | 25 tests through `python -m unittest discover -s tests -v` |
+| Repository unit tests | PASS | 27 tests through `python -m unittest discover -s tests -v` |
 | Bash syntax | PASS | `bash -n scripts/*.sh` |
 | Docker Compose merged configuration | NOT EXECUTED | Docker CLI/daemon unavailable in the generation environment |
 | Collector native configuration | NOT EXECUTED | Container runtime unavailable locally; CI runs the pinned Collector image |
@@ -50,6 +51,13 @@ hashes and packaging checks.
 5. PostgreSQL 18 uses the official version-aware volume root `/var/lib/postgresql`.
 6. Runtime reports distinguish `PASS`, `FAIL`, and `SKIP`; unavailable checks are never represented as
    successful.
+
+## Version 0.1.1 follow-up
+
+The Antigravity integration is intentionally passive: it uses `PreInvocation`, `PostInvocation`,
+`PostToolUse`, and `Stop`, but not `PreToolUse`, because a pre-tool hook must return a permission
+decision and could change the user's security behavior. The bridge never reads transcript or tool
+payload files and does not claim token or credit telemetry that the hook contract does not expose.
 
 ## Known limitations
 

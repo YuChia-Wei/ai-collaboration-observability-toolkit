@@ -42,6 +42,15 @@ Copy-Item .env.example .env
 All published ports are loopback-bound. AI tools send OTLP only to the Collector on ports 4317/4318;
 backend OTLP receivers are not published to the host.
 
+
+## Google Antigravity
+
+The committed Antigravity example uses JSON Hooks rather than assuming a native OTLP exporter. Copy
+`examples/antigravity/plugin` into `.agents/plugins/ai-collaboration-observability` or the global
+`~/.gemini/config/plugins/` directory. It exports metadata-only model/session traces and bounded tool
+outcome logs without reading transcripts, prompts, tool payloads, workspace paths, raw errors, or raw
+conversation IDs. See [the integration guide](docs/ANTIGRAVITY-INTEGRATION.md).
+
 ## Validation
 
 ```bash

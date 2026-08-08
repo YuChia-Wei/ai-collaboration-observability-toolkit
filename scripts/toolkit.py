@@ -82,6 +82,7 @@ REQUIRED_DOCS = {
     "docs/OPERATIONS.md",
     "docs/TROUBLESHOOTING.md",
     "docs/CODEX-INTEGRATION.md",
+    "docs/ANTIGRAVITY-INTEGRATION.md",
     "docs/PHOENIX-INTEGRATION.md",
     "docs/COST-ATTRIBUTION.md",
     "docs/DEPENDENCIES.md",

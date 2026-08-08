@@ -1,7 +1,7 @@
 # AI Collaboration Observability Toolkit
 
 一套以 OpenTelemetry Collector（OTel Collector）為唯一入口、預設執行資料最小化的本機 AI
-協作可觀測性（observability）工具。它用來分析 Codex、Claude Code、GitHub Copilot、AI
+協作可觀測性（observability）工具。它用來分析 Codex、Claude Code、GitHub Copilot、Google Antigravity、AI
 Context 工作流，以及下游專案在開發期間產生的執行證據。
 
 核心目標不是監看對話內容，而是回答：
@@ -118,6 +118,18 @@ Tempo 與 Phoenix 的 OTLP receiver 沒有發布到 host；AI 工具只能經過
 
 `log_user_prompt=false` 只是第一層控制；Collector 仍會執行第二層資料最小化與 sentinel 測試。
 
+## Google Antigravity
+
+Antigravity 目前以 JSON Hooks 作為本機可控的整合點。將
+[`examples/antigravity/plugin`](examples/antigravity/plugin) 複製到 workspace 的
+`.agents/plugins/ai-collaboration-observability`，即可把去內容化的 model invocation、工具類別結果與
+session lifecycle 送到本機 Collector。
+
+範例不讀 transcript、prompt、模型回應、tool arguments、workspace path、raw error 或原始
+`conversationId`。目前 hook payload 也沒有 token／credit，因此這個整合用來分析執行流程，不能取代
+Antigravity `/credits` 或官方使用量資料。安裝與限制詳見
+[`examples/antigravity/README.md`](examples/antigravity/README.md)。
+
 ## 驗證
 
 不需 Docker 的靜態檢核：
@@ -162,6 +174,7 @@ instrumentation。
 - [隱私與公司模式](docs/PRIVACY.md)
 - [操作手冊](docs/OPERATIONS.md)
 - [Codex 整合](docs/CODEX-INTEGRATION.md)
+- [Antigravity 整合](docs/ANTIGRAVITY-INTEGRATION.md)
 - [Phoenix 整合](docs/PHOENIX-INTEGRATION.md)
 - [成本歸因](docs/COST-ATTRIBUTION.md)
 - [相依套件與版本](docs/DEPENDENCIES.md)

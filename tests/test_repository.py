@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import threading
 import os
 import subprocess
 import sys
 import tempfile
 import tomllib
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -276,6 +278,117 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn("otlp-http", otel["trace_exporter"])
             self.assertIn("otlp-http", otel["metrics_exporter"])
 
+    def test_antigravity_plugin_contract_is_passive_and_parseable(self) -> None:
+        plugin_root = ROOT / "examples/antigravity/plugin"
+        manifest = json.loads((plugin_root / "plugin.json").read_text(encoding="utf-8"))
+        hooks = json.loads((plugin_root / "hooks.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["name"], "ai-collaboration-observability")
+        self.assertTrue((plugin_root / "scripts/emit_otel.py").is_file())
+        serialized = json.dumps(hooks)
+        self.assertNotIn("PreToolUse", serialized)
+        self.assertIn("PreInvocation", serialized)
+        self.assertIn("PostInvocation", serialized)
+        self.assertIn("PostToolUse", serialized)
+        self.assertIn("Stop", serialized)
+        self.assertIn("python scripts/emit_otel.py", serialized)
+
+    def test_antigravity_hook_bridge_exports_metadata_without_sensitive_inputs(self) -> None:
+        received: list[tuple[str, bytes]] = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:  # noqa: N802
+                length = int(self.headers.get("Content-Length", "0"))
+                received.append((self.path, self.rfile.read(length)))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        script = ROOT / "examples/antigravity/plugin/scripts/emit_otel.py"
+        secret = "ANTIGRAVITY_PRIVATE_SENTINEL_93F2"
+        conversation = "ec33ebf9-0cba-4100-8142-c61503f6c587"
+        common = {
+            "conversationId": conversation,
+            "workspacePaths": [f"/company/{secret}/project"],
+            "transcriptPath": f"/home/user/.gemini/antigravity-cli/brain/{conversation}/{secret}/transcript.jsonl",
+            "artifactDirectoryPath": f"/home/user/.gemini/antigravity-cli/brain/{conversation}/{secret}",
+            "modelName": "gemini-3.6-flash-medium",
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            env = os.environ.copy()
+            env.update(
+                {
+                    "AI_OBSERVABILITY_OTLP_HTTP_ENDPOINT": f"http://127.0.0.1:{server.server_port}",
+                    "AI_OBSERVABILITY_TIMEOUT_SECONDS": "1",
+                    "ANTIGRAVITY_OBSERVABILITY_STATE_DIR": directory,
+                    "AI_CONTEXT_FRAMEWORK_VERSION": "0.8.0",
+                }
+            )
+
+            def invoke(event: str, payload: dict[str, object], *extra: str) -> dict[str, object]:
+                result = subprocess.run(
+                    [sys.executable, str(script), event, *extra],
+                    input=json.dumps(payload),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    check=True,
+                )
+                return json.loads(result.stdout)
+
+            pre = {**common, "invocationNum": 0, "initialNumSteps": 0}
+            self.assertEqual(invoke("pre-invocation", pre), {})
+            self.assertEqual(received, [])
+
+            self.assertEqual(invoke("post-invocation", pre), {})
+            self.assertEqual(
+                invoke(
+                    "post-tool-use",
+                    {**common, "stepIdx": 1, "error": f"raw error {secret}"},
+                    "--operation",
+                    "execution-operation",
+                ),
+                {},
+            )
+            self.assertEqual(
+                invoke(
+                    "stop",
+                    {
+                        **common,
+                        "executionNum": 1,
+                        "terminationReason": "model_stop",
+                        "error": f"raw stop error {secret}",
+                        "fullyIdle": True,
+                    },
+                ),
+                {"decision": ""},
+            )
+
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+        self.assertGreaterEqual(len(received), 5)
+        paths = [path for path, _ in received]
+        self.assertIn("/v1/logs", paths)
+        self.assertIn("/v1/traces", paths)
+        wire = b"\n".join(body for _, body in received).decode("utf-8")
+        self.assertNotIn(secret, wire)
+        self.assertNotIn(conversation, wire)
+        self.assertNotIn("workspacePaths", wire)
+        self.assertNotIn("transcriptPath", wire)
+        self.assertNotIn("artifactDirectoryPath", wire)
+        self.assertNotIn("raw error", wire)
+        self.assertIn("gemini-3.6-flash-medium", wire)
+        self.assertIn("antigravity-cli", wire)
+        self.assertIn("hook-observation", wire)
+        self.assertIn("tool-error", wire)
+
     def test_feedback_bundle_example_matches_schema(self) -> None:
         schema = json.loads((ROOT / "schemas/feedback-bundle.schema.json").read_text())
         instance = json.loads((ROOT / "examples/feedback-bundle.json").read_text())
@@ -287,7 +400,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(list(Draft202012Validator(schema).iter_errors(instance)), [])
 
     def test_version_and_requirement_metadata(self) -> None:
-        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.0")
+        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.1")
         self.assertEqual((ROOT / "requirements-dev.txt").read_text(), "-r requirements.txt\n")
 
     def test_cli_exposes_explicit_report_snapshot_and_persistence_options(self) -> None:

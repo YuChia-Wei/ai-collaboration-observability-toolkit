@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented here.
 
+## [0.1.1] - 2026-08-08
+
+### Added
+
+- Google Antigravity 2.0／CLI JSON Hooks observability plugin example.
+- Metadata-only OTLP/HTTP bridge for model invocation, tool outcome, and session lifecycle events.
+- HMAC-derived trace identifiers that do not export raw conversation IDs.
+- Antigravity integration documentation and privacy/non-interference tests.
+
+### Changed
+
+- Added Antigravity to the documented AI-tool integration surfaces.
+- Bumped repository validation coverage for the hook contract and sensitive-field exclusion.
+
 ## [0.1.0] - 2026-08-07
 
 ### Added

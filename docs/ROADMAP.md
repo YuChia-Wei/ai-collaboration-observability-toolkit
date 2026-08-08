@@ -51,3 +51,9 @@ AI-labelled dashboard.
 - Automated employee productivity ranking.
 - Raw prompt/code collection.
 - Automatic rule deletion based only on usage frequency.
+
+## Antigravity native usage follow-up
+
+- Replace or complement the JSON Hooks bridge if Antigravity publishes a native OTLP exporter.
+- Add token/credit reconciliation only when an official, documented data source is available.
+- Reassess tool-name and duration capture if PostToolUse gains passive start/end metadata.
