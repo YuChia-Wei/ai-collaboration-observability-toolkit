@@ -109,6 +109,25 @@ Copy-Item .env.example .env
 
 Tempo 與 Phoenix 的 OTLP receiver 沒有發布到 host；AI 工具只能經過 Collector。
 
+## Google Antigravity
+
+Antigravity 目前以兩個文件化接入點整合：
+
+- Hooks：`PreInvocation`、`PostInvocation`、`PostToolUse`、`Stop`；
+- Antigravity CLI custom status line：model、token、context、quota、task、artifact 與狀態 metrics。
+
+[`examples/antigravity/`](examples/antigravity/) 提供 personal／corporate direct Hooks、Windows／POSIX
+status-line fragments，以及單一 canonical `antigravity_otel_exporter.py`。Repository 不另外提供第二套
+Plugin Hooks，避免相同 lifecycle 事件被重複上報；status line 可與 direct Hooks 搭配。
+
+Exporter 不讀取 transcript、prompt、response、程式碼、workspace path、branch、email、工具參數／結果
+或 raw error。`PreToolUse` 刻意不啟用，避免被動觀測參與工具權限決策。個人模式可使用本機 HMAC
+session pseudonym；公司模式停用 session 識別並由 Corporate Collector allowlist 再次過濾。
+
+CLI token／quota 欄位是當下 status payload 的觀測值，不是官方 credit 或帳務資料。完整安裝與限制
+請見 [`examples/antigravity/README.md`](examples/antigravity/README.md) 與
+[`docs/ANTIGRAVITY-INTEGRATION.md`](docs/ANTIGRAVITY-INTEGRATION.md)。
+
 ## Codex
 
 將 [`examples/codex/config.toml.example`](examples/codex/config.toml.example) 的 `[otel]` 區段
@@ -117,18 +136,6 @@ Tempo 與 Phoenix 的 OTLP receiver 沒有發布到 host；AI 工具只能經過
 重新啟動 Codex 後執行一個小型工作，再確認 Collector 與 Grafana 有收到資料。
 
 `log_user_prompt=false` 只是第一層控制；Collector 仍會執行第二層資料最小化與 sentinel 測試。
-
-## Google Antigravity
-
-Antigravity 目前以 JSON Hooks 作為本機可控的整合點。將
-[`examples/antigravity/plugin`](examples/antigravity/plugin) 複製到 workspace 的
-`.agents/plugins/ai-collaboration-observability`，即可把去內容化的 model invocation、工具類別結果與
-session lifecycle 送到本機 Collector。
-
-範例不讀 transcript、prompt、模型回應、tool arguments、workspace path、raw error 或原始
-`conversationId`。目前 hook payload 也沒有 token／credit，因此這個整合用來分析執行流程，不能取代
-Antigravity `/credits` 或官方使用量資料。安裝與限制詳見
-[`examples/antigravity/README.md`](examples/antigravity/README.md)。
 
 ## 驗證
 
@@ -160,6 +167,7 @@ email、路徑、憑證值及高基數欄位沒有進入 Prometheus、Loki、Tem
 
 - Collector health
 - Codex／AI 工具 normalized usage
+- Antigravity usage（observed status metadata，非帳務）
 - AI workflow efficiency
 - AI Context effectiveness
 

@@ -2,19 +2,35 @@
 
 All notable changes to this project will be documented here.
 
+## [0.1.2] - 2026-08-08
+
+### Added
+
+- Personal and corporate direct-Hooks examples for Windows and POSIX.
+- Antigravity CLI custom status-line fragments for observed model, token/context, quota, task,
+  artifact, pending-input, approval, and agent-state metadata.
+- One standard-library OTLP/HTTP exporter with local HMAC session pseudonyms, corporate no-session
+  mode, non-interfering Hook responses, status deduplication, and offline capture.
+- Sanitized documented Hook/status fixtures, privacy tests, a local OTLP wire test, and the
+  **Antigravity Usage (observed, not billing)** Grafana dashboard.
+
+### Changed
+
+- Antigravity integration uses one direct-Hooks route only; a second packaged Plugin Hooks route is
+  intentionally excluded to prevent duplicate lifecycle events.
+- `PostToolUse` classification comes from explicit matchers. The exporter never reads `toolCall` and
+  uses raw errors only as a boolean outcome.
+- Lifecycle model metadata uses documented Hook `modelName`; CLI status uses its documented `model`
+  object.
+- Static validation checks direct Hook/status variants, dashboard queries, exporter syntax, and
+  sensitive-field exclusion.
+- Dashboard inventory increased from four to five.
+
 ## [0.1.1] - 2026-08-08
 
 ### Added
 
-- Google Antigravity 2.0／CLI JSON Hooks observability plugin example.
-- Metadata-only OTLP/HTTP bridge for model invocation, tool outcome, and session lifecycle events.
-- HMAC-derived trace identifiers that do not export raw conversation IDs.
-- Antigravity integration documentation and privacy/non-interference tests.
-
-### Changed
-
-- Added Antigravity to the documented AI-tool integration surfaces.
-- Bumped repository validation coverage for the hook contract and sensitive-field exclusion.
+- Initial metadata-only Antigravity Hooks proof of concept.
 
 ## [0.1.0] - 2026-08-07
 

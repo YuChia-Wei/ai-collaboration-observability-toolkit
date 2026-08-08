@@ -3,24 +3,64 @@
     "PreInvocation": [
       {
         "type": "command",
-        "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PreInvocation --profile personal-local",
+        "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PreInvocation --profile personal-local --product antigravity",
         "timeout": 2
       }
     ],
     "PostInvocation": [
       {
         "type": "command",
-        "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostInvocation --profile personal-local",
+        "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostInvocation --profile personal-local --product antigravity",
         "timeout": 2
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "*",
+        "matcher": "view_file|write_to_file|replace_file_content|multi_replace_file_content|list_dir|find_by_name",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostToolUse --profile personal-local",
+            "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostToolUse --operation file-operation --profile personal-local --product antigravity",
+            "timeout": 2
+          }
+        ]
+      },
+      {
+        "matcher": "grep_search|search_web|read_url_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostToolUse --operation search-operation --profile personal-local --product antigravity",
+            "timeout": 2
+          }
+        ]
+      },
+      {
+        "matcher": "run_command|manage_task|schedule|list_permissions|ask_permission",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostToolUse --operation execution-operation --profile personal-local --product antigravity",
+            "timeout": 2
+          }
+        ]
+      },
+      {
+        "matcher": "invoke_subagent|define_subagent|send_message|manage_subagents",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostToolUse --operation agent-collaboration --profile personal-local --product antigravity",
+            "timeout": 2
+          }
+        ]
+      },
+      {
+        "matcher": "ask_question|generate_image",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .agents/observability/antigravity_otel_exporter.py hook PostToolUse --operation interaction-operation --profile personal-local --product antigravity",
             "timeout": 2
           }
         ]
@@ -29,7 +69,7 @@
     "Stop": [
       {
         "type": "command",
-        "command": "python3 .agents/observability/antigravity_otel_exporter.py hook Stop --profile personal-local",
+        "command": "python3 .agents/observability/antigravity_otel_exporter.py hook Stop --profile personal-local --product antigravity",
         "timeout": 2
       }
     ]

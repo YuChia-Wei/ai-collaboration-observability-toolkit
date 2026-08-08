@@ -54,6 +54,10 @@ AI-labelled dashboard.
 
 ## Antigravity native usage follow-up
 
-- Replace or complement the JSON Hooks bridge if Antigravity publishes a native OTLP exporter.
-- Add token/credit reconciliation only when an official, documented data source is available.
-- Reassess tool-name and duration capture if PostToolUse gains passive start/end metadata.
+- Replace or complement the local Hooks/status-line bridge if Antigravity publishes a native,
+  user-configurable OTLP exporter.
+- Reconcile observed CLI token/quota metadata with an official enterprise usage source before treating
+  it as credit or accounting data.
+- Revalidate Hook matcher tool names, event payload contracts, and status fields after Antigravity upgrades.
+- Add a non-Python bridge only when deployment evidence shows Python is an unacceptable host
+  prerequisite; the current scripts require only the standard library.

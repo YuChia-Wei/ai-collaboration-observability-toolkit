@@ -92,9 +92,21 @@ Published ports bind to loopback. Grafana has authentication, but Prometheus, Lo
 and Phoenix local endpoints do not. Treat the workstation account as the security boundary. Do not
 change bind addresses for team sharing; design an authenticated internal deployment instead.
 
-## Antigravity JSON Hooks bridge
+## Antigravity local bridges
 
-The committed Antigravity example does not read transcript contents, artifacts, prompts, tool
-arguments/results, workspace paths, raw errors, or raw conversation IDs. A local HMAC key derives
-trace identifiers, and the selected Collector profile remains the authoritative minimization boundary.
-The bridge is best-effort and must not alter tool permissions or agent termination behavior.
+The Antigravity examples consume Hooks and, for the CLI, custom status-line JSON. Those payloads may
+contain workspace/transcript/artifact paths, raw errors, e-mail, plan identity, VCS branch, conversation
+ID, and quota reset timestamps. The committed exporter uses a metadata allowlist and does not export or
+persist those fields.
+
+`PostToolUse` is handled after execution. Its documented `toolCall` object can contain a tool name,
+arguments, commands, paths, and other sensitive values. The `hooks.json` matcher therefore supplies only
+a fixed low-cardinality operation category, and the exporter never reads `toolCall`. The example retains
+that category, step index, and success/error classification; it does not serialize raw error text,
+tool arguments/results, or unknown fields. `PreToolUse` is intentionally absent because it must return
+a permission decision and could change the agent's security behavior.
+
+The exporter derives optional personal session pseudonyms with HMAC-SHA-256 using either an explicit
+local salt or an automatically generated user-local key. Corporate examples disable the session
+attribute. The selected Collector profile remains the authoritative second-layer minimization boundary.
+Export failure is best-effort and must not alter tool permissions, model flow, or normal termination.

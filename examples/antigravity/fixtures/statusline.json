@@ -43,15 +43,11 @@
   },
   "plan_tier": "Enterprise",
   "email": "developer@internal.example",
-  "subagents": [
-    {
-      "name": "reviewer",
-      "role": "review",
-      "status": "working"
-    }
-  ],
   "pending_input_count": 1,
   "tool_confirmation_pending": false,
   "terminal_width": 120,
-  "execution_mode": "implementation"
+  "execution_mode": "implementation",
+  "exceeds_200k_tokens": false,
+  "artifact_count": 2,
+  "task_count": 1
 }

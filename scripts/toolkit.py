@@ -28,6 +28,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SENTINEL = "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+ANTIGRAVITY_SENTINEL = "ANTIGRAVITY_PRIVATE_SENTINEL_93F2"
 MODES = {"core", "evaluation", "corporate"}
 PHOENIX_PROJECT = "ai-collaboration-observability-fixture"
 TRACE_CORE = "11111111111111111111111111111111"
@@ -720,6 +721,140 @@ def static_validate() -> list[str]:
                     f"Codex {config_name}: invalid local {key} endpoint"
                 )
 
+    antigravity_root = ROOT / "examples/antigravity"
+    antigravity_exporter = antigravity_root / "antigravity_otel_exporter.py"
+    if not antigravity_exporter.is_file():
+        errors.append("Antigravity example: canonical exporter is missing")
+    else:
+        exporter_text = antigravity_exporter.read_text(encoding="utf-8")
+        for forbidden_reader in (
+            'open(payload.get("transcriptPath")',
+            'open(payload.get("transcript_path")',
+            'artifactDirectoryPath).read',
+        ):
+            if forbidden_reader in exporter_text:
+                errors.append(
+                    f"Antigravity exporter must not read transcript/artifact content ({forbidden_reader})"
+                )
+        if 'payload.get("modelName")' not in exporter_text:
+            errors.append("Antigravity exporter: documented Hook modelName support is missing")
+        if 'payload.get("toolCall")' in exporter_text or 'payload["toolCall"]' in exporter_text:
+            errors.append("Antigravity exporter: must not inspect toolCall content")
+        if 'SCOPE_VERSION = "0.1.2"' not in exporter_text:
+            errors.append("Antigravity exporter: scope version must match Repository version")
+
+    expected_antigravity_operations = {
+        "file-operation",
+        "search-operation",
+        "execution-operation",
+        "agent-collaboration",
+        "interaction-operation",
+    }
+    hook_files = sorted((antigravity_root / "config").glob("hooks.*.json.example"))
+    if len(hook_files) != 4:
+        errors.append(
+            f"Antigravity example: expected four Hook variants, found {len(hook_files)}"
+        )
+    for path in hook_files:
+        config = json.loads(path.read_text(encoding="utf-8"))
+        definition = config.get("ai-observability") or {}
+        if "PreToolUse" in definition:
+            errors.append(
+                f"Antigravity {path.name}: passive telemetry must not configure PreToolUse"
+            )
+        for event in ("PreInvocation", "PostInvocation", "PostToolUse", "Stop"):
+            if event not in definition:
+                errors.append(f"Antigravity {path.name}: missing {event}")
+        commands = path.read_text(encoding="utf-8")
+        if "antigravity_otel_exporter.py" not in commands:
+            errors.append(f"Antigravity {path.name}: exporter command missing")
+        if "--product antigravity" not in commands:
+            errors.append(f"Antigravity {path.name}: bounded product argument missing")
+        operation_values: set[str] = set()
+        for matcher in definition.get("PostToolUse", []):
+            if matcher.get("matcher") in {None, "", "*"}:
+                errors.append(
+                    f"Antigravity {path.name}: PostToolUse must classify tools through explicit matchers"
+                )
+            for hook in matcher.get("hooks", []):
+                command = str(hook.get("command", ""))
+                marker = " --operation "
+                if marker not in command:
+                    errors.append(
+                        f"Antigravity {path.name}: PostToolUse command must pass a bounded operation"
+                    )
+                    continue
+                operation_values.add(command.split(marker, 1)[1].split(" ", 1)[0])
+        if operation_values != expected_antigravity_operations:
+            errors.append(
+                f"Antigravity {path.name}: unexpected operation set {sorted(operation_values)}"
+            )
+        if ".corporate." in path.name:
+            if "--profile corporate-local-redacted" not in commands:
+                errors.append(f"Antigravity {path.name}: corporate profile missing")
+            if "--no-include-session-hash" not in commands:
+                errors.append(
+                    f"Antigravity {path.name}: corporate session hash disable flag missing"
+                )
+
+    if (antigravity_root / "plugin").exists():
+        errors.append(
+            "Antigravity example: do not ship a second plugin route beside direct Hooks"
+        )
+
+    status_files = sorted(
+        (antigravity_root / "config").glob(
+            "settings.statusline.*.json.fragment.example"
+        )
+    )
+    if len(status_files) != 4:
+        errors.append(
+            f"Antigravity example: expected four status-line variants, found {len(status_files)}"
+        )
+    for path in status_files:
+        config = json.loads(path.read_text(encoding="utf-8"))
+        status_line = config.get("statusLine") or {}
+        command = str(status_line.get("command", ""))
+        if status_line.get("type") != "command" or " statusline " not in f" {command} ":
+            errors.append(f"Antigravity {path.name}: invalid statusLine command")
+        if "--product antigravity" not in command:
+            errors.append(f"Antigravity {path.name}: bounded product argument missing")
+        if ".corporate." in path.name and "--no-include-session-hash" not in command:
+            errors.append(
+                f"Antigravity {path.name}: corporate status line must disable session hash"
+            )
+
+    post_tool_fixture = antigravity_root / "fixtures/post-tool-use.json"
+    if not post_tool_fixture.is_file():
+        errors.append("Antigravity example: PostToolUse privacy fixture is missing")
+    else:
+        fixture = json.loads(post_tool_fixture.read_text(encoding="utf-8"))
+        if not isinstance(fixture.get("toolCall"), dict):
+            errors.append("Antigravity fixture: documented toolCall object is missing")
+        if not fixture.get("modelName"):
+            errors.append("Antigravity fixture: documented modelName is missing")
+        if ANTIGRAVITY_SENTINEL not in json.dumps(fixture):
+            errors.append("Antigravity fixture: privacy sentinel is missing")
+
+    antigravity_dashboard = ROOT / "config/grafana/dashboards/antigravity-usage.json"
+    if not antigravity_dashboard.is_file():
+        errors.append("Antigravity example: usage dashboard is missing")
+    else:
+        dashboard_text = antigravity_dashboard.read_text(encoding="utf-8")
+        for metric_name in (
+            "antigravity_session_tokens",
+            "antigravity_context_tokens",
+            "antigravity_context_used_ratio",
+            "antigravity_quota_remaining_ratio",
+            "antigravity_background_task_count",
+            "antigravity_artifact_count",
+            "antigravity_context_exceeds_200k",
+            "antigravity_pending_input_count",
+            "antigravity_tool_confirmation_pending",
+        ):
+            if metric_name not in dashboard_text:
+                errors.append(f"Antigravity dashboard: missing {metric_name}")
+
     allowed_sentinel_paths = {
         "SECURITY.md",
         "docs/PRIVACY.md",
@@ -731,11 +866,20 @@ def static_validate() -> list[str]:
         text = path.read_text(encoding="utf-8", errors="ignore")
         if SENTINEL in text and not (
             relative.startswith("examples/otlp/")
+            or relative.startswith("examples/antigravity/fixtures/")
             or relative.startswith("tests/")
             or relative in allowed_sentinel_paths
         ):
             errors.append(
                 f"Sentinel leaked outside fixture/test/privacy surfaces: {relative}"
+            )
+        if ANTIGRAVITY_SENTINEL in text and not (
+            relative.startswith("examples/antigravity/fixtures/")
+            or relative == "tests/test_antigravity_example.py"
+            or relative == "scripts/toolkit.py"
+        ):
+            errors.append(
+                f"Antigravity sentinel leaked outside fixture/test surfaces: {relative}"
             )
 
     for path in sorted((ROOT / "scripts").glob("*.sh")):
@@ -746,13 +890,19 @@ def static_validate() -> list[str]:
             )
             if result.returncode:
                 errors.append(f"Bash {path.name}: {result.stderr.strip()}")
-    python_check = subprocess.run(
-        [sys.executable, "-m", "py_compile", str(ROOT / "scripts/toolkit.py")],
-        capture_output=True,
-        text=True,
-    )
-    if python_check.returncode:
-        errors.append(f"Python syntax: {python_check.stderr.strip()}")
+    for python_path in (
+        ROOT / "scripts/toolkit.py",
+        ROOT / "examples/antigravity/antigravity_otel_exporter.py",
+    ):
+        python_check = subprocess.run(
+            [sys.executable, "-m", "py_compile", str(python_path)],
+            capture_output=True,
+            text=True,
+        )
+        if python_check.returncode:
+            errors.append(
+                f"Python syntax ({display_path(python_path)}): {python_check.stderr.strip()}"
+            )
 
     try:
         import jsonschema  # type: ignore[import-not-found]

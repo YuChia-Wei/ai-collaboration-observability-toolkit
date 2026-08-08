@@ -45,11 +45,24 @@ backend OTLP receivers are not published to the host.
 
 ## Google Antigravity
 
-The committed Antigravity example uses JSON Hooks rather than assuming a native OTLP exporter. Copy
-`examples/antigravity/plugin` into `.agents/plugins/ai-collaboration-observability` or the global
-`~/.gemini/config/plugins/` directory. It exports metadata-only model/session traces and bounded tool
-outcome logs without reading transcripts, prompts, tool payloads, workspace paths, raw errors, or raw
-conversation IDs. See [the integration guide](docs/ANTIGRAVITY-INTEGRATION.md).
+Antigravity uses two documented local extension surfaces:
+
+- Hooks for `PreInvocation`, `PostInvocation`, `PostToolUse`, and `Stop`;
+- the Antigravity CLI custom status line for model, token, context, quota, task, artifact, and state metrics.
+
+[`examples/antigravity/`](examples/antigravity/) contains personal/corporate direct Hooks,
+Windows/POSIX status-line fragments, and one canonical `antigravity_otel_exporter.py`. The repository
+does not ship a second Plugin Hooks route, preventing duplicate lifecycle events; the status line can
+run alongside direct Hooks.
+
+The exporter does not read transcripts, prompts, responses, code, workspace paths, branches, email, tool
+arguments/results, or raw errors. `PreToolUse` is intentionally absent so passive telemetry cannot
+participate in permission decisions. Personal mode can use a local HMAC session pseudonym; corporate mode
+disables session identity and the Corporate Collector allowlist filters again.
+
+CLI token/quota fields are observed status metadata, not official credits or accounting records. See
+[`examples/antigravity/README.en.md`](examples/antigravity/README.en.md) and
+[`docs/ANTIGRAVITY-INTEGRATION.md`](docs/ANTIGRAVITY-INTEGRATION.md).
 
 ## Validation
 

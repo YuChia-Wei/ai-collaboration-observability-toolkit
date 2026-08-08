@@ -42,8 +42,8 @@ This toolkit does not vendor component binaries or container images.
 CI uses the Docker Compose plugin provided by the GitHub-hosted runner and validates component
 configuration with the exact pinned container images above.
 
-## Antigravity hook bridge
+## Antigravity local exporters
 
-`examples/antigravity/plugin/scripts/emit_otel.py` uses only the Python standard library. It does not
-add a runtime package dependency to the observability stack; Python is required only on the host that
-runs the Antigravity hook example.
+`examples/antigravity/antigravity_otel_exporter.py` uses only the Python standard library. It does not
+add a package dependency to the observability containers. Python is required only on the host running
+the optional Antigravity Hook/status-line bridge; no `pip install` is required for this exporter.

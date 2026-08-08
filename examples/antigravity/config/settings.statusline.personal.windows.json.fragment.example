@@ -1,6 +1,6 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "python C:\\absolute\\path\\to\\antigravity_otel_exporter.py statusline --profile personal-local"
+    "command": "python C:\\absolute\\path\\to\\antigravity_otel_exporter.py statusline --profile personal-local --product antigravity"
   }
 }

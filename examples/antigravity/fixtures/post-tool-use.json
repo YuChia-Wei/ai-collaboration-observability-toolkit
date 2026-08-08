@@ -1,10 +1,19 @@
 {
   "stepIdx": 5,
-  "error": "secret command output and internal file path must not be exported",
+  "error": "ANTIGRAVITY_PRIVATE_SENTINEL_93F2: secret command output and internal file path must not be exported",
   "conversationId": "ec33ebf9-0cba-4100-8142-c61503f6c587",
   "workspacePaths": [
     "/secret/customer/project"
   ],
   "transcriptPath": "/home/user/.gemini/antigravity-cli/brain/ec33ebf9-0cba-4100-8142-c61503f6c587/.system_generated/logs/transcript.jsonl",
-  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/ec33ebf9-0cba-4100-8142-c61503f6c587"
+  "artifactDirectoryPath": "/home/user/.gemini/antigravity-cli/brain/ec33ebf9-0cba-4100-8142-c61503f6c587",
+  "modelName": "gemini-3.6-flash-medium",
+  "toolCall": {
+    "name": "run_command",
+    "args": {
+      "CommandLine": "dotnet test",
+      "Cwd": "/secret/customer/project",
+      "note": "ANTIGRAVITY_PRIVATE_SENTINEL_93F2"
+    }
+  }
 }

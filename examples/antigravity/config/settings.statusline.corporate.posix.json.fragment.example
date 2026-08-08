@@ -1,6 +1,6 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "python3 /absolute/path/to/antigravity_otel_exporter.py statusline --profile corporate-local-redacted --no-include-session-hash"
+    "command": "python3 /absolute/path/to/antigravity_otel_exporter.py statusline --profile corporate-local-redacted --product antigravity --no-include-session-hash"
   }
 }

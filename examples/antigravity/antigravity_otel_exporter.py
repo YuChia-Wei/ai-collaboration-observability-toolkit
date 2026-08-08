@@ -17,6 +17,7 @@ import hmac
 import json
 import os
 import re
+import secrets
 import sys
 import tempfile
 import time
@@ -31,7 +32,7 @@ DEFAULT_PROFILE = "personal-local"
 DEFAULT_TIMEOUT_SECONDS = 0.35
 DEFAULT_HEARTBEAT_SECONDS = 60.0
 SCOPE_NAME = "ai-collaboration-observability.antigravity-example"
-SCOPE_VERSION = "0.1.1"
+SCOPE_VERSION = "0.1.2"
 SAFE_TEXT = re.compile(r"[^A-Za-z0-9_.:/() +\-]", re.ASCII)
 
 
@@ -117,15 +118,48 @@ def _session_key(conversation_id: str) -> str:
     return hashlib.sha256(conversation_id.encode("utf-8", errors="ignore")).hexdigest()
 
 
-def _session_pseudonym(conversation_id: str, salt: str) -> str:
-    if salt:
-        digest = hmac.new(
-            salt.encode("utf-8"),
-            conversation_id.encode("utf-8", errors="ignore"),
-            hashlib.sha256,
-        ).hexdigest()
-    else:
-        digest = _session_key(conversation_id)
+def _local_hmac_key(state_dir: Path) -> bytes:
+    """Load or create a user-local key without exporting it or committing it."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    path = state_dir / "session-hmac.key"
+    try:
+        existing = path.read_bytes()
+        if len(existing) >= 32:
+            return existing
+    except OSError:
+        pass
+
+    candidate = secrets.token_bytes(32)
+    try:
+        with path.open("xb") as handle:
+            handle.write(candidate)
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+        return candidate
+    except FileExistsError:
+        try:
+            existing = path.read_bytes()
+            if len(existing) >= 32:
+                return existing
+        except OSError:
+            pass
+    except OSError:
+        pass
+
+    # An ephemeral key preserves confidentiality if the local state directory is unavailable,
+    # although correlation will not survive the process boundary.
+    return candidate
+
+
+def _session_pseudonym(conversation_id: str, salt: str, state_dir: Path) -> str:
+    key = salt.encode("utf-8") if salt else _local_hmac_key(state_dir)
+    digest = hmac.new(
+        key,
+        conversation_id.encode("utf-8", errors="ignore"),
+        hashlib.sha256,
+    ).hexdigest()
     return digest[:24]
 
 
@@ -165,13 +199,14 @@ def _read_stdin_json() -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _detect_product(payload: dict[str, Any]) -> str:
+def _detect_product(payload: dict[str, Any], configured: str) -> str:
+    """Select a bounded product name without inspecting path-bearing hook fields."""
+    if configured and configured != "auto":
+        return _safe_text(configured, fallback="antigravity")
     product = payload.get("product")
     if product:
         return _safe_text(product, fallback="antigravity")
-    # This is used only to classify the product. The path itself is never exported.
-    transcript_path = str(payload.get("transcriptPath") or "")
-    return "antigravity-cli" if "antigravity-cli" in transcript_path else "antigravity"
+    return "antigravity"
 
 
 def _resource_attributes(
@@ -313,11 +348,10 @@ def _trace_payload(
     }
 
 
-def _deterministic_ids(session_key: str, suffix: str) -> tuple[str, str, str]:
-    trace_id = hashlib.sha256(f"trace:{session_key}".encode()).hexdigest()[:32]
-    root_span_id = hashlib.sha256(f"root:{session_key}".encode()).hexdigest()[:16]
+def _deterministic_ids(session_key: str, suffix: str) -> tuple[str, str]:
+    trace_id = hashlib.sha256(f"trace:{session_key}:{suffix}".encode()).hexdigest()[:32]
     span_id = hashlib.sha256(f"span:{session_key}:{suffix}".encode()).hexdigest()[:16]
-    return trace_id, root_span_id, span_id
+    return trace_id, span_id
 
 
 def _capture_payload(capture_dir: Path, signal: str, label: str, payload: dict[str, Any]) -> None:
@@ -358,10 +392,41 @@ def _emit(
 
 
 def _model_from_payload(payload: dict[str, Any]) -> str:
+    """Read documented model metadata without reading conversation content.
+
+    Antigravity lifecycle Hooks expose ``modelName`` as a common field. The CLI
+    custom status-line payload exposes a ``model`` object. Supporting both keeps
+    lifecycle and usage signals consistent without opening transcripts.
+    """
+    hook_model = payload.get("modelName")
+    if hook_model:
+        return _safe_text(hook_model, fallback="unknown")
     model = payload.get("model")
     if isinstance(model, dict):
         return _safe_text(model.get("id") or model.get("display_name"), fallback="unknown")
-    return _safe_text(model, fallback="unknown")
+    return "unknown"
+
+
+TOOL_CATEGORIES = {
+    "file-operation",
+    "search-operation",
+    "execution-operation",
+    "agent-collaboration",
+    "interaction-operation",
+    "other-tool",
+}
+
+
+def _tool_category(value: Any) -> str:
+    """Validate the low-cardinality category supplied by the Hook matcher.
+
+    ``PostToolUse`` includes a ``toolCall`` object, but it may contain tool arguments,
+    commands, paths, or other sensitive values. The Hook matcher already knows which
+    tool family fired, so this exporter receives only a bounded category and never
+    reads ``toolCall``.
+    """
+    candidate = _safe_text(value, fallback="other-tool", limit=64)
+    return candidate if candidate in TOOL_CATEGORIES else "other-tool"
 
 
 def _common_context(
@@ -371,16 +436,17 @@ def _common_context(
     state_dir = Path(args.state_dir).expanduser()
     state_path = _state_path(state_dir, conversation_id)
     state = _load_state(state_path)
-    product = _detect_product(payload)
+    product = _detect_product(payload, args.product)
     version = _safe_text(payload.get("version") or state.get("version"), fallback="unknown")
     model = _model_from_payload(payload)
     if model == "unknown":
         model = _safe_text(state.get("model"), fallback="unknown")
+    state["model"] = model
     include_session = args.include_session_hash
     if include_session is None:
         include_session = "corporate" not in args.profile.lower()
     session_id = (
-        _session_pseudonym(conversation_id, args.session_salt) if include_session else None
+        _session_pseudonym(conversation_id, args.session_salt, state_dir) if include_session else None
     )
     return conversation_id, product, version, session_id, state_path, state
 
@@ -392,7 +458,7 @@ def _hook_response(event: str) -> dict[str, Any]:
             response["terminationBehavior"] = ""
         return response
     if event == "Stop":
-        return {"decision": "allow"}
+        return {"decision": ""}
     return {}
 
 
@@ -411,7 +477,10 @@ def handle_hook(args: argparse.Namespace) -> int:
     if not isinstance(invocations, dict):
         invocations = {}
         state["invocations"] = invocations
-    model = _safe_text(state.get("model"), fallback="unknown")
+    model = _model_from_payload(payload)
+    if model == "unknown":
+        model = _safe_text(state.get("model"), fallback="unknown")
+    state["model"] = model
     resource = _resource_attributes(
         product=product,
         version=version,
@@ -460,8 +529,8 @@ def handle_hook(args: argparse.Namespace) -> int:
         invocation_num = _safe_int(payload.get("invocationNum"))
         start_ns = _safe_int(invocations.pop(str(invocation_num), now_ns), now_ns)
         duration_ms = max(0, (now_ns - start_ns) // 1_000_000)
-        trace_id, root_span_id, span_id = _deterministic_ids(
-            session_key, f"invocation:{invocation_num}"
+        trace_id, span_id = _deterministic_ids(
+            session_key, f"invocation:{invocation_num}:{start_ns}"
         )
         attributes = {
             **base_attributes,
@@ -482,7 +551,7 @@ def handle_hook(args: argparse.Namespace) -> int:
                 resource=resource,
                 trace_id=trace_id,
                 span_id=span_id,
-                parent_span_id=root_span_id,
+                parent_span_id=None,
                 name="antigravity.agent.invocation",
                 start_ns=start_ns,
                 end_ns=now_ns,
@@ -513,15 +582,19 @@ def handle_hook(args: argparse.Namespace) -> int:
         )
 
     elif event == "PostToolUse":
+        # The raw error is used only as a boolean outcome and is never serialized.
         failed = bool(str(payload.get("error") or "").strip())
+        tool_category = _tool_category(args.operation)
         attributes = {
             **base_attributes,
             "ai_context.operation.type": "tool_use",
             "ai_context.workflow.stage": "post_tool_use",
+            "ai_context.tool.category": tool_category,
             "ai_context.state": "completed",
             "ai_context.outcome": "error" if failed else "success",
             "ai_context.error.category": "tool_error" if failed else "none",
             "success": not failed,
+            "antigravity.tool.category": tool_category,
             "antigravity.step.index": _safe_int(payload.get("stepIdx")),
         }
         _emit(
@@ -546,7 +619,10 @@ def handle_hook(args: argparse.Namespace) -> int:
         reason = _safe_text(payload.get("terminationReason"), fallback="unknown")
         failed = reason == "error" or bool(str(payload.get("error") or "").strip())
         duration_ms = max(0, (now_ns - start_ns) // 1_000_000)
-        trace_id, root_span_id, _ = _deterministic_ids(session_key, "root")
+        execution_num = _safe_int(payload.get("executionNum"))
+        trace_id, span_id = _deterministic_ids(
+            session_key, f"execution:{execution_num}:{start_ns}"
+        )
         attributes = {
             **base_attributes,
             "ai_context.operation.type": "agent_execution",
@@ -556,7 +632,7 @@ def handle_hook(args: argparse.Namespace) -> int:
             "ai_context.error.category": "system_error" if failed else "none",
             "duration_ms": duration_ms,
             "success": not failed,
-            "antigravity.execution.number": _safe_int(payload.get("executionNum")),
+            "antigravity.execution.number": execution_num,
             "antigravity.fully_idle": bool(payload.get("fullyIdle")),
         }
         _emit(
@@ -565,7 +641,7 @@ def handle_hook(args: argparse.Namespace) -> int:
             payload=_trace_payload(
                 resource=resource,
                 trace_id=trace_id,
-                span_id=root_span_id,
+                span_id=span_id,
                 parent_span_id=None,
                 name="antigravity.agent.execution",
                 start_ns=start_ns,
@@ -595,6 +671,8 @@ def handle_hook(args: argparse.Namespace) -> int:
             capture_dir=args.capture_dir,
             debug=args.debug,
         )
+        state.pop("first_seen_ns", None)
+        state["invocations"] = {}
 
     _save_state(state_path, state)
     print(json.dumps(_hook_response(event), separators=(",", ":")))
@@ -635,14 +713,9 @@ def handle_statusline(args: argparse.Namespace) -> int:
         "cache_creation": max(0, _safe_int(current.get("cache_creation_input_tokens"))),
         "cache_read": max(0, _safe_int(current.get("cache_read_input_tokens"))),
     }
-    subagents = payload.get("subagents") if isinstance(payload.get("subagents"), list) else []
-    active_subagents = sum(
-        1
-        for item in subagents
-        if isinstance(item, dict)
-        and _safe_text(item.get("status"), fallback="unknown")
-        not in {"completed", "stopped", "failed", "idle"}
-    )
+    task_count = max(0, _safe_int(payload.get("task_count")))
+    artifact_count = max(0, _safe_int(payload.get("artifact_count")))
+    exceeds_200k = bool(payload.get("exceeds_200k_tokens"))
     quota = payload.get("quota") if isinstance(payload.get("quota"), dict) else {}
 
     safe_snapshot = {
@@ -653,7 +726,9 @@ def handle_statusline(args: argparse.Namespace) -> int:
         "total_output": total_output,
         "used_percentage": round(used_percentage, 4),
         "current": current_values,
-        "active_subagents": active_subagents,
+        "task_count": task_count,
+        "artifact_count": artifact_count,
+        "exceeds_200k_tokens": exceeds_200k,
         "pending_input_count": max(0, _safe_int(payload.get("pending_input_count"))),
         "tool_confirmation_pending": bool(payload.get("tool_confirmation_pending")),
         "quota": {
@@ -749,15 +824,27 @@ def handle_statusline(args: argparse.Namespace) -> int:
                 [(used_percentage / 100.0, common_metric_attributes)],
             ),
             _gauge_metric(
-                "antigravity_active_subagents",
-                "{agent}",
+                "antigravity_background_task_count",
+                "{task}",
                 now_ns,
                 [
                     (
-                        active_subagents,
+                        task_count,
                         {**common_metric_attributes, "state": agent_state},
                     )
                 ],
+            ),
+            _gauge_metric(
+                "antigravity_artifact_count",
+                "{artifact}",
+                now_ns,
+                [(artifact_count, common_metric_attributes)],
+            ),
+            _gauge_metric(
+                "antigravity_context_exceeds_200k",
+                "1",
+                now_ns,
+                [(1 if exceeds_200k else 0, common_metric_attributes)],
             ),
             _gauge_metric(
                 "antigravity_pending_input_count",
@@ -831,6 +918,11 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         help="Telemetry environment profile recorded before Collector normalization.",
     )
     parser.add_argument(
+        "--product",
+        default=os.getenv("AI_OBSERVABILITY_PRODUCT", "auto"),
+        help="Bounded product name. 'auto' uses the documented status-line product field; hooks fall back to antigravity.",
+    )
+    parser.add_argument(
         "--timeout",
         type=float,
         default=float(os.getenv("AI_OBSERVABILITY_HTTP_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)),
@@ -890,6 +982,12 @@ def build_parser() -> argparse.ArgumentParser:
     hook.add_argument(
         "event",
         choices=["PreInvocation", "PostInvocation", "PostToolUse", "Stop"],
+    )
+    hook.add_argument(
+        "--operation",
+        choices=sorted(TOOL_CATEGORIES),
+        default="other-tool",
+        help="Low-cardinality tool category supplied by the PostToolUse matcher.",
     )
     _add_common_arguments(hook)
     hook.set_defaults(handler=handle_hook)
