@@ -42,8 +42,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_token_usage_total[$__range])) by (tool, token_type, model_family)",
-          "legendFormat": "{{service_name}}"
+          "expr": "sum(increase(ai_context_token_usage_total[$__range]) or increase(codex_turn_token_usage_sum[$__range]) or max_over_time(codex_turn_token_usage_sum[$__range])) by (token_type, model, tool)",
+          "legendFormat": "{{model}} - {{token_type}}"
         }
       ]
     },
@@ -80,8 +80,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(ai_context_token_usage_total[5m])) by (tool, token_type)",
-          "legendFormat": "{{service_name}}"
+          "expr": "sum(rate(ai_context_token_usage_total[5m]) or rate(codex_turn_token_usage_sum[5m]) or rate(codex_turn_token_usage_sum[1h])) by (token_type, model)",
+          "legendFormat": "{{model}} - {{token_type}}"
         }
       ]
     },
@@ -118,8 +118,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_cost_value_total[$__range])) by (tool, source, unit)",
-          "legendFormat": "{{service_name}}"
+          "expr": "sum(increase(ai_context_cost_value_total[$__range]) or increase(codex_conversation_turn_count[$__range]) or max_over_time(codex_conversation_turn_count[$__range])) by (model, service_name)",
+          "legendFormat": "{{service_name}} - {{model}}"
         }
       ]
     },
@@ -156,8 +156,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_tool_calls_total[$__range])) by (tool, operation, success)",
-          "legendFormat": "{{service_name}}"
+          "expr": "sum(increase(ai_context_tool_calls_total[$__range]) or increase(codex_tool_call_duration_ms_count[$__range]) or max_over_time(codex_tool_call_duration_ms_count[$__range]) or max_over_time(codex_tool_call[$__range])) by (tool, success, model)",
+          "legendFormat": "{{tool}} (success={{success}})"
         }
       ]
     }
