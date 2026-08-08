@@ -1,127 +1,102 @@
 # AI collaboration telemetry data contract
 
-## Principles
+## Contract boundaries
 
-1. Vendor-native attributes are preserved only when privacy and cardinality policies permit them.
-2. Cross-tool analysis uses the `ai_context.*` namespace.
-3. “Loaded” does not mean “used,” and elapsed time does not mean active model reasoning.
-4. Cost figures always carry a source, unit, rate-card version when estimated, and attribution confidence.
-5. Unsupported or unmeasured evidence is represented as unknown, not inferred as success.
-6. Raw content is not part of the normalized event contract.
+Version 0.1.3 defines three deliberately separate contracts:
 
-The contract is versioned independently of Collector implementation. New fields require a privacy
-classification and expected cardinality before they are emitted. The content-free JSON envelope is
-specified by `schemas/ai-context-telemetry.schema.json`; OTLP senders map the same semantics into
-resource/span/log/metric attributes.
+| Contract | Purpose | Producer/normalizer | Dashboard |
+|---|---|---|---|
+| Native provider telemetry | Preserve a privacy-filtered provider view for troubleshooting | Provider, then Collector privacy transforms | Codex Native Telemetry / Antigravity Usage |
+| \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent Usage |
+| \`ai_context.*\` | Explain framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | AI Context framework instrumentation | AI Context Effectiveness / AI Workflow Efficiency |
 
-## Resource attributes
+Native provider telemetry is not framework evidence. A Codex turn or tool call
+must never be presented as proof that an AI Context skill, rule, or validation
+step was used. Dashboards do not use fallback expressions across these
+contracts.
 
-Resource attributes describe the sender, framework, and environment and should remain stable for a
-process or workflow batch.
+## Shared resource attributes
 
-| Field | Type | Cardinality | Purpose |
-| --- | --- | ---: | --- |
-| `service.name` | string | low | Sender surface, e.g. `codex-cli` |
-| `service.namespace` | string | low | Logical product/team grouping |
-| `service.version` | string | low | Sender version |
-| `deployment.environment.name` | string | low | `personal-local`, `corporate-local`, CI, etc. |
-| `ai_context.environment.profile` | string | low | `core`, `evaluation`, `corporate-redacted` |
-| `ai_context.framework.name` | string | low | Framework product name |
-| `ai_context.framework.version` | string | low | Released framework version |
-| `ai_context.framework.commit_hash` | string | high | Exact framework revision; personal traces only |
-| `ai_context.workflow.id` | string | high | Durable local workflow/run identifier; traces only |
-| `ai_context.workflow.type` | string | low | Release, implementation, review, audit, etc. |
-| `ai_context.workflow.stage` | string | bounded | Workflow stage |
-| `ai_context.task.type` | string | low | Task classification rather than ticket content |
-| `ai_context.skill.id` | string | bounded | Canonical skill identifier |
-| `ai_context.rule.id` | string | bounded | Stable governance-rule identifier |
-| `ai_context.context.manifest_hash` | string | high | Hash of loaded-context manifest, not file content |
-| `ai_context.tool.category` | string | low | Codex, Claude Code, Copilot, wrapper, etc. |
-| `ai_context.model.family` | string | bounded | Normalized model family |
-| `ai_context.user.pseudonym` | string | high | Optional HMAC-derived internal pseudonym |
-| `ai_context.export.phoenix` | bool | low | Explicit evaluation-mode trace selection |
+The Collector accepts OpenTelemetry resources and emits only bounded,
+privacy-reviewed attributes.
 
-`ai_context.export.phoenix` should be a resource attribute so every span in a selected trace is routed
-consistently. A span-local flag can produce partial traces and is not the recommended contract.
+| Attribute | Type | Examples | Notes |
+|---|---|---|---|
+| \`service.name\` | string | \`codex-app-server\`, \`antigravity\` | Low-cardinality producer identity |
+| \`service.namespace\` | string | \`ai-collaboration\` | Optional bounded namespace |
+| \`service.version\` | string | \`0.147.0-alpha.6.5\` | Producer version |
+| \`deployment.environment.name\` | string | \`personal-local\` | Mode-controlled |
+| \`ai_observability.profile\` | string | \`core\`, \`evaluation\`, \`corporate-redacted\` | Canonical toolkit profile |
+| \`ai_agent.provider\` | string | \`openai\`, \`google\` | Bounded provider |
+| \`ai_agent.product\` | string | \`codex\`, \`antigravity\` | Bounded product |
+| \`ai_agent.surface\` | string | \`app-server\`, \`hooks\`, \`status-line\` | Verified telemetry surface |
 
-## Span and event attributes
+\`ai_context.environment.profile\` remains as a deprecated compatibility alias
+for 0.1.x producers. New integrations should use \`ai_observability.profile\`.
 
-| Field | Type | Purpose |
-| --- | --- | --- |
-| `ai_context.operation.type` | string | model, tool, validation, wait, Git, review, handoff, workflow |
-| `ai_context.state` | string | active, wait, blocked, paused, sleep, resumed, completed |
-| `ai_context.outcome` | string | success/passed, failed, blocked-by-environment, skipped, not-applicable, deferred, unknown |
-| `ai_context.evidence.class` | string | repository-record, git-fact, provider-readback, conversation-observation, derived-interval, manual-annotation |
-| `ai_context.validation.type` | string | preflight, build, test, package, hosted-readback, etc. |
-| `ai_context.validation.tier` | string | targeted, quick, critical, full, etc. |
-| `ai_context.validation.fingerprint` | string | Personal trace-only hash of inputs and validation definition |
-| `ai_context.validation.fingerprint_hash` | string | Export-safe non-reversible fingerprint |
-| `ai_context.validation.reused` | bool | Whether valid prior evidence was reused |
-| `ai_context.validation.invalidation_reason` | string | Normalized reason evidence could not be reused |
-| `ai_context.retry.count` | int | Bounded retry number |
-| `ai_context.retry.reason` | string | Normalized reason, never raw output |
-| `ai_context.wait.reason` | string | owner, approval, hosted-check, process, queue, sleep, unknown |
-| `ai_context.token.type` | string | input, cached_input, output, reasoning, cache_write |
-| `ai_context.token.count` | int | Vendor-reported count when available |
-| `ai_context.cost.value` | double | Cost/credit figure |
-| `ai_context.cost.unit` | string | credits, USD, internal_unit, unknown |
-| `ai_context.cost.source` | string | official, vendor_reported, estimated, allocated, unknown |
-| `ai_context.cost.rate_card.version` | string | Effective rate-card identifier for estimates |
-| `ai_context.cost.attribution.confidence` | string | exact, bounded, proportional, manual, unattributed |
+## Canonical AI-agent dimensions
 
-## Rule-effect states
+Canonical metric datapoints may use only reviewed bounded dimensions:
 
-A rule or document should not be labeled useful merely because it was present. Instrumentation records
-the strongest proven state:
+- \`operation\`: \`turn\`, \`tool\`, \`mcp\`, \`api\`, \`compaction\`, \`thread\`.
+- \`model_family\`: normalized family, not a request/session identifier.
+- \`tool_category\`: bounded category such as \`execution\`, \`editor\`, or
+  \`connector\`; raw tool names are removed from canonical copies.
+- \`token_type\`: provider-reported bounded token class.
+- \`success\`, \`status\`, \`type\`, and \`source\`: only when the provider
+  exposes a bounded value.
+- \`evidence_class\`: \`provider-reported\` for native SDK metrics or
+  \`observed\` for local extension gauges.
 
-| State | Meaning |
-| --- | --- |
-| `declared` | Included by the workflow/profile |
-| `loaded` | File or rule was loaded into tool context |
-| `evaluated` | A workflow check considered the rule |
-| `triggered` | Its condition was true |
-| `affected_action` | It changed a decision or action |
+Never use session, prompt, conversation, task UUID, validation fingerprint,
+commit SHA, branch, path, user identity, account ID, call ID, trace ID, span
+ID, or raw tool/skill name as a Prometheus or Loki index label.
 
-Framework simplification should compare outcomes against these states and representative workloads
-rather than deleting every rule with a low trigger count.
+## Canonical AI-agent metrics
 
-## Cost attribution
+The Collector uses \`copy_metric\`: the native metric remains available after
+privacy filtering, while the canonical copy preserves the original instrument
+kind, unit, monotonicity, and aggregation temporality.
 
-Official credits and local evidence often lack a shared task ID. Allocation records must use:
+| Native input | Canonical metric | Semantics |
+|---|---|---|
+| \`codex.turn.token_usage\` | \`ai_agent.turn.token_usage\` | Delta histogram, token count distribution |
+| \`codex.turn.e2e_duration_ms\` | \`ai_agent.turn.duration_ms\` | Delta histogram |
+| \`codex.turn.ttft.duration_ms\` | \`ai_agent.turn.ttft.duration_ms\` | Delta histogram |
+| \`codex.turn.ttfm.duration_ms\` | \`ai_agent.turn.ttfm.duration_ms\` | Delta histogram |
+| \`codex.tool.call\` | \`ai_agent.tool.call\` | Delta monotonic sum |
+| \`codex.tool.call.duration_ms\` | \`ai_agent.tool.call.duration_ms\` | Delta histogram |
+| \`codex.mcp.call\` | \`ai_agent.mcp.call\` | Delta monotonic sum |
+| \`codex.mcp.call.duration_ms\` | \`ai_agent.mcp.call.duration_ms\` | Delta histogram |
+| Codex Responses API duration metrics | \`ai_agent.api.*.duration_ms\` | Delta histograms |
+| \`codex.task.compact\` | \`ai_agent.compaction\` | Delta monotonic sum |
+| \`codex.skill.injected\` | \`ai_agent.skill.injection\` | Delta monotonic sum |
+| \`codex.thread.started\` | \`ai_agent.thread.started\` | Delta monotonic sum |
+| \`antigravity_session_tokens\` | \`ai_agent.observed.session_tokens\` | Instantaneous observed gauge |
+| \`antigravity_context_tokens\` | \`ai_agent.observed.context_tokens\` | Instantaneous observed gauge |
+| Other \`antigravity_*\` status gauges | \`ai_agent.observed.*\` | Instantaneous observed gauge |
 
-```text
-attribution.confidence = exact | bounded | proportional | manual | unattributed
-```
+Prometheus renders dotted OTLP names with underscores and renders histograms as
+\`_bucket\`, \`_count\`, and \`_sum\` series. Queries must use histogram
+operations; a histogram sum must not be treated as a counter instrument in the
+contract.
 
-- `exact`: a durable provider/run ID provides a direct join.
-- `bounded`: one eligible local task exists in the official usage window.
-- `proportional`: usage is allocated by a documented local token/activity proportion.
-- `manual`: a user explicitly assigns a usage record.
-- `unattributed`: no defensible allocation exists.
+## AI Context framework evidence
 
-Never silently convert `unattributed` usage to a precise-looking task cost.
+\`ai_context.*\` is reserved for independently emitted framework/workflow
+evidence. Typical bounded attributes include:
 
-## Metric label allowlist
+- framework and workflow version/type/stage;
+- task type, skill ID, rule ID/state;
+- validation type/tier/reuse state;
+- normalized retry and wait reasons;
+- task outcome and evidence class.
 
-Metrics may use only bounded dimensions such as:
+Initial framework metrics remain:
 
-```text
-tool, model_family, operation, outcome, token_type, task_type,
-workflow_type, stage, validation_type, validation_tier, reused,
-wait_reason, environment_profile, cost_unit, cost_source
-```
-
-They must not use workflow/session/prompt/request/trace/span/tool-call IDs, raw validation
-fingerprints, commit hashes, branches, paths, ticket text, emails, or user pseudonyms.
-
-## Initial normalized metric names
-
-The synthetic fixtures and provisioned dashboards use these names as a stable toolkit contract:
-
-```text
-ai_context_token_usage_total
-ai_context_cost_value_total
-ai_context_tool_calls_total
+\`\`\`text
+ai_context_workflow_duration_seconds
+ai_context_wait_duration_seconds
 ai_context_validation_runs_total
 ai_context_validation_duplicate_total
 ai_context_retry_total
@@ -130,14 +105,43 @@ ai_context_manual_correction_total
 ai_context_loaded_bytes_total
 ai_context_estimated_context_tokens_total
 ai_context_rule_state_total
-```
+\`\`\`
 
-Future workflow hooks may add histograms such as:
+The deprecated \`ai_context_token_usage_total\`,
+\`ai_context_tool_calls_total\`, and \`ai_context_cost_value_total\` names remain
+queryable only as bounded 0.1.x compatibility data. They are not copied into
+\`ai_agent.*\`. New provider integrations must use \`ai_agent.*\`; new framework
+instrumentation must not emit provider usage under \`ai_context.*\`.
 
-```text
-ai_context_workflow_duration_seconds
-ai_context_wait_duration_seconds
-```
+## Cost
 
-Vendor-native metrics are not silently renamed merely to populate a dashboard. A normalization layer
-must be based on observed sender schemas and covered by fixtures/tests.
+Version 0.1.3 has no verified provider-independent price or billing contract.
+Neither token counts nor turn/request counts are converted into currency.
+Dashboards state “Cost unavailable.” Future cost data requires an explicit
+versioned rate/billing source, unit, attribution method, and confidence level.
+
+## Privacy and routing
+
+All modes apply an initial denylist before canonical normalization, then apply
+the mode's final policy:
+
+1. initial deletion of content, tool payloads, command output, paths, credentials,
+   identifiers, and known Codex underscore-form fields;
+2. canonical copy/normalization;
+3. final Core/Evaluation privacy filter or Corporate exact allowlist;
+4. batching and local export.
+
+Evaluation traces reach Phoenix only after redaction and only when
+\`ai_context.export.phoenix=true\`. Corporate mode defines no Phoenix exporter.
+See [Privacy](PRIVACY.md) and the versioned
+[Codex fixture](../fixtures/codex/0.146.1/README.md).
+
+## Compatibility and migration
+
+- The Codex Native Telemetry dashboard keeps UID \`ai-codex-usage\`; its title
+  and queries changed in place to avoid creating a duplicate dashboard.
+- Raw privacy-filtered \`codex.*\` and \`antigravity_*\` series remain available.
+- \`ai_agent.*\` is additive in 0.1.3.
+- AI Context dashboards no longer fall back to provider-native metrics.
+- Producers should migrate from \`ai_context.environment.profile\` to
+  \`ai_observability.profile\`; the alias remains during the 0.1.x line.

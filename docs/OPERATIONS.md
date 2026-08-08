@@ -2,175 +2,150 @@
 
 ## Prerequisites
 
-- Docker Engine or Docker Desktop with Compose v2.
-- Python 3.11 or newer.
-- Bash for `scripts/*.sh`, or PowerShell 7/Windows PowerShell for `scripts/*.ps1`.
-- Sufficient local memory and disk for the selected mode. Do not treat a generic estimate as a
-  workstation guarantee; use the resource-baseline procedure.
+- Docker Engine or Docker Desktop with Docker Compose v2.
+- Sufficient local memory and disk for the selected mode.
+- Optional: Python 3.11+ with requirements.txt for policy validation, smoke
+  orchestration, and evidence reports.
+- Optional: Bash or PowerShell for the thin wrappers in scripts/.
 
-Install the pinned Python dependencies in a virtual environment:
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install --requirement requirements.txt
-```
-
-PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --requirement requirements.txt
-```
+Containers do not require a host Python environment.
 
 ## Environment preparation
 
-```bash
-cp .env.example .env
-```
+    Copy-Item .env.example .env
 
-Review every port and replace example passwords. `.env` is ignored by Git. Each Compose image
-expression contains an exact committed default and `.env.example` mirrors the same value. Overrides
-are supported for controlled testing, but an override is a reviewed configuration change—not an
-untracked upgrade mechanism.
+Review every port and replace sample passwords. The untracked .env file may
+override exact, committed image defaults for controlled tests; an override is
+a reviewed change, not an untracked upgrade mechanism.
 
-## Start, inspect, and stop
+## Compose-first lifecycle
 
-Bash wrappers accept the mode as the first positional argument:
+Core:
 
-```bash
-./scripts/up.sh core
-./scripts/status.sh core
-./scripts/smoke-test.sh core
-./scripts/down.sh core
-```
+    docker compose -f compose.yaml up -d
+    docker compose -f compose.yaml ps
+    docker compose -f compose.yaml down
 
-PowerShell:
+Evaluation:
 
-```powershell
-.\scripts\up.ps1 -Mode core
-.\scripts\status.ps1 -Mode core
-.\scripts\smoke-test.ps1 -Mode core
-.\scripts\down.ps1 -Mode core
-```
+    docker compose -f compose.yaml -f compose.evaluation.yaml up -d
+    docker compose -f compose.yaml -f compose.evaluation.yaml ps
+    docker compose -f compose.yaml -f compose.evaluation.yaml down
 
-The canonical Python form is also available:
+Corporate:
 
-```bash
-python scripts/toolkit.py up --mode evaluation
-python scripts/toolkit.py smoke --mode evaluation
-python scripts/toolkit.py down --mode evaluation
-```
+    docker compose -f compose.yaml -f compose.corporate.yaml up -d
+    docker compose -f compose.yaml -f compose.corporate.yaml ps
+    docker compose -f compose.yaml -f compose.corporate.yaml down
 
-Use exactly one of `core`, `evaluation`, or `corporate`. Mode overrides are not composable with each
-other.
+Use exactly one mode override. Evaluation and Corporate are not composable.
+Plain down retains named volumes. Never add -v unless the exact Compose project,
+backup requirement, and irreversible deletion are explicitly approved.
+
+The shell and PowerShell files in scripts/ are thin wrappers. The optional
+Python tool provides the same lifecycle plus structured validation reports:
+
+    python -m pip install -r requirements.txt
+    python scripts/toolkit.py up --mode evaluation
+    python scripts/toolkit.py smoke --mode evaluation --persistence-check
+    python scripts/toolkit.py down --mode evaluation
 
 ## Validation tiers
 
-### Static repository validation
+### 1. Static repository validation
 
-```bash
-python scripts/toolkit.py validate --mode all --static-only
-python -m unittest discover -s tests -v
-```
+    python scripts/toolkit.py validate --mode all --static-only
+    python -m unittest discover -s tests -v
 
-This checks YAML/JSON/TOML parsing, duplicate YAML keys, exact image defaults and matching override
-variables, loopback ports, Compose mode boundaries, Collector pipeline references/order, OTTL
-allowlists, Phoenix opt-in routing, corporate fail-closed rules, Loki label cardinality, Tempo
-retention shape, JSON Schema instances, shell syntax, dashboards, fixtures, and sentinel placement.
+This checks structured-file parsing, duplicate YAML keys, pinned images,
+loopback ports, mode boundaries, exact Collector processor order, initial and
+final privacy policy, canonical mapping parity, Phoenix opt-in routing, Loki
+label policy, dashboards, versioned fixtures, and privacy sentinels.
 
-### Native configuration validation
+If Windows exposes bash.exe but the execution sandbox denies WSL startup, shell
+syntax is reported as SKIP/not-executed and must be run directly or in CI.
 
-```bash
-python scripts/toolkit.py validate --mode all
-```
+### 2. Native configuration validation
 
-When available, this additionally runs:
+    python scripts/toolkit.py validate --mode all
 
-- `docker compose config --quiet` for every merged mode;
-- `otelcol-contrib validate` when `OTELCOL_BIN` points to the pinned binary;
-- `promtool check config` when `PROMTOOL_BIN` points to the pinned binary;
-- Loki `-verify-config=true` when `LOKI_BIN` points to the pinned binary;
-- Tempo `-config.verify` when `TEMPO_BIN` points to the pinned binary.
+This runs docker compose config for every mode. When provided through
+OTELCOL_BIN, PROMTOOL_BIN, LOKI_BIN, and TEMPO_BIN, it also runs the exact
+native validators. Equivalent pinned-container validation is acceptable.
+Unavailable checks are SKIP/not-executed, never PASS.
 
-Unavailable executables are printed as `SKIP`. GitHub Actions uses the exact pinned validators or
-container image, so pull requests receive native Collector, Prometheus, Loki, Tempo, and merged Compose
-checks even when a workstation does not have those binaries installed.
+### 3. Runtime smoke and persistence
 
-### Runtime smoke and persistence
+    python scripts/toolkit.py smoke --mode evaluation --persistence-check
 
-```bash
-./scripts/up.sh core
-./scripts/smoke-test.sh core
-```
+Runtime smoke:
 
-The smoke test waits for services, sends synthetic logs/metrics/traces, queries Prometheus/Loki/Tempo,
-checks Grafana and datasource health, and verifies prohibited sentinel data is absent. Evaluation mode
-also sends selected/rejected Phoenix traces and checks the positive and negative routes through the
-Phoenix REST API.
+- sends legacy compatibility fixtures plus the versioned Codex metrics/logs/
+  traces fixture;
+- proves the synthetic privacy fields are absent in the new Prometheus, Loki,
+  Tempo, and selected Phoenix window;
+- reconciles native and canonical Codex histogram values;
+- checks Grafana datasources and provisioned dashboard availability;
+- verifies Phoenix positive and negative routing in Evaluation;
+- restarts services and proves named-volume data remains queryable when
+  persistence-check is selected.
 
-The default smoke run is intentionally non-disruptive and does not restart the stack. Add
-`--persistence-check` when named-volume durability must be verified; this restarts the applicable
-services and repeats the backend assertions. A non-executed persistence assertion is recorded as
-`SKIP`, never `PASS`. `--skip-persistence` remains as an explicit compatibility flag. Smoke reports
-are written under `artifacts/smoke/` unless `--report <path>` is supplied.
+Corporate must be tested as an isolated Compose project with alternate
+loopback ports. It must contain no Phoenix service/exporter and must use the
+exact allowlist. Test-project cleanup may delete only volumes whose Compose
+project label matches the reviewed isolated test project.
+
+Smoke reports are written under artifacts/smoke unless an explicit report path
+is supplied.
+
+## Codex configuration
+
+Before changing the user-level Codex config:
+
+1. create a same-directory timestamped backup;
+2. change only [otel];
+3. keep logs/traces/metrics endpoints on 127.0.0.1 Collector ports;
+4. set log_user_prompt=false;
+5. do not terminate the current Codex process; the Owner restarts it afterward.
+
+## Persistence, backup, and rollback
+
+The named volumes are:
+
+- grafana-data
+- loki-data
+- prometheus-data
+- tempo-data
+- phoenix-postgres-data in Evaluation
+
+PostgreSQL 18 must mount phoenix-postgres-data at /var/lib/postgresql, not the
+legacy /var/lib/postgresql/data path.
+
+Before destructive work, back up or export only the redacted evidence that
+must survive. To roll back application/config changes:
+
+1. check out tag v0.1.2 or restore its exact Compose/config files;
+2. run merged Compose and native config validation;
+3. run docker compose up -d without -v so existing named volumes remain;
+4. restore the Codex config backup if required and have the Owner restart Codex;
+5. record that legacy stored data was not retroactively removed.
+
+The toolkit has no automated backup and never silently deletes pre-0.1.3 data.
 
 ## Resource snapshot
 
-```bash
-./scripts/resource-snapshot.sh evaluation
-```
+    python scripts/toolkit.py snapshot --mode evaluation
 
-The command writes Compose process state and `docker stats --no-stream` output to an `artifacts/`
-JSON file. Capture at least idle, representative ingestion, representative query, and post-workflow
-states. Databases retain caches; compare steady-state and pressure behavior rather than expecting RSS
-to return to the initial value.
-
-## Non-destructive stop versus destructive reset
-
-`down` retains data volumes:
-
-```bash
-./scripts/down.sh core
-```
-
-`reset` destroys all mode volumes and therefore requires the exact Compose project name:
-
-```bash
-./scripts/reset-data.sh core ai-collaboration-observability
-```
-
-Equivalent canonical form:
-
-```bash
-python scripts/toolkit.py reset \
-  --mode core \
-  --confirm ai-collaboration-observability
-```
-
-Do not automate reset against a non-disposable workstation without first exporting any redacted
-findings that must be retained.
-
-## PostgreSQL 18 persistence note
-
-The evaluation profile mounts `phoenix-postgres-data` at `/var/lib/postgresql`. PostgreSQL 18 changed
-the official image's volume root and version-specific `PGDATA`; do not change this back to
-`/var/lib/postgresql/data`, or Phoenix data can be written outside the intended named volume.
-
-## Backup
-
-This is a laboratory toolkit. No automated backup is included. Before a destructive upgrade, archive
-named volumes or export only the redacted, durable findings needed for framework improvement. Do not
-copy raw personal traces into a corporate or public repository.
+Capture idle, representative ingestion/query, and post-workflow snapshots.
+Compare steady-state and pressure behavior; database caches need not return to
+their initial RSS.
 
 ## Upgrade procedure
 
-1. Update one exact default image in Compose and the matching value in `.env.example`.
-2. Update `scripts/toolkit.py::EXACT_IMAGES`, `docs/DEPENDENCIES.md`, and affected tests.
-3. Read component migration notes.
-4. Run static/native checks.
-5. Run core smoke with persistence.
-6. Run corporate and evaluation smoke workflows.
-7. Capture resource snapshots and verify dashboards/retention.
-8. Record exact evidence and any `NOT EXECUTED` items in an implementation or release report.
+1. Update one exact image default and matching .env.example value.
+2. Update the dependency inventory and validator expectations.
+3. Record a versioned provider fixture before changing normalization.
+4. Run all three validation tiers.
+5. Verify privacy, native/canonical reconciliation, dashboard UIDs, and
+   persistence.
+6. Record exact results and all not-executed gates in the release report.

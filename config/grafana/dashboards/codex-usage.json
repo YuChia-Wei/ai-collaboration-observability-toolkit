@@ -1,7 +1,5 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": {"list": []},
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -11,173 +9,116 @@
   "panels": [
     {
       "id": 1,
-      "title": "Normalized token usage by tool/type",
-      "description": "Uses the toolkit normalized metric. Raw Codex metric names must be mapped only after observing the installed client version.",
+      "title": "Token usage by model and type",
+      "description": "Native Codex token histogram sums. This is provider telemetry, not billing.",
       "type": "barchart",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(ai_context_token_usage_total[$__range]) or increase(codex_turn_token_usage_sum[$__range]) or max_over_time(codex_turn_token_usage_sum[$__range])) by (token_type, model, tool)",
-          "legendFormat": "{{model}} - {{token_type}}"
-        }
+        {"refId": "A", "expr": "sum(increase(codex_turn_token_usage_sum[$__range])) by (model, token_type)", "legendFormat": "{{model}} - {{token_type}}"}
       ]
     },
     {
       "id": 2,
-      "title": "Token usage rate",
-      "description": "",
+      "title": "P95 turn duration",
+      "description": "Native Codex end-to-end turn duration.",
       "type": "timeseries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(ai_context_token_usage_total[5m]) or rate(codex_turn_token_usage_sum[5m]) or rate(codex_turn_token_usage_sum[1h])) by (token_type, model)",
-          "legendFormat": "{{model}} - {{token_type}}"
-        }
+        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_turn_e2e_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "{{model}}"}
       ]
     },
     {
       "id": 3,
-      "title": "Estimated cost by source",
-      "description": "",
-      "type": "barchart",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "title": "P95 time to first token",
+      "description": "Native Codex TTFT histogram.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(ai_context_cost_value_total[$__range]) or increase(codex_conversation_turn_count[$__range]) or max_over_time(codex_conversation_turn_count[$__range])) by (model, service_name)",
-          "legendFormat": "{{service_name}} - {{model}}"
-        }
+        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_turn_ttft_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "{{model}}"}
       ]
     },
     {
       "id": 4,
-      "title": "Tool calls and failures",
-      "description": "",
+      "title": "Tool calls",
+      "description": "Native Codex monotonic tool-call counter.",
       "type": "barchart",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(increase(ai_context_tool_calls_total[$__range]) or increase(codex_tool_call_duration_ms_count[$__range]) or max_over_time(codex_tool_call_duration_ms_count[$__range]) or max_over_time(codex_tool_call[$__range])) by (tool, success, model)",
-          "legendFormat": "{{tool}} (success={{success}})"
-        }
+        {"refId": "A", "expr": "sum(increase(codex_tool_call[$__range])) by (tool, success)", "legendFormat": "{{tool}} success={{success}}"}
       ]
+    },
+    {
+      "id": 5,
+      "title": "MCP calls and errors",
+      "description": "Native Codex MCP counters.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(codex_mcp_call[$__range])) by (status)", "legendFormat": "calls {{status}}"},
+        {"refId": "B", "expr": "sum(increase(codex_mcp_error[$__range])) by (status)", "legendFormat": "errors {{status}}"}
+      ]
+    },
+    {
+      "id": 6,
+      "title": "P95 Responses API time",
+      "description": "Inference and client-side overhead reported by Codex.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_inference_time_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "inference {{model}}"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_overhead_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "overhead {{model}}"}
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Compaction, skill injection, and threads",
+      "description": "Native Codex lifecycle counters.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(codex_task_compact[$__range])) by (type, manual)", "legendFormat": "compact {{type}} manual={{manual}}"},
+        {"refId": "B", "expr": "sum(increase(codex_skill_injected[$__range])) by (source)", "legendFormat": "skill {{source}}"},
+        {"refId": "C", "expr": "sum(increase(codex_thread_started[$__range])) by (source)", "legendFormat": "thread {{source}}"}
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Cost is unavailable",
+      "description": "Codex telemetry does not provide a verified price or billing contract. No cost estimate is inferred.",
+      "type": "text",
+      "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+      "options": {"mode": "markdown", "content": "### Cost unavailable\n\nThis dashboard reports native telemetry only. It does not convert tokens, turns, or requests into currency."}
     }
   ],
   "refresh": "10s",
   "schemaVersion": 41,
-  "tags": [
-    "ai-collaboration",
-    "opentelemetry"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-6h",
-    "to": "now"
-  },
+  "tags": ["ai-collaboration", "codex", "native", "opentelemetry"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
   "timezone": "browser",
-  "title": "Codex and AI Tool Usage",
+  "title": "Codex Native Telemetry",
   "uid": "ai-codex-usage",
-  "version": 1,
-  "description": "Metadata-first usage view. It deliberately avoids prompt and response content."
+  "version": 2,
+  "description": "Native, privacy-filtered Codex telemetry. No ai_agent or ai_context fallback queries."
 }

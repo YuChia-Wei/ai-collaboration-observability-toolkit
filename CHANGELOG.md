@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented here.
 
+## [0.1.3] - 2026-08-09
+
+### Added
+
+- Versioned Codex CLI 0.146.1/app-server 0.147.0-alpha.6.5 privacy-safe
+  metrics, logs, and traces fixture with raw-to-canonical mapping.
+- Provider support matrix and canonical AI Agent Usage dashboard.
+- Initial privacy denylist before normalization in Core, Evaluation, and
+  Corporate Collector pipelines.
+- Runtime smoke assertions for Codex privacy and native/canonical histogram
+  reconciliation.
+
+### Changed
+
+- Added the ai_agent.* provider-neutral contract while retaining
+  privacy-filtered codex.* and antigravity_* native telemetry.
+- Aligned Antigravity Hooks/status-line resources and metadata to the
+  AI-agent contract; observed gauges remain explicitly non-billing.
+- Renamed the existing UID ai-codex-usage dashboard to Codex Native Telemetry
+  and restricted it to native Codex queries.
+- Removed provider-native fallback queries from both AI Context dashboards.
+- Made Docker Compose the primary documented runtime path; Python is optional
+  for validation, orchestration, and reports.
+
+### Privacy
+
+- Added explicit underscore-form Codex content/identifier/path deletion and
+  bounded canonical labels.
+- Documented that pre-0.1.3 persistent data is not retroactively erased and
+  requires an explicit Owner decision for irreversible cleanup.
+
+### Compatibility
+
+- ai_context.environment.profile remains a deprecated 0.1.x alias for
+  ai_observability.profile.
+- Deprecated provider-usage ai_context metrics remain bounded compatibility
+  data but are not copied into ai_agent.*; new integrations use ai_agent.*.
+
 ## [0.1.2] - 2026-08-08
 
 ### Added

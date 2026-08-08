@@ -1,0 +1,35 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "codex-app-server"}},
+          {"key": "service.namespace", "value": {"stringValue": "ai-collaboration-fixture"}},
+          {"key": "service.version", "value": {"stringValue": "0.147.0-alpha.6.5"}},
+          {"key": "deployment.environment.name", "value": {"stringValue": "fixture-local"}},
+          {"key": "conversation_id", "value": {"stringValue": "codex_fixture_private_sentinel"}},
+          {"key": "user_account_id", "value": {"stringValue": "codex_fixture_private_sentinel"}}
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {"name": "codex", "version": "0.146.1"},
+          "logRecords": [
+            {
+              "timeUnixNano": "{{TIME_UNIX_NANO}}",
+              "observedTimeUnixNano": "{{TIME_UNIX_NANO}}",
+              "severityText": "INFO",
+              "body": {"stringValue": "Codex telemetry metadata fixture"},
+              "attributes": [
+                {"key": "event_name", "value": {"stringValue": "codex.tool_result"}},
+                {"key": "tool_name", "value": {"stringValue": "codex_fixture_private_sentinel"}},
+                {"key": "arguments", "value": {"stringValue": "codex_fixture_private_sentinel"}},
+                {"key": "prompt_length", "value": {"intValue": "999"}}
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

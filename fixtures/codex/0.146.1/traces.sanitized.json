@@ -1,0 +1,37 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "codex-app-server"}},
+          {"key": "service.namespace", "value": {"stringValue": "ai-collaboration-fixture"}},
+          {"key": "service.version", "value": {"stringValue": "0.147.0-alpha.6.5"}},
+          {"key": "deployment.environment.name", "value": {"stringValue": "fixture-local"}},
+          {"key": "conversation_id", "value": {"stringValue": "codex_fixture_private_sentinel"}},
+          {"key": "user_account_id", "value": {"stringValue": "codex_fixture_private_sentinel"}}
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {"name": "codex", "version": "0.146.1"},
+          "spans": [
+            {
+              "traceId": "44444444444444444444444444444444",
+              "spanId": "2222222222222222",
+              "name": "thread_spawn",
+              "kind": 1,
+              "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+              "endTimeUnixNano": "{{END_TIME_UNIX_NANO}}",
+              "attributes": [
+                {"key": "arguments", "value": {"stringValue": "codex_fixture_private_sentinel"}},
+                {"key": "tool_name", "value": {"stringValue": "codex_fixture_private_sentinel"}},
+                {"key": "prompt_length", "value": {"intValue": "999"}}
+              ],
+              "status": {"code": 1}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

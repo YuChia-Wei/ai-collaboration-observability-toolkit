@@ -1,5 +1,13 @@
 # Dependency inventory
 
+## v0.1.3 dependency impact
+
+Version 0.1.3 adds no container image or Python package dependency. It uses the
+already pinned Collector 0.158.0 transform processor copy_metric operation and
+the existing Grafana/Prometheus/Loki/Tempo/Phoenix images. The Antigravity
+exporter remains Python-standard-library only. The Codex fixture is replayed
+through OTLP/HTTP by the existing toolkit.
+
 Pins were reviewed on 2026-08-07. Every Compose image expression contains an exact committed default;
 `.env.example`, `scripts/toolkit.py`, and repository tests assert the same value. A controlled image
 override remains possible, but floating tags and unmatched defaults fail validation.

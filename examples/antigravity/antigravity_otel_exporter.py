@@ -32,7 +32,7 @@ DEFAULT_PROFILE = "personal-local"
 DEFAULT_TIMEOUT_SECONDS = 0.35
 DEFAULT_HEARTBEAT_SECONDS = 60.0
 SCOPE_NAME = "ai-collaboration-observability.antigravity-example"
-SCOPE_VERSION = "0.1.2"
+SCOPE_VERSION = "0.1.3"
 SAFE_TEXT = re.compile(r"[^A-Za-z0-9_.:/() +\-]", re.ASCII)
 
 
@@ -215,6 +215,7 @@ def _resource_attributes(
     version: str,
     profile: str,
     model: str,
+    surface: str,
     session_id: str | None,
     phoenix: bool,
 ) -> dict[str, Any]:
@@ -223,6 +224,10 @@ def _resource_attributes(
         "service.namespace": "ai-collaboration",
         "service.version": version,
         "deployment.environment.name": profile,
+        "ai_observability.profile": profile,
+        "ai_agent.provider": "google",
+        "ai_agent.product": product,
+        "ai_agent.surface": surface,
         "ai_context.environment.profile": profile,
         "ai_context.tool.category": "coding-agent",
         "ai_context.model.family": model,
@@ -486,11 +491,16 @@ def handle_hook(args: argparse.Namespace) -> int:
         version=version,
         profile=args.profile,
         model=model,
+        surface="hooks",
         session_id=session_id,
         phoenix=args.phoenix,
     )
     base_attributes: dict[str, Any] = {
         "gen_ai.provider.name": "google",
+        "ai_agent.operation": "agent",
+        "ai_agent.tool.category": "coding-agent",
+        "ai_agent.model.family": model,
+        "ai_agent.evidence.class": "observed",
         "ai_context.tool.category": "coding-agent",
         "ai_context.model.family": model,
         "ai_context.evidence.class": "antigravity-hook",
@@ -501,6 +511,7 @@ def handle_hook(args: argparse.Namespace) -> int:
         invocations[str(invocation_num)] = now_ns
         attributes = {
             **base_attributes,
+            "ai_agent.operation": "model_invocation",
             "gen_ai.operation.name": "agent_invocation",
             "ai_context.operation.type": "model_invocation",
             "ai_context.workflow.stage": "pre_invocation",
@@ -534,6 +545,7 @@ def handle_hook(args: argparse.Namespace) -> int:
         )
         attributes = {
             **base_attributes,
+            "ai_agent.operation": "model_invocation",
             "gen_ai.operation.name": "agent_invocation",
             "ai_context.operation.type": "model_invocation",
             "ai_context.workflow.stage": "post_invocation",
@@ -587,6 +599,8 @@ def handle_hook(args: argparse.Namespace) -> int:
         tool_category = _tool_category(args.operation)
         attributes = {
             **base_attributes,
+            "ai_agent.operation": "tool_use",
+            "ai_agent.tool.category": tool_category,
             "ai_context.operation.type": "tool_use",
             "ai_context.workflow.stage": "post_tool_use",
             "ai_context.tool.category": tool_category,
@@ -625,6 +639,7 @@ def handle_hook(args: argparse.Namespace) -> int:
         )
         attributes = {
             **base_attributes,
+            "ai_agent.operation": "agent_execution",
             "ai_context.operation.type": "agent_execution",
             "ai_context.workflow.stage": "stop",
             "ai_context.state": "idle" if payload.get("fullyIdle") else "background_active",
@@ -761,6 +776,7 @@ def handle_statusline(args: argparse.Namespace) -> int:
             version=version,
             profile=args.profile,
             model=model,
+            surface="status-line",
             session_id=session_id,
             phoenix=args.phoenix,
         )
@@ -770,6 +786,10 @@ def handle_statusline(args: argparse.Namespace) -> int:
             "gen_ai.usage.input_tokens": total_input,
             "gen_ai.usage.output_tokens": total_output,
             "gen_ai.usage.cached_input_tokens": current_values["cache_read"],
+            "ai_agent.operation": "status_update",
+            "ai_agent.tool.category": "coding-agent",
+            "ai_agent.model.family": model,
+            "ai_agent.evidence.class": "observed",
             "ai_context.operation.type": "status_update",
             "ai_context.workflow.stage": execution_mode,
             "ai_context.state": agent_state,

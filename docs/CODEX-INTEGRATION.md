@@ -56,3 +56,32 @@ sends company telemetry to a personal or Internet endpoint.
 
 Codex CLI telemetry support does not prove ChatGPT Desktop Codex mode uses the same configuration or
 event schema. Treat the desktop surface as unsupported until its data path is independently verified.
+
+## Version 0.1.3 tested contract
+
+Version 0.1.3 is verified against Codex CLI 0.146.1 (rust-v0.146.1, commit
+79b4f03d35962b005b007a015113b38930711665). The observed app-server resource
+reported 0.147.0-alpha.6.5. The versioned privacy-safe replay fixture is under
+fixtures/codex/0.146.1.
+
+Codex counters are monotonic OTLP sums and token/duration instruments are OTLP
+histograms. The v0.146.1 exporter uses Delta temporality. The Collector copies
+metrics so the ai_agent.* form retains the original instrument type and
+temporality; Prometheus exposes histogram bucket/count/sum series.
+
+The Collector retains privacy-filtered codex.* telemetry and creates a separate
+ai_agent.* copy. Codex Native Telemetry queries only codex_*, AI Agent Usage
+queries only ai_agent_*, and AI Context dashboards query only ai_context_*.
+No dashboard substitutes one evidence type for another and no token/request
+count is converted into cost.
+
+Before changing a live Codex configuration, create a same-directory backup.
+For this toolkit, change only the [otel] block, keep all three endpoints on the
+Collector loopback ports, and set log_user_prompt=false. Restart Codex after
+the configuration change; do not terminate an active session merely to apply
+telemetry settings.
+
+After any Codex upgrade, record both versions, compare emitted names/kinds/
+units/temporality with the fixture, replay all three signals through every
+Collector mode, then verify native and canonical histogram sums/counts
+reconcile before updating the mapping.

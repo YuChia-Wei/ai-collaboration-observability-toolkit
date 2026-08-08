@@ -1,0 +1,137 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "codex-app-server"}},
+          {"key": "service.namespace", "value": {"stringValue": "ai-collaboration-fixture"}},
+          {"key": "service.version", "value": {"stringValue": "0.147.0-alpha.6.5"}},
+          {"key": "deployment.environment.name", "value": {"stringValue": "fixture-local"}},
+          {"key": "conversation_id", "value": {"stringValue": "codex_fixture_private_sentinel"}},
+          {"key": "user_account_id", "value": {"stringValue": "codex_fixture_private_sentinel"}}
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {"name": "codex", "version": "0.146.1"},
+          "metrics": [
+            {
+              "name": "codex.turn.token_usage",
+              "unit": "{token}",
+              "histogram": {
+                "aggregationTemporality": 1,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "token_type", "value": {"stringValue": "total"}},
+                      {"key": "prompt_length", "value": {"intValue": "999"}},
+                      {"key": "arguments", "value": {"stringValue": "codex_fixture_private_sentinel"}}
+                    ],
+                    "count": "1",
+                    "sum": 1536,
+                    "bucketCounts": ["0", "0", "1", "0"],
+                    "explicitBounds": [256, 1024, 4096]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "codex.turn.e2e_duration_ms",
+              "unit": "ms",
+              "histogram": {
+                "aggregationTemporality": 1,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [{"key": "model", "value": {"stringValue": "gpt-5.6-sol"}}],
+                    "count": "1",
+                    "sum": 1250,
+                    "bucketCounts": ["0", "1", "0"],
+                    "explicitBounds": [500, 2000]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "codex.turn.ttft.duration_ms",
+              "unit": "ms",
+              "histogram": {
+                "aggregationTemporality": 1,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [{"key": "model", "value": {"stringValue": "gpt-5.6-sol"}}],
+                    "count": "1",
+                    "sum": 320,
+                    "bucketCounts": ["0", "1", "0"],
+                    "explicitBounds": [100, 500]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "codex.tool.call",
+              "unit": "{call}",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1",
+                    "attributes": [
+                      {"key": "tool", "value": {"stringValue": "apply_patch"}},
+                      {"key": "success", "value": {"stringValue": "true"}},
+                      {"key": "call_id", "value": {"stringValue": "codex_fixture_private_sentinel"}}
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "codex.mcp.call",
+              "unit": "{call}",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1",
+                    "attributes": [{"key": "status", "value": {"stringValue": "ok"}}]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "codex.task.compact",
+              "unit": "{operation}",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1",
+                    "attributes": [
+                      {"key": "type", "value": {"stringValue": "automatic"}},
+                      {"key": "manual", "value": {"boolValue": false}}
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

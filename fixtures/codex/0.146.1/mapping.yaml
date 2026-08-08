@@ -1,0 +1,84 @@
+fixture:
+  codex_cli_version: 0.146.1
+  app_server_version: 0.147.0-alpha.6.5
+  verified_at: 2026-08-09
+  source_commit: 79b4f03d35962b005b007a015113b38930711665
+  sample_values: synthetic
+  metric_temporality: delta
+
+resource:
+  match:
+    service.name: codex-app-server
+  canonical:
+    ai_agent.provider: openai
+    ai_agent.product: codex
+    ai_agent.surface: app-server
+
+metrics:
+  - raw: codex.turn.token_usage
+    canonical: ai_agent.turn.token_usage
+    kind: histogram
+    unit: "{token}"
+  - raw: codex.turn.e2e_duration_ms
+    canonical: ai_agent.turn.duration_ms
+    kind: histogram
+    unit: ms
+  - raw: codex.turn.ttft.duration_ms
+    canonical: ai_agent.turn.ttft.duration_ms
+    kind: histogram
+    unit: ms
+  - raw: codex.turn.ttfm.duration_ms
+    canonical: ai_agent.turn.ttfm.duration_ms
+    kind: histogram
+    unit: ms
+  - raw: codex.tool.call
+    canonical: ai_agent.tool.call
+    kind: monotonic_sum
+    unit: "{call}"
+  - raw: codex.tool.call.duration_ms
+    canonical: ai_agent.tool.call.duration_ms
+    kind: histogram
+    unit: ms
+  - raw: codex.mcp.call
+    canonical: ai_agent.mcp.call
+    kind: monotonic_sum
+    unit: "{call}"
+  - raw: codex.mcp.call.duration_ms
+    canonical: ai_agent.mcp.call.duration_ms
+    kind: histogram
+    unit: ms
+  - raw: codex.responses_api_inference_time.duration_ms
+    canonical: ai_agent.api.inference.duration_ms
+    kind: histogram
+    unit: ms
+  - raw: codex.responses_api_overhead.duration_ms
+    canonical: ai_agent.api.overhead.duration_ms
+    kind: histogram
+    unit: ms
+  - raw: codex.task.compact
+    canonical: ai_agent.compaction
+    kind: monotonic_sum
+    unit: "{operation}"
+  - raw: codex.skill.injected
+    canonical: ai_agent.skill.injection
+    kind: monotonic_sum
+    unit: "{operation}"
+  - raw: codex.thread.started
+    canonical: ai_agent.thread.started
+    kind: monotonic_sum
+    unit: "{thread}"
+
+bounded_dimensions:
+  token_type: [input, non_cached_input, cached_input, cache_write_input, output, reasoning_output, total]
+  operation: [api, compaction, mcp, thread, tool, turn]
+  evidence_class: [provider-reported]
+
+forbidden_dimensions:
+  - arguments
+  - call_id
+  - conversation_id
+  - prompt_length
+  - session_id
+  - tool_name
+  - trace_id
+  - user_account_id

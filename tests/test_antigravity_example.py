@@ -141,6 +141,14 @@ class AntigravityExampleTests(unittest.TestCase):
             self.assertIn("Gemini 3.6 Flash (High)", rendered)
             self.assertIn("antigravity.status.changed", rendered)
             self.assertIn("ai_context.session.id", rendered)
+            self.assertIn('"ai_agent.provider"', rendered)
+            self.assertIn('"stringValue": "google"', rendered)
+            self.assertIn('"ai_agent.product"', rendered)
+            self.assertIn('"ai_agent.surface"', rendered)
+            self.assertIn('"stringValue": "status-line"', rendered)
+            self.assertIn('"ai_agent.evidence.class"', rendered)
+            self.assertIn('"stringValue": "observed"', rendered)
+            self.assertIn('"version": "0.1.3"', rendered)
 
     def test_corporate_statusline_omits_session_identifier(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -211,6 +219,10 @@ class AntigravityExampleTests(unittest.TestCase):
             self.assertIn("tool_error", rendered)
             self.assertIn("execution-operation", rendered)
             self.assertIn("gemini-3.6-flash-medium", rendered)
+            self.assertIn('"ai_agent.provider"', rendered)
+            self.assertIn('"ai_agent.surface"', rendered)
+            self.assertIn('"stringValue": "hooks"', rendered)
+            self.assertIn('"ai_agent.operation"', rendered)
             self.assertNotIn("gen_ai.tool.name", rendered)
             self.assertNotIn("antigravity.tool.name", rendered)
             self.assertNotIn("tool.arguments", rendered)

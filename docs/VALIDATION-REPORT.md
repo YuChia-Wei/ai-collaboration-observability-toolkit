@@ -2,104 +2,78 @@
 
 ## Metadata
 
-- Repository: `ai-collaboration-observability-toolkit`
-- Version: `0.1.2`
-- Validation date: `2026-08-08`
-- Generation environment: Linux, Python `3.13.5`
-- Validation principle: unavailable checks are recorded as **NOT EXECUTED**, never inferred as passed.
+- Version: 0.1.3
+- Date: 2026-08-09
+- Host: Windows, PowerShell, Python 3.13.14
+- Docker: 29.6.2
+- Docker Compose: v5.3.1
 
 ## Result summary
 
-| Validation surface | Status | Evidence |
+| Gate | Result | Evidence |
 | --- | --- | --- |
-| Repository static policy validator | PASS | `python3 scripts/toolkit.py validate --mode all --static-only` |
-| Python unit tests | PASS | `31` tests passed |
-| Python syntax/bytecode compilation | PASS | `python3 -m compileall -q scripts tests examples/antigravity` |
-| Bash syntax | PASS | `bash -n scripts/*.sh` |
-| YAML, JSON, TOML parsing | PASS | Included in the static policy validator |
-| Duplicate YAML key rejection | PASS | Included in validator and unit tests |
-| JSON Schema examples | PASS | AI Context event and feedback bundle validated |
-| Antigravity direct Hooks examples | PASS | Four OS/profile variants parse; no `PreToolUse`; five explicit bounded matchers |
-| Antigravity status-line examples | PASS | Four OS/profile fragments parse; corporate variants disable session pseudonyms |
-| Antigravity privacy tests | PASS | Documented `modelName` retained; `toolCall`, paths, IDs, e-mail, commands and raw errors excluded |
-| Local OTLP/HTTP wire test | PASS | Logs/traces delivered to an ephemeral loopback receiver without fixture secrets |
-| Grafana Antigravity dashboard | PASS (static) | Queries all nine exporter metrics and labels observations as non-billing |
-| Local Markdown link targets | PASS | Included in the static policy validator |
-| Compose policy and mode boundaries | PASS (static) | Exact image defaults, loopback ports, no `container_name`, mutually exclusive modes |
-| Collector processor ordering | PASS (static) | Minimization precedes batching and Phoenix routing |
-| Corporate metadata allowlist | PASS (static) | Strict `keep_keys`, fixed bodies/names, no Phoenix exporter |
-| Loki index-label policy | PASS (static) | Exact approved low-cardinality label set |
-| Tempo retention/configuration shape | PASS (static) | Local monolithic storage and scoped `336h` retention |
-| Docker Compose merged configuration | NOT EXECUTED locally | Docker/Compose executable unavailable; CI workflow exists |
-| OpenTelemetry Collector native validation | NOT EXECUTED locally | `OTELCOL_BIN` unavailable; pinned validator configured in CI |
-| Prometheus native validation | NOT EXECUTED locally | `PROMTOOL_BIN` unavailable; pinned validator configured in CI |
-| Loki native `-verify-config` | NOT EXECUTED locally | Container/runtime unavailable; pinned image check configured in CI |
-| Tempo native `-config.verify` | NOT EXECUTED locally | Container/runtime unavailable; pinned image check configured in CI |
-| PowerShell parser/execution | NOT EXECUTED locally | `pwsh` unavailable |
-| Core/Corporate/Evaluation runtime smoke and persistence | NOT EXECUTED locally | Docker daemon unavailable |
-| Live installed Antigravity invocation | NOT EXECUTED locally | Requires Antigravity and a running Collector on the target workstation |
-| Grafana live browser rendering | NOT EXECUTED locally | Requires a running stack and browser review |
+| Static repository policy | PASS | toolkit validate --mode all --static-only |
+| Python unit tests | PASS | 34 discovered: 33 passed, 1 Windows-only POSIX executable-bit check skipped |
+| Bash syntax | PASS | WSL bash -n scripts/*.sh |
+| PowerShell parser | PASS | toolkit full validation |
+| Compose merged config | PASS | Core, Corporate, Evaluation |
+| Collector native config | PASS | pinned 0.158.0 image; Core, Evaluation, Corporate |
+| Prometheus native config | PASS | promtool from pinned 3.13.2 image |
+| Loki native config | PASS | pinned 3.7.6 verify-config |
+| Tempo native config | PASS | pinned 3.0.2 config.verify=true |
+| Evaluation readiness | PASS | Collector, Prometheus, Loki, Tempo, Grafana, Postgres/Phoenix |
+| Evaluation OTLP and privacy | PASS | Legacy and Codex logs/metrics/traces accepted; sentinels absent |
+| Native/canonical reconciliation | PASS | Codex token histogram raw_sum 1536 equals canonical_sum 1536 |
+| Grafana | PASS | Three datasources healthy; both v0.1.3 dashboard UIDs/titles loaded |
+| Phoenix routing | PASS | Selected trace present; rejected trace absent |
+| Evaluation persistence | PASS | Five named volumes present and data queryable after restart |
+| Corporate isolation | PASS | Alternate ports/project, five services, no Phoenix |
+| Corporate privacy/persistence | PASS | Same Codex reconciliation/privacy checks passed after restart |
+| Corporate test cleanup | PASS | Exact test containers, network, and four test volumes removed |
+| Codex sender config | PASS (file) | Backup exists; one-line change; three loopback endpoints verified |
+| Codex restart acceptance | NOT EXECUTED | Owner restart required; active process intentionally not terminated |
+| Historical data erasure | NOT EXECUTED | Destructive cleanup not authorized and not required for forward policy |
+| Hosted PR CI | PENDING | Recorded after pull request creation |
 
-## Antigravity assertions
+## Evaluation runtime assertions
 
-The committed validator and tests prove the following about the example itself:
+- Stack readiness passed for every service.
+- Raw and canonical Codex token histogram sums reconciled exactly.
+- Forbidden Codex resource/datapoint attributes and the fixture sentinel did
+  not appear in the new Prometheus series metadata.
+- The Codex log privacy window was present in Loki without the sentinel.
+- The Codex trace was present in Tempo without the sentinel.
+- Codex Native Telemetry loaded at UID ai-codex-usage.
+- AI Agent Usage loaded at UID ai-agent-usage.
+- Phoenix accepted only the explicitly selected fixture.
+- All checks repeated successfully after service restart.
 
-1. The Repository ships one canonical exporter and one direct-Hooks route; no second Plugin Hooks
-   package is present.
-2. Project/user Hooks cover `PreInvocation`, `PostInvocation`, `PostToolUse`, and `Stop`.
-3. `PreToolUse` is absent, so passive telemetry cannot alter permission decisions.
-4. Tool matchers use no wildcard and pass exactly five low-cardinality operation categories.
-5. Lifecycle Hooks consume documented `modelName`; CLI status consumes its documented `model` object.
-6. The exporter deliberately does not read `toolCall` even though the privacy fixture contains a tool
-   name, command, working directory, and sentinel.
-7. Prompt/response/transcript/artifact/code content, paths, branch, e-mail, plan tier, raw errors, reset
-   timestamps, and raw session/conversation IDs are not emitted.
-8. Personal mode may add an HMAC session pseudonym; corporate variants disable it.
-9. Hook callbacks always return non-interfering contract JSON, including when OTLP export fails.
-10. Unchanged status payloads are deduplicated until the configured heartbeat.
-11. The exporter sends only OTLP/HTTP `/v1/logs`, `/v1/metrics`, and `/v1/traces` to loopback by
-    default.
-12. Dashboard metrics are observations and are not represented as official credits or billing.
+Structured local reports were written to:
 
-## Commands executed
+- artifacts/smoke/v0.1.3-evaluation.json
+- artifacts/smoke/v0.1.3-corporate.json
 
-```text
-python3 scripts/toolkit.py validate --mode all --static-only
-PASS: repository configuration and policy validation
+The artifacts directory is intentionally ignored; this document records the
+release evidence without committing runtime-local details.
 
-python3 -m unittest discover -s tests -v
-Ran 31 tests
-OK
+## Native validator commands
 
-python3 -m compileall -q scripts tests examples/antigravity
-(exit code 0)
+    docker run --rm --volume <repo>/config/otel-collector:/etc/otelcol:ro \
+      otel/opentelemetry-collector-contrib:0.158.0 \
+      validate --config=/etc/otelcol/<mode>.yaml
 
-bash -n scripts/*.sh
-(exit code 0)
+    docker run --rm --entrypoint=/bin/promtool \
+      --volume <repo>/config/prometheus:/etc/prometheus:ro \
+      prom/prometheus:v3.13.2 check config /etc/prometheus/prometheus.yml
 
-python3 scripts/toolkit.py validate --mode all
-SKIP: Docker Compose v2+ executable not available
-SKIP: OTELCOL_BIN not set; native Collector validation is performed in CI
-SKIP: PROMTOOL_BIN not set; native Prometheus validation is performed in CI
-SKIP: LOKI_BIN not set; native Loki validation is performed in CI
-SKIP: TEMPO_BIN not set; native Tempo validation is performed in CI
-SKIP: pwsh not available; PowerShell parsing is performed in CI
-PASS: repository configuration and policy validation
-```
+    docker run --rm --volume <repo>/config/loki:/etc/loki:ro \
+      grafana/loki:3.7.6 -config.file=/etc/loki/loki.yml -verify-config=true
 
-## Required first-machine acceptance
+    docker run --rm --volume <repo>/config/tempo:/etc/tempo:ro \
+      grafana/tempo:3.0.2 -config.file=/etc/tempo/tempo.yml -config.verify=true
 
-On the target Windows/WSL workstation:
+## Release blockers
 
-```bash
-cp .env.example .env
-python3 scripts/toolkit.py validate --mode all
-python3 scripts/toolkit.py up --mode core
-python3 scripts/toolkit.py smoke --mode core --persistence-check --report artifacts/smoke-core.json
-python3 -m unittest tests.test_antigravity_example -v
-```
-
-Install the matching Antigravity Hook and status-line examples, execute a small non-sensitive task, then
-verify Collector logs, the **Antigravity Usage (observed, not billing)** dashboard, and absence of
-sensitive fields. Corporate and Evaluation modes must be tested separately. A skipped native/runtime
-check must not be relabeled as passed.
+Local implementation/runtime blockers are closed. Hosted CI, merge, annotated
+tag, GitHub Release, Project read-back, and deployment from merged main remain
+release-sequence gates and must not be reported as complete before they occur.

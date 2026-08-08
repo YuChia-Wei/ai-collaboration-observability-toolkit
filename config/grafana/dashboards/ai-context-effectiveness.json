@@ -42,7 +42,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_task_outcome_total{outcome=\"success\"}[$__range]) or increase(codex_conversation_turn_count[$__range]) or max_over_time(codex_conversation_turn_count[$__range])) by (model, service_name)",
+          "expr": "sum(increase(ai_context_task_outcome_total{outcome=\"success\"}[$__range])) by (framework_version, task_type)",
           "legendFormat": "{{model}}"
         }
       ]
@@ -80,7 +80,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(sum(increase(ai_context_manual_correction_total[$__range])) by (model) / clamp_min(sum(increase(ai_context_task_outcome_total[$__range])) by (model), 1)) or (sum(max_over_time(codex_websocket_event_duration_ms_count{success=\"false\"}[$__range])) by (model) / clamp_min(sum(max_over_time(codex_websocket_event_duration_ms_count[$__range])) by (model), 1))",
+          "expr": "sum(increase(ai_context_manual_correction_total[$__range])) by (framework_version) / clamp_min(sum(increase(ai_context_task_outcome_total[$__range])) by (framework_version), 1)",
           "legendFormat": "{{model}}"
         }
       ]
@@ -118,7 +118,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_loaded_bytes_total[$__range]) or increase(codex_thread_skills_kept_total_sum[$__range]) or max_over_time(codex_thread_skills_kept_total_sum[$__range])) by (model, service_name)",
+          "expr": "sum(increase(ai_context_loaded_bytes_total[$__range])) by (framework_version, task_type)",
           "legendFormat": "{{model}}"
         }
       ]
@@ -156,7 +156,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_estimated_context_tokens_total[$__range]) or increase(codex_turn_token_usage_sum{token_type=~\"cached_input|input\"}[$__range]) or max_over_time(codex_turn_token_usage_sum{token_type=~\"cached_input|input\"}[$__range])) by (token_type, model)",
+          "expr": "sum(increase(ai_context_estimated_context_tokens_total[$__range])) by (framework_version, task_type)",
           "legendFormat": "{{model}} - {{token_type}}"
         }
       ]
@@ -194,7 +194,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_rule_state_total[$__range]) or max_over_time(codex_thread_skills_enabled_total_count[$__range]) or max_over_time(codex_thread_skills_kept_total_count[$__range])) by (model, service_name)",
+          "expr": "sum(increase(ai_context_rule_state_total[$__range])) by (framework_version, state)",
           "legendFormat": "{{model}}"
         }
       ]
