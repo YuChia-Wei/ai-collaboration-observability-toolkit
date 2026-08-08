@@ -33,7 +33,7 @@
 | Codex sender config | PASS (file) | Backup exists; one-line change; three loopback endpoints verified |
 | Codex restart acceptance | NOT EXECUTED | Owner restart required; active process intentionally not terminated |
 | Historical data erasure | NOT EXECUTED | Destructive cleanup not authorized and not required for forward policy |
-| Hosted PR CI | PENDING | Recorded after pull request creation |
+| Hosted PR CI | PASS | PR #11 run 31268397106: policy, pinned native validators, tests, Core runtime/persistence, artifact upload, and cleanup |
 
 ## Evaluation runtime assertions
 
@@ -74,6 +74,7 @@ release evidence without committing runtime-local details.
 
 ## Release blockers
 
-Local implementation/runtime blockers are closed. Hosted CI, merge, annotated
-tag, GitHub Release, Project read-back, and deployment from merged main remain
-release-sequence gates and must not be reported as complete before they occur.
+Local implementation/runtime blockers and the first hosted CI run are closed.
+Merge, annotated tag, GitHub Release, Project read-back, and deployment from
+merged main remain release-sequence gates and must not be reported as complete
+before they occur.
