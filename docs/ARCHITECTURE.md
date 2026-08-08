@@ -6,7 +6,8 @@ This toolkit supplies a stable telemetry boundary for observing AI-assisted soft
 separates three concerns that are often incorrectly combined:
 
 1. **Execution evidence** — latency, waits, retries, validation, tool activity, and platform health.
-2. **Usage and cost evidence** — token classes, model/tool attribution, and official-versus-estimated cost.
+2. **AI-agent usage evidence** — provider-reported or locally observed token,
+   latency, tool, and lifecycle signals without inferred cost.
 3. **Improvement evidence** — human annotations, evaluators, datasets, and experiments comparing AI
    collaboration framework versions.
 
@@ -123,6 +124,24 @@ The Collector enables memory limiting, batching, retry-on-failure, and bounded s
 protects short backend restarts but is not a durable message queue. A workstation shutdown can lose
 buffered telemetry. Durable offline corporate export is a roadmap item and must use a separately
 reviewed, versioned feedback-bundle contract.
+
+## Telemetry contract layers
+
+The Collector separates three layers:
+
+1. privacy-filtered native provider signals such as codex.* and antigravity_*;
+2. canonical ai_agent.* copies for bounded cross-agent usage analysis;
+3. independently emitted ai_context.* framework/workflow evidence.
+
+Canonicalization runs after an initial denylist and before the final
+mode-specific privacy policy. This lets the normalizer derive bounded
+categories without permitting raw model, tool, content, identifier, or path
+fields to escape. Native and canonical metrics are both retained, but
+dashboards never use fallback expressions across contract layers.
+
+The only host-facing telemetry ingress remains the OpenTelemetry Collector.
+Phoenix is not an ingress and receives only explicitly selected, already
+redacted Evaluation traces.
 
 ## Why not one all-in-one backend
 

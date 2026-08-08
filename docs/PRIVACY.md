@@ -92,6 +92,26 @@ Published ports bind to loopback. Grafana has authentication, but Prometheus, Lo
 and Phoenix local endpoints do not. Treat the workstation account as the security boundary. Do not
 change bind addresses for team sharing; design an authenticated internal deployment instead.
 
+## Codex normalization and existing local data
+
+Version 0.1.3 adds a first-pass denylist before canonical normalization. It
+covers dotted, underscored, and hyphenated forms used by current Codex
+telemetry, including arguments, conversation_id, user_account_id, call_id,
+trace_id, span_id, prompt_length, raw tool/MCP names and payloads, endpoints,
+host names, and path-bearing fields. The final privacy processor still runs
+after normalization.
+
+The versioned Codex fixture intentionally injects a synthetic privacy sentinel
+into metrics, logs, and traces. Runtime smoke verifies that the sentinel and
+forbidden labels are absent in the new Prometheus/Loki/Tempo time window.
+
+Collector policy changes are forward-looking. Data written to persistent
+volumes before 0.1.3 may contain attributes that the older policy admitted.
+The release does not silently delete those volumes. Irreversible cleanup
+requires an explicit Owner decision and a reviewed backup/retention procedure.
+A successful 0.1.3 privacy smoke proves the new ingestion window, not
+retroactive erasure.
+
 ## Antigravity local bridges
 
 The Antigravity examples consume Hooks and, for the CLI, custom status-line JSON. Those payloads may

@@ -1,5 +1,17 @@
 # Google Antigravity integration
 
+## Canonical contract in 0.1.3
+
+The exporter emits ai_agent.provider=google,
+ai_agent.product=antigravity, and a bounded ai_agent.surface of hooks or
+status-line. Lifecycle metadata uses bounded AI-agent operation/model/tool/
+evidence fields. The Collector retains the native antigravity_* gauges and
+creates ai_agent.observed.* gauge copies.
+
+These values are extension observations, not provider billing records. They do
+not satisfy the AI Context framework evidence contract and are not used as a
+fallback on AI Context dashboards.
+
 ## Decision
 
 The toolkit integrates with Google Antigravity through two documented local extension surfaces:

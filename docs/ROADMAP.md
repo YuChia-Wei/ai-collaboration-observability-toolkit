@@ -1,63 +1,27 @@
 # Roadmap
 
-## Implemented baseline
+## v0.1.3 — Observability Baseline Stabilization
 
-- Core LGTM mode with a host-facing OpenTelemetry Collector.
-- Evaluation mode with selected redacted traces to Phoenix/PostgreSQL.
-- Corporate metadata-only allowlist mode.
-- Codex configuration example.
-- Provisioned Grafana datasources and initial dashboards.
-- Deterministic OTLP fixtures and end-to-end privacy/routing smoke test.
-- Bash/PowerShell operations and CI configuration validation.
+- Versioned Codex 0.146.1 telemetry fixture and semantic mapping.
+- Initial privacy denylist plus final mode-specific policy.
+- Additive ai_agent.* normalization with native telemetry retained.
+- Antigravity canonical alignment and truthful provider support matrix.
+- Separate Codex Native, AI Agent Usage, and AI Context dashboards.
+- Docker Compose as the primary runtime; Python remains an optional validation
+  and operations convenience.
 
-## Next: AI Context instrumentation
+## v0.2.0 — AI Collaboration Improvement Loop
 
-1. Define a small hook/CLI that emits workflow, state, validation, wait, Git, and outcome spans.
-2. Add validation fingerprints and evidence-reuse decisions.
-3. Add sleep/resume and heartbeat/checkpoint events.
-4. Emit context manifest hashes, loaded file/byte counts, and rule-effect states.
-5. Keep the emitter technology-neutral; consider Rust/Go/.NET AOT only after command/runtime needs are
-   measured.
+- Issue #4: instrument genuine ai_context.* framework evidence and validate AI
+  Context dashboards without provider fallbacks.
+- Issue #5: build a curated Phoenix evaluation/annotation loop using only
+  explicitly selected, already-redacted traces.
 
-## Next: Phoenix improvement loop
+## Unassigned and later horizons
 
-1. Import the v0.8.0 release incident as the first curated trace/dataset.
-2. Implement deterministic evaluators from `PHOENIX-INTEGRATION.md`.
-3. Establish disposable Git worktree fixtures for framework-version experiments.
-4. Compare current/simplified frameworks under fixed model and task conditions.
-5. Feed accepted findings into governed backlog items rather than auto-editing rules.
-
-## Next: company usage showback
-
-1. Define a versioned, redacted `ai-context-feedback-bundle.json` schema.
-2. Add local aggregation/export without raw content.
-3. Design a PostgreSQL official usage ledger and reconciliation jobs.
-4. Pilot CSV import before Admin API automation.
-5. Add per-user access control and anonymous team aggregates.
-6. Create “my AI usage,” “task cost effectiveness,” “workflow waste,” and “official reconciliation”
-   dashboards.
-
-## Deferred platform comparisons
-
-After the telemetry contract is stable, use Collector fan-out and identical fixture/query workloads
-to compare ClickStack/HyperDX, SigNoz, or OpenObserve. Do not migrate merely because a backend has an
-AI-labelled dashboard.
-
-## Explicitly deferred
-
-- Kubernetes/Helm and high availability.
-- Internet exposure and authentication gateway.
-- OpenAI Enterprise Admin/Spend Controls write automation.
-- Automated employee productivity ranking.
-- Raw prompt/code collection.
-- Automatic rule deletion based only on usage frequency.
-
-## Antigravity native usage follow-up
-
-- Replace or complement the local Hooks/status-line bridge if Antigravity publishes a native,
-  user-configurable OTLP exporter.
-- Reconcile observed CLI token/quota metadata with an official enterprise usage source before treating
-  it as credit or accounting data.
-- Revalidate Hook matcher tool names, event payload contracts, and status fields after Antigravity upgrades.
-- Add a non-Python bridge only when deployment evidence shows Python is an unacceptable host
-  prerequisite; the current scripts require only the standard library.
+- Issue #6 remains unassigned until an Owner allocates it.
+- Issue #7 remains a deferred proposal.
+- Claude Code and GitHub Copilot normalization require separate version-pinned
+  fixtures and follow-up Issues; documentation does not count as support.
+- Company showback, billing reconciliation, and task-level cost attribution
+  remain later horizons and require authoritative inputs.

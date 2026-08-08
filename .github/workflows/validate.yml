@@ -49,7 +49,7 @@ jobs:
             -v "$PWD/config/tempo:/etc/tempo:ro" \
             grafana/tempo:3.0.2 \
             -config.file=/etc/tempo/tempo.yml \
-            -config.verify
+            -config.verify=true
       - name: Run repository tests and language syntax checks
         run: |
           python -m unittest discover -s tests -v

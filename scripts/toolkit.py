@@ -29,11 +29,13 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 SENTINEL = "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
 ANTIGRAVITY_SENTINEL = "ANTIGRAVITY_PRIVATE_SENTINEL_93F2"
+CODEX_FIXTURE_SENTINEL = "codex_fixture_private_sentinel"
 MODES = {"core", "evaluation", "corporate"}
 PHOENIX_PROJECT = "ai-collaboration-observability-fixture"
 TRACE_CORE = "11111111111111111111111111111111"
 TRACE_SELECTED = "22222222222222222222222222222222"
 TRACE_REJECTED = "33333333333333333333333333333333"
+TRACE_CODEX = "44444444444444444444444444444444"
 EXACT_IMAGES = {
     "otel-collector": "otel/opentelemetry-collector-contrib:0.158.0",
     "prometheus": "prom/prometheus:v3.13.2",
@@ -85,9 +87,11 @@ REQUIRED_DOCS = {
     "docs/CODEX-INTEGRATION.md",
     "docs/ANTIGRAVITY-INTEGRATION.md",
     "docs/PHOENIX-INTEGRATION.md",
+    "docs/PROVIDER-SUPPORT.md",
     "docs/COST-ATTRIBUTION.md",
     "docs/DEPENDENCIES.md",
     "docs/RESOURCE-BASELINE.md",
+    "docs/RELEASE-NOTES-v0.1.3.md",
     "docs/IMPLEMENTATION-REPORT.md",
     "docs/VALIDATION-REPORT.md",
     "requirements.txt",
@@ -567,6 +571,56 @@ def static_validate() -> list[str]:
                     f"{profile_name} Prometheus exporter {key} must be {expected!r}"
                 )
 
+        processors = profile.get("processors", {})
+        if processors.get("transform/privacy_initial", {}).get("error_mode") != "propagate":
+            errors.append(
+                f"{profile_name} initial privacy policy must fail closed with error_mode=propagate"
+            )
+        if processors.get("transform/ai_agent", {}).get("error_mode") != "propagate":
+            errors.append(
+                f"{profile_name} canonical AI-agent transform must fail closed"
+            )
+        pipelines = (profile.get("service") or {}).get("pipelines") or {}
+        for signal, batch_name in (
+            ("logs", "batch/logs"),
+            ("metrics", "batch/metrics"),
+            ("traces", "batch/traces"),
+        ):
+            expected_order = [
+                "memory_limiter",
+                "resource/normalize",
+                "transform/privacy_initial",
+                "transform/ai_agent",
+                transform_name,
+                batch_name,
+            ]
+            found = (pipelines.get(signal) or {}).get("processors") or []
+            if found != expected_order:
+                errors.append(
+                    f"{profile_name} {signal} processor order must be {expected_order}; "
+                    f"found={found}"
+                )
+
+        profile_text = (collector_dir / profile_name).read_text(encoding="utf-8")
+        for raw_name, canonical_name in (
+            ("codex.turn.token_usage", "ai_agent.turn.token_usage"),
+            ("codex.turn.e2e_duration_ms", "ai_agent.turn.duration_ms"),
+            ("codex.turn.ttft.duration_ms", "ai_agent.turn.ttft.duration_ms"),
+            ("codex.tool.call", "ai_agent.tool.call"),
+            ("codex.mcp.call", "ai_agent.mcp.call"),
+            ("codex.task.compact", "ai_agent.compaction"),
+            ("codex.skill.injected", "ai_agent.skill.injection"),
+            ("codex.thread.started", "ai_agent.thread.started"),
+            ("antigravity_session_tokens", "ai_agent.observed.session_tokens"),
+        ):
+            statement = (
+                f'copy_metric(name="{canonical_name}") where name == "{raw_name}"'
+            )
+            if statement not in profile_text:
+                errors.append(
+                    f"{profile_name} canonical mapping missing: {raw_name} -> {canonical_name}"
+                )
+
     if (
         evaluation.get("processors", {})
         .get("filter/phoenix-selected", {})
@@ -654,6 +708,8 @@ def static_validate() -> list[str]:
     required_order = [
         "memory_limiter",
         "resource/normalize",
+        "transform/privacy_initial",
+        "transform/ai_agent",
         "transform/privacy",
         "filter/phoenix-selected",
         "batch/phoenix",
@@ -740,8 +796,18 @@ def static_validate() -> list[str]:
             errors.append("Antigravity exporter: documented Hook modelName support is missing")
         if 'payload.get("toolCall")' in exporter_text or 'payload["toolCall"]' in exporter_text:
             errors.append("Antigravity exporter: must not inspect toolCall content")
-        if 'SCOPE_VERSION = "0.1.2"' not in exporter_text:
+        repository_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+        if f'SCOPE_VERSION = "{repository_version}"' not in exporter_text:
             errors.append("Antigravity exporter: scope version must match Repository version")
+        for required in (
+            '"ai_observability.profile": profile',
+            '"ai_agent.provider": "google"',
+            '"ai_agent.product": product',
+            '"ai_agent.surface": surface',
+            '"ai_agent.evidence.class": "observed"',
+        ):
+            if required not in exporter_text:
+                errors.append(f"Antigravity exporter: canonical contract missing {required}")
 
     expected_antigravity_operations = {
         "file-operation",
@@ -855,6 +921,68 @@ def static_validate() -> list[str]:
             if metric_name not in dashboard_text:
                 errors.append(f"Antigravity dashboard: missing {metric_name}")
 
+    codex_fixture = ROOT / "fixtures/codex/0.146.1"
+    for filename in (
+        "README.md",
+        "mapping.yaml",
+        "metrics.sanitized.json",
+        "logs.sanitized.json",
+        "traces.sanitized.json",
+        "prometheus-series.md",
+    ):
+        if not (codex_fixture / filename).is_file():
+            errors.append(f"Codex fixture: missing {filename}")
+    for filename in ("metrics.sanitized.json", "logs.sanitized.json", "traces.sanitized.json"):
+        path = codex_fixture / filename
+        if path.is_file():
+            try:
+                rendered = render_fixture(path).decode("utf-8")
+                if CODEX_FIXTURE_SENTINEL not in rendered:
+                    errors.append(f"Codex fixture: privacy sentinel missing from {filename}")
+            except (OSError, json.JSONDecodeError) as exc:
+                errors.append(f"Codex fixture {filename}: {exc}")
+
+    dashboards = ROOT / "config/grafana/dashboards"
+    dashboard_contract = {
+        "codex-usage.json": {
+            "required": ("codex_", "Cost is unavailable"),
+            "forbidden": ("ai_agent_", "ai_context_", "antigravity_"),
+        },
+        "ai-agent-usage.json": {
+            "required": ("ai_agent_", "Cost is unavailable"),
+            "forbidden": ("codex_", "ai_context_", "antigravity_"),
+        },
+        "ai-context-effectiveness.json": {
+            "required": ("ai_context_",),
+            "forbidden": ("codex_", "ai_agent_", "antigravity_"),
+        },
+        "ai-workflow-efficiency.json": {
+            "required": ("ai_context_",),
+            "forbidden": ("codex_", "ai_agent_", "antigravity_"),
+        },
+    }
+    for filename, rules in dashboard_contract.items():
+        path = dashboards / filename
+        if not path.is_file():
+            errors.append(f"Dashboard contract: missing {filename}")
+            continue
+        dashboard = json.loads(path.read_text(encoding="utf-8"))
+        expressions = "\n".join(
+            str(target.get("expr", ""))
+            for panel in dashboard.get("panels", [])
+            for target in panel.get("targets", [])
+        )
+        rendered = json.dumps(dashboard)
+        for required in rules["required"]:
+            haystack = expressions if required.endswith("_") else rendered
+            if required not in haystack:
+                errors.append(f"Dashboard contract {filename}: missing {required}")
+        for forbidden in rules["forbidden"]:
+            if forbidden in expressions:
+                errors.append(
+                    f"Dashboard contract {filename}: forbidden cross-contract query {forbidden}"
+                )
+
     allowed_sentinel_paths = {
         "SECURITY.md",
         "docs/PRIVACY.md",
@@ -882,17 +1010,39 @@ def static_validate() -> list[str]:
                 f"Antigravity sentinel leaked outside fixture/test surfaces: {relative}"
             )
 
-    for path in sorted((ROOT / "scripts").glob("*.sh")):
-        bash = shutil.which("bash")
-        if bash:
+    bash = shutil.which("bash")
+    bash_available = False
+    if bash:
+        probe = subprocess.run(
+            [bash, "--version"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        bash_available = probe.returncode == 0
+        if not bash_available:
+            print(
+                "SKIP: bash is installed but unavailable in this execution environment"
+            )
+    else:
+        print("SKIP: bash not available; shell syntax validation is performed in CI")
+    if bash_available:
+        for path in sorted((ROOT / "scripts").glob("*.sh")):
             result = subprocess.run(
                 [bash, "-n", path.relative_to(ROOT).as_posix()],
                 cwd=ROOT,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             if result.returncode:
-                errors.append(f"Bash {path.name}: {result.stderr.strip()}")
+                detail = result.stderr.strip() or result.stdout.strip() or "no diagnostic output"
+                errors.append(
+                    f"Bash {path.name} (exit {result.returncode}): {detail}"
+                )
     for python_path in (
         ROOT / "scripts/toolkit.py",
         ROOT / "examples/antigravity/antigravity_otel_exporter.py",
@@ -901,6 +1051,8 @@ def static_validate() -> list[str]:
             [sys.executable, "-m", "py_compile", str(python_path)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
         if python_check.returncode:
             errors.append(
@@ -1026,7 +1178,7 @@ def external_validate(mode: str) -> list[str]:
             tempo_bin,
             [
                 f"-config.file={ROOT / 'config/tempo/tempo.yml'}",
-                "-config.verify",
+                "-config.verify=true",
             ],
             "Tempo",
         )
@@ -1160,9 +1312,15 @@ def wait_stack(mode: str) -> None:
         )
 
 
-def send_fixture(filename: str, signal: str) -> None:
+def send_fixture(
+    filename: str,
+    signal: str,
+    *,
+    directory: Path | None = None,
+) -> None:
     port = os.getenv("OTLP_HTTP_PORT", "4318")
-    data = render_fixture(ROOT / "examples/otlp" / filename)
+    fixture_directory = directory or ROOT / "examples/otlp"
+    data = render_fixture(fixture_directory / filename)
     status, body = http(
         "POST",
         f"http://127.0.0.1:{port}/v1/{signal}",
@@ -1222,11 +1380,24 @@ def prometheus_series(metric: str) -> list[dict[str, str]]:
     return payload.get("data", [])
 
 
-def loki_query() -> tuple[dict[str, Any], bytes]:
+def prometheus_scalar(expr: str) -> float:
+    results = prometheus_query(expr)
+    if len(results) != 1:
+        raise RuntimeError(f"expected one Prometheus scalar series for {expr!r}: {results}")
+    return float(results[0]["value"][1])
+
+
+def loki_query(
+    service_name: str = "ai-observability-fixture",
+    service_namespace: str | None = None,
+) -> tuple[dict[str, Any], bytes]:
     port = os.getenv("LOKI_PORT", "3100")
+    selector = f'service_name="{service_name}"'
+    if service_namespace:
+        selector += f',service_namespace="{service_namespace}"'
     params = urllib.parse.urlencode(
         {
-            "query": '{service_name="ai-observability-fixture"}',
+            "query": "{" + selector + "}",
             "limit": "100",
             "start": str(time.time_ns() - 15 * 60 * 1_000_000_000),
             "end": str(time.time_ns()),
@@ -1265,6 +1436,22 @@ def grafana_datasource_health(uid: str) -> dict[str, Any]:
     if status != 200:
         raise RuntimeError(
             f"Grafana datasource {uid} health failed: HTTP {status} {payload}"
+        )
+    return payload
+
+
+def grafana_dashboard(uid: str) -> dict[str, Any]:
+    port = os.getenv("GRAFANA_PORT", "3000")
+    status, body = http(
+        "GET",
+        f"http://127.0.0.1:{port}/api/dashboards/uid/"
+        f"{urllib.parse.quote(uid)}",
+        headers=grafana_headers(),
+    )
+    payload = json.loads(body or b"{}")
+    if status != 200:
+        raise RuntimeError(
+            f"Grafana dashboard {uid} lookup failed: HTTP {status} {payload}"
         )
     return payload
 
@@ -1355,6 +1542,52 @@ def _check_backend_data(
         raise RuntimeError("privacy sentinel leaked into Prometheus series metadata")
     report.pass_(prefix + "prometheus label policy")
 
+    raw_sum, canonical_sum = retry(
+        "Codex raw/canonical token histogram reconciliation",
+        lambda: (
+            prometheus_scalar(
+                'sum(codex_turn_token_usage_sum{service_namespace="ai-collaboration-fixture"})'
+            ),
+            prometheus_scalar(
+                'sum(ai_agent_turn_token_usage_sum{service_namespace="ai-collaboration-fixture"})'
+            ),
+        ),
+        lambda value: value[0] > 0 and abs(value[0] - value[1]) < 0.000001,
+    )
+    canonical_series = prometheus_series(
+        'ai_agent_turn_token_usage_sum{service_namespace="ai-collaboration-fixture"}'
+    )
+    canonical_rendered = json.dumps(canonical_series)
+    if CODEX_FIXTURE_SENTINEL in canonical_rendered:
+        raise RuntimeError("Codex privacy sentinel leaked into canonical Prometheus series")
+    forbidden_codex_labels = {
+        "arguments",
+        "call_id",
+        "conversation_id",
+        "prompt_length",
+        "session_id",
+        "tool",
+        "tool_name",
+        "trace_id",
+        "user_account_id",
+    }
+    leaked_codex_labels = sorted(
+        {
+            key
+            for item in canonical_series
+            for key in item
+            if key in forbidden_codex_labels
+        }
+    )
+    if leaked_codex_labels:
+        raise RuntimeError(
+            f"forbidden Codex canonical labels found: {leaked_codex_labels}"
+        )
+    report.pass_(
+        prefix + "codex raw/canonical histogram",
+        f"raw_sum={raw_sum:g}, canonical_sum={canonical_sum:g}",
+    )
+
     loki_payload, loki_raw = retry(
         "Loki smoke log",
         loki_query,
@@ -1368,6 +1601,18 @@ def _check_backend_data(
         prefix + "loki log", f"streams={len(loki_payload['data']['result'])}"
     )
 
+    codex_loki_payload, codex_loki_raw = retry(
+        "Loki Codex sanitized log",
+        lambda: loki_query("codex-app-server", "ai-collaboration-fixture"),
+        lambda value: bool(value[0].get("data", {}).get("result")),
+    )
+    if CODEX_FIXTURE_SENTINEL.encode() in codex_loki_raw:
+        raise RuntimeError("Codex privacy sentinel leaked into Loki")
+    report.pass_(
+        prefix + "codex loki privacy window",
+        f"streams={len(codex_loki_payload['data']['result'])}",
+    )
+
     status, body = retry(
         "Tempo core trace",
         lambda: tempo_trace(TRACE_CORE),
@@ -1376,6 +1621,15 @@ def _check_backend_data(
     if SENTINEL.encode() in body:
         raise RuntimeError("privacy sentinel leaked into Tempo core trace")
     report.pass_(prefix + "tempo core trace")
+
+    status, codex_trace = retry(
+        "Tempo Codex sanitized trace",
+        lambda: tempo_trace(TRACE_CODEX),
+        lambda value: value[0] == 200,
+    )
+    if CODEX_FIXTURE_SENTINEL.encode() in codex_trace:
+        raise RuntimeError("Codex privacy sentinel leaked into Tempo")
+    report.pass_(prefix + "codex tempo privacy window")
 
     if mode == "evaluation":
         for trace_id, label in [
@@ -1406,6 +1660,21 @@ def _check_grafana(report: SmokeReport, prefix: str = "") -> None:
         )
         detail = str(payload.get("message", payload.get("status", "OK")))
         report.pass_(prefix + f"grafana datasource {uid}", detail)
+    for uid, title in (
+        ("ai-codex-usage", "Codex Native Telemetry"),
+        ("ai-agent-usage", "AI Agent Usage"),
+    ):
+        payload = retry(
+            f"Grafana dashboard {uid}",
+            lambda uid=uid: grafana_dashboard(uid),
+            lambda value, title=title: (
+                (value.get("dashboard") or {}).get("title") == title
+            ),
+        )
+        report.pass_(
+            prefix + f"grafana dashboard {uid}",
+            str((payload.get("dashboard") or {}).get("title", "")),
+        )
 
 
 def _check_phoenix(report: SmokeReport, prefix: str = "") -> None:
@@ -1510,6 +1779,10 @@ def smoke(
         send_fixture("logs.json", "logs")
         send_fixture("metrics.json", "metrics")
         send_fixture("traces.json", "traces")
+        codex_fixture = ROOT / "fixtures/codex/0.146.1"
+        send_fixture("logs.sanitized.json", "logs", directory=codex_fixture)
+        send_fixture("metrics.sanitized.json", "metrics", directory=codex_fixture)
+        send_fixture("traces.sanitized.json", "traces", directory=codex_fixture)
         if mode == "evaluation":
             send_fixture("phoenix-rejected-trace.json", "traces")
             send_fixture("phoenix-selected-trace.json", "traces")

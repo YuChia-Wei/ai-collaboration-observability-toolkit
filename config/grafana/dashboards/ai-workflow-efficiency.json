@@ -42,7 +42,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum(rate(ai_context_workflow_duration_seconds_bucket[5m])) by (le, stage, task_type)) or (histogram_quantile(0.95, sum(rate(codex_turn_e2e_duration_ms_bucket[5m])) by (le, model)) / 1000) or (histogram_quantile(0.95, sum(rate(codex_turn_e2e_duration_ms_bucket[1h])) by (le, model)) / 1000)",
+          "expr": "histogram_quantile(0.95, sum(rate(ai_context_workflow_duration_seconds_bucket[$__rate_interval])) by (le, stage, task_type))",
           "legendFormat": "{{model}}"
         }
       ]
@@ -80,7 +80,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_wait_duration_seconds_sum[$__range])) by (reason, stage) or (sum(increase(codex_responses_api_overhead_duration_ms_sum[$__range])) by (model) / 1000) or (sum(max_over_time(codex_responses_api_overhead_duration_ms_sum[$__range])) by (model) / 1000)",
+          "expr": "sum(increase(ai_context_wait_duration_seconds_sum[$__range])) by (reason, stage)",
           "legendFormat": "{{model}}"
         }
       ]
@@ -118,7 +118,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_validation_runs_total[$__range])) by (tier, outcome, reused) or sum(increase(codex_guardian_review_duration_ms_count[$__range])) by (model, outcome) or sum(max_over_time(codex_guardian_review_duration_ms_count[$__range])) by (model, outcome)",
+          "expr": "sum(increase(ai_context_validation_runs_total[$__range])) by (tier, outcome, reused)",
           "legendFormat": "{{model}} - {{outcome}}"
         }
       ]
@@ -156,7 +156,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(sum(increase(ai_context_validation_duplicate_total[$__range])) / clamp_min(sum(increase(ai_context_validation_runs_total[$__range])), 1)) or (sum(increase(codex_websocket_event_duration_ms_count{success=\"false\"}[$__range])) / clamp_min(sum(increase(codex_websocket_event_duration_ms_count[$__range])), 1))",
+          "expr": "sum(increase(ai_context_validation_duplicate_total[$__range])) / clamp_min(sum(increase(ai_context_validation_runs_total[$__range])), 1)",
           "legendFormat": "{{service_name}}"
         }
       ]
@@ -194,7 +194,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_context_retry_total[$__range])) by (reason, stage) or sum(increase(codex_remote_models_fetch_update_duration_ms_count[$__range])) by (model, service_name) or sum(max_over_time(codex_remote_models_fetch_update_duration_ms_count[$__range])) by (model, service_name)",
+          "expr": "sum(increase(ai_context_retry_total[$__range])) by (reason, stage)",
           "legendFormat": "{{model}}"
         }
       ]

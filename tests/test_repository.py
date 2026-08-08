@@ -104,8 +104,14 @@ class RepositoryTests(unittest.TestCase):
                     if path.name == "corporate.yaml"
                     else "transform/privacy"
                 )
+                self.assertIn("transform/privacy_initial", pipeline["processors"])
+                self.assertIn("transform/ai_agent", pipeline["processors"])
                 self.assertIn(privacy, pipeline["processors"])
+                initial_index = pipeline["processors"].index("transform/privacy_initial")
+                canonical_index = pipeline["processors"].index("transform/ai_agent")
                 privacy_index = pipeline["processors"].index(privacy)
+                self.assertLess(initial_index, canonical_index)
+                self.assertLess(canonical_index, privacy_index)
                 for index, processor in enumerate(pipeline["processors"]):
                     if processor.startswith("batch/"):
                         self.assertGreater(index, privacy_index)
@@ -134,6 +140,23 @@ class RepositoryTests(unittest.TestCase):
             )
             self.assertTrue(any(x in statements for x in (r"tool(?:\.call)?", r"tool(?:\\.call)?")))
             self.assertTrue(any(x in statements for x in (r"gen_ai\.(?:prompt|completion", r"gen_ai\\.(?:prompt|completion")))
+
+    def test_corporate_allowlist_preserves_only_bounded_ai_agent_metadata(self) -> None:
+        text = (ROOT / "config/otel-collector/corporate.yaml").read_text(
+            encoding="utf-8"
+        )
+        for attribute in (
+            "ai_agent.provider",
+            "ai_agent.product",
+            "ai_agent.surface",
+            "ai_agent.operation",
+            "ai_agent.tool.category",
+            "ai_agent.model.family",
+            "ai_agent.evidence.class",
+        ):
+            self.assertIn(attribute, text)
+        self.assertNotIn('"ai_agent.session.id"', text)
+        self.assertNotIn('"ai_agent.user.id"', text)
 
     def test_phoenix_selection_and_exporter_are_explicit(self) -> None:
         for filename, expected, trace_id in (
@@ -267,6 +290,67 @@ class RepositoryTests(unittest.TestCase):
         )
         self.assertNotIn("serviceMap", by_uid["tempo"].get("jsonData", {}))
 
+    def test_dashboard_contracts_do_not_cross_query_boundaries(self) -> None:
+        rules = {
+            "codex-usage.json": ("codex_", {"ai_agent_", "ai_context_", "antigravity_"}),
+            "ai-agent-usage.json": ("ai_agent_", {"codex_", "ai_context_", "antigravity_"}),
+            "ai-context-effectiveness.json": (
+                "ai_context_",
+                {"codex_", "ai_agent_", "antigravity_"},
+            ),
+            "ai-workflow-efficiency.json": (
+                "ai_context_",
+                {"codex_", "ai_agent_", "antigravity_"},
+            ),
+        }
+        for filename, (required, forbidden) in rules.items():
+            dashboard = json.loads(
+                (ROOT / "config/grafana/dashboards" / filename).read_text(
+                    encoding="utf-8"
+                )
+            )
+            expressions = "\n".join(
+                target.get("expr", "")
+                for panel in dashboard["panels"]
+                for target in panel.get("targets", [])
+            )
+            self.assertIn(required, expressions, filename)
+            for prefix in forbidden:
+                self.assertNotIn(prefix, expressions, (filename, prefix))
+        for filename in ("codex-usage.json", "ai-agent-usage.json"):
+            text = (ROOT / "config/grafana/dashboards" / filename).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Cost is unavailable", text)
+            self.assertNotIn("Estimated cost", text)
+
+    def test_codex_fixture_preserves_metric_semantics_and_contains_privacy_inputs(self) -> None:
+        root = ROOT / "fixtures/codex/0.146.1"
+        metrics = json.loads(
+            toolkit.render_fixture(root / "metrics.sanitized.json").decode("utf-8")
+        )
+        instruments = {
+            metric["name"]: metric
+            for resource in metrics["resourceMetrics"]
+            for scope in resource["scopeMetrics"]
+            for metric in scope["metrics"]
+        }
+        token = instruments["codex.turn.token_usage"]["histogram"]
+        self.assertEqual(token["aggregationTemporality"], 1)
+        self.assertIn("bucketCounts", token["dataPoints"][0])
+        tool = instruments["codex.tool.call"]["sum"]
+        self.assertEqual(tool["aggregationTemporality"], 1)
+        self.assertTrue(tool["isMonotonic"])
+        for filename in (
+            "metrics.sanitized.json",
+            "logs.sanitized.json",
+            "traces.sanitized.json",
+        ):
+            self.assertIn(
+                toolkit.CODEX_FIXTURE_SENTINEL,
+                (root / filename).read_text(encoding="utf-8"),
+            )
+
     def test_codex_examples_export_all_signals_without_prompt_content(self) -> None:
         for name in ("config.toml.example", "config.corporate.toml.example"):
             config = tomllib.loads((ROOT / "examples/codex" / name).read_text(encoding="utf-8"))
@@ -287,7 +371,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(list(Draft202012Validator(schema).iter_errors(instance)), [])
 
     def test_version_and_requirement_metadata(self) -> None:
-        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.2")
+        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.3")
         self.assertEqual((ROOT / "requirements-dev.txt").read_text(), "-r requirements.txt\n")
 
     def test_cli_exposes_explicit_report_snapshot_and_persistence_options(self) -> None:
