@@ -159,7 +159,7 @@ processors:
         "ai_context.tool.category", "ai_context.model.family", "ai_context.token.type", "ai_context.error.category", "ai_context.cost.unit", "ai_context.cost.source"])
     - context: exemplar
       statements:
-      - keep_keys(attributes, ["ai_context.safe_exemplar_attribute"])
+      - keep_keys(filtered_attributes, ["ai_context.safe_exemplar_attribute"])
   batch/logs:
     timeout: 2s
     send_batch_size: 512

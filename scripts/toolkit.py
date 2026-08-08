@@ -886,7 +886,10 @@ def static_validate() -> list[str]:
         bash = shutil.which("bash")
         if bash:
             result = subprocess.run(
-                [bash, "-n", str(path)], capture_output=True, text=True
+                [bash, "-n", path.relative_to(ROOT).as_posix()],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
             )
             if result.returncode:
                 errors.append(f"Bash {path.name}: {result.stderr.strip()}")
