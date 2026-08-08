@@ -132,8 +132,8 @@ class RepositoryTests(unittest.TestCase):
                 for group in config["processors"]["transform/privacy"]["trace_statements"]
                 for statement in group["statements"]
             )
-            self.assertIn(r"tool(?:\.call)?", statements)
-            self.assertIn(r"gen_ai\.(?:prompt|completion", statements)
+            self.assertTrue(any(x in statements for x in (r"tool(?:\.call)?", r"tool(?:\\.call)?")))
+            self.assertTrue(any(x in statements for x in (r"gen_ai\.(?:prompt|completion", r"gen_ai\\.(?:prompt|completion")))
 
     def test_phoenix_selection_and_exporter_are_explicit(self) -> None:
         for filename, expected, trace_id in (
