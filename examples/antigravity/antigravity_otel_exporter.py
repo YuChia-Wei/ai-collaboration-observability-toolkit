@@ -32,7 +32,7 @@ DEFAULT_PROFILE = "personal-local"
 DEFAULT_TIMEOUT_SECONDS = 0.35
 DEFAULT_HEARTBEAT_SECONDS = 60.0
 SCOPE_NAME = "ai-collaboration-observability.antigravity-example"
-SCOPE_VERSION = "0.1.3"
+SCOPE_VERSION = "0.1.4"
 SAFE_TEXT = re.compile(r"[^A-Za-z0-9_.:/() +\-]", re.ASCII)
 
 
@@ -217,7 +217,7 @@ def _resource_attributes(
     model: str,
     surface: str,
     session_id: str | None,
-    phoenix: bool,
+    phoenix: bool | None,
 ) -> dict[str, Any]:
     values: dict[str, Any] = {
         "service.name": product,
@@ -232,8 +232,9 @@ def _resource_attributes(
         "ai_context.tool.category": "coding-agent",
         "ai_context.model.family": model,
         "ai_context.evidence.class": "antigravity-local-extension",
-        "ai_context.export.phoenix": phoenix,
     }
+    if phoenix is not None:
+        values["ai_context.export.phoenix"] = phoenix
     if session_id:
         values["ai_context.session.id"] = session_id
     return values
@@ -967,8 +968,12 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--phoenix",
         action=argparse.BooleanOptionalAction,
-        default=_bool_env("AI_OBSERVABILITY_PHOENIX", False),
-        help="Opt curated spans into the evaluation-mode Phoenix route.",
+        default=(
+            _bool_env("AI_OBSERVABILITY_PHOENIX", False)
+            if os.getenv("AI_OBSERVABILITY_PHOENIX") is not None
+            else None
+        ),
+        help="Override Evaluation Phoenix routing; missing defaults to Collector forwarding.",
     )
     parser.add_argument(
         "--dry-run",

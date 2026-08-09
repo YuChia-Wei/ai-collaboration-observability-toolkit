@@ -47,8 +47,9 @@ attributes but cannot prove that every future client keeps free text out of its 
 practical private-lab policy, not a mathematical guarantee. New AI client versions must be tested
 before broad rollout.
 
-Phoenix receives only the output of this transform and only after explicit trace selection. Selection
-is not a privacy mechanism; the selected trace must already be safe.
+Phoenix receives only the output of this transform. Evaluation routing is default-on; the header and
+legacy resource opt-outs are routing controls, not privacy mechanisms. Temporary header-derived
+routing metadata is deleted before export, and every forwarded trace must already be safe.
 
 ## Corporate controls
 

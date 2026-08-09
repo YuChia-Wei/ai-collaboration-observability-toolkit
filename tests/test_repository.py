@@ -158,7 +158,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertNotIn('"ai_agent.session.id"', text)
         self.assertNotIn('"ai_agent.user.id"', text)
 
-    def test_phoenix_selection_and_exporter_are_explicit(self) -> None:
+    def test_phoenix_hybrid_routing_and_exporter_are_explicit(self) -> None:
         for filename, expected, trace_id in (
             ("phoenix-selected-trace.json", True, toolkit.TRACE_SELECTED),
             ("phoenix-rejected-trace.json", False, toolkit.TRACE_REJECTED),
@@ -174,12 +174,45 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(observed_trace, trace_id)
 
         config = toolkit.yaml_load(ROOT / "config/otel-collector/evaluation.yaml")
+        protocols = config["receivers"]["otlp"]["protocols"]
+        self.assertTrue(protocols["grpc"]["include_metadata"])
+        self.assertTrue(protocols["http"]["include_metadata"])
         pipeline = config["service"]["pipelines"]["traces/phoenix"]
         self.assertEqual(pipeline["exporters"], ["otlphttp/phoenix"])
         self.assertLess(
             pipeline["processors"].index("transform/privacy"),
-            pipeline["processors"].index("filter/phoenix-selected"),
+            pipeline["processors"].index("attributes/phoenix-routing"),
         )
+        self.assertLess(
+            pipeline["processors"].index("filter/phoenix-routing"),
+            pipeline["processors"].index("attributes/phoenix-routing-cleanup"),
+        )
+        route_action = config["processors"]["attributes/phoenix-routing"]["actions"][0]
+        self.assertEqual(
+            route_action["from_context"],
+            f"metadata.{toolkit.PHOENIX_ROUTING_HEADER}",
+        )
+        self.assertEqual(route_action["default_value"], "true")
+        cleanup_action = config["processors"][
+            "attributes/phoenix-routing-cleanup"
+        ]["actions"][0]
+        self.assertEqual(cleanup_action["key"], toolkit.PHOENIX_ROUTING_ATTRIBUTE)
+        self.assertEqual(cleanup_action["action"], "delete")
+
+        for filename, trace_id in (
+            ("phoenix-default-trace.json", toolkit.TRACE_PHOENIX_DEFAULT),
+            ("phoenix-header-true-trace.json", toolkit.TRACE_PHOENIX_HEADER_TRUE),
+            ("phoenix-header-false-trace.json", toolkit.TRACE_PHOENIX_HEADER_FALSE),
+        ):
+            payload = json.loads((ROOT / "examples/otlp" / filename).read_text())
+            resource = payload["resourceSpans"][0]
+            attrs = resource["resource"]["attributes"]
+            self.assertFalse(
+                any(x["key"] == "ai_context.export.phoenix" for x in attrs)
+            )
+            self.assertEqual(
+                resource["scopeSpans"][0]["spans"][0]["traceId"], trace_id
+            )
         exporter = config["exporters"]["otlphttp/phoenix"]
         self.assertEqual(exporter["endpoint"], "http://phoenix:6006")
         self.assertEqual(exporter["headers"]["x-project-name"], toolkit.PHOENIX_PROJECT)
@@ -371,7 +404,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(list(Draft202012Validator(schema).iter_errors(instance)), [])
 
     def test_version_and_requirement_metadata(self) -> None:
-        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.3")
+        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.4")
         self.assertEqual((ROOT / "requirements-dev.txt").read_text(), "-r requirements.txt\n")
 
     def test_cli_exposes_explicit_report_snapshot_and_persistence_options(self) -> None:

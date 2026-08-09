@@ -112,13 +112,14 @@ placeholder 改成絕對路徑。例如 POSIX 個人模式：
 
 ## 5. Evaluation mode 的 Phoenix opt-in
 
-要將已去機敏 lifecycle trace 送往 Phoenix，在個人 Hooks command 加上：
+Evaluation mode 預設將已去機敏 lifecycle trace 送往 Phoenix。要明確退出，在個人 Hooks command 加上：
 
 ```text
---phoenix
+--no-phoenix
 ```
 
-只有 Evaluation mode 具備 Phoenix exporter；公司 profile 不應加入此旗標。
+`--phoenix` 可明確啟用相容的 resource 標記。只有 Evaluation mode 具備 Phoenix exporter；
+Corporate profile 無論旗標為何都不會建立 Phoenix route。
 
 ## 6. 乾跑與隱私測試
 

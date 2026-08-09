@@ -6,7 +6,8 @@
 ## Decision
 
 Prometheus, Loki, Tempo, and Grafana remain the primary execution evidence system. Phoenix is enabled
-only in evaluation mode and receives explicit curated traces.
+only in Evaluation mode. Since v0.1.4, it receives already-redacted traces by default and supports an
+explicit OTLP-header or legacy resource-attribute opt-out.
 
 ## Rationale
 
@@ -15,5 +16,6 @@ evaluators, datasets, and experiments without forcing a storage/UI migration.
 
 ## Consequences
 
-Some information exists in both Tempo and Phoenix. Selection and privacy require negative routing
-tests. Phoenix is not deployed on every corporate workstation.
+Some information exists in both Tempo and Phoenix. Default and negative routing require runtime
+tests, and temporary routing metadata must be removed before export. Phoenix is not deployed on
+Corporate workstations.

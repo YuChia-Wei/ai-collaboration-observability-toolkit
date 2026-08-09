@@ -2,8 +2,8 @@
 
 A privacy-first local observability toolkit with the OpenTelemetry Collector as
 the only host-facing telemetry ingress. Grafana, Loki, Tempo, and Prometheus
-provide execution and usage evidence. Phoenix receives only explicitly selected,
-already-redacted traces in Evaluation mode.
+provide execution and usage evidence. Phoenix receives already-redacted traces
+by default in Evaluation mode, with an explicit header-based opt-out.
 
 ## Evidence layers
 
@@ -20,7 +20,7 @@ counts are not converted into cost.
 | Mode | Purpose | Policy |
 | --- | --- | --- |
 | core | Personal LGTM baseline | Initial denylist plus final privacy filter |
-| evaluation | Phoenix annotations/datasets/experiments | Only explicitly selected redacted traces reach Phoenix |
+| evaluation | Phoenix annotations/datasets/experiments | Redacted traces reach Phoenix by default; `x-ai-observability-phoenix: false` opts out |
 | corporate | Company workstation metadata baseline | Exact allowlist, unknown fields dropped, no Phoenix |
 
 ## Compose-first quick start

@@ -52,7 +52,7 @@ Antigravity CLI custom status line ─────┘                           
                                                              ├─▶ Loki
                                                              ├─▶ Tempo
                                                              ├─▶ Prometheus
-                                                             └─▶ Phoenix (explicit opt-in only)
+                                                             └─▶ Phoenix (Evaluation default-on)
 ```
 
 The client exporter applies a strict allowlist. The Collector remains the canonical privacy, routing,
@@ -186,14 +186,16 @@ Corporate Collector allowlist removes session identities as a second control.
 
 ## Phoenix route
 
-Phoenix is opt-in. Adding `--phoenix` sets:
+Evaluation Phoenix routing is default-on. With no Phoenix flag, the exporter omits the legacy
+resource attribute and lets the Collector apply its default. Adding `--no-phoenix` sets:
 
 ```text
-ai_context.export.phoenix = true
+ai_context.export.phoenix = false
 ```
 
-Only Evaluation mode has a Phoenix exporter, and Collector privacy transforms execute before that
-route. Corporate examples must not add `--phoenix`.
+Adding `--phoenix` explicitly sets the legacy attribute to true. Only Evaluation mode has a Phoenix
+exporter, and Collector privacy transforms execute before that route. Corporate mode has no Phoenix
+pipeline, regardless of this producer-side flag.
 
 ## Failure semantics
 

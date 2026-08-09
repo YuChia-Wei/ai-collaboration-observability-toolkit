@@ -131,8 +131,10 @@ the mode's final policy:
 3. final Core/Evaluation privacy filter or Corporate exact allowlist;
 4. batching and local export.
 
-Evaluation traces reach Phoenix only after redaction and only when
-\`ai_context.export.phoenix=true\`. Corporate mode defines no Phoenix exporter.
+Evaluation traces reach Phoenix only after redaction and are routed by default.
+\`x-ai-observability-phoenix: false\` or legacy boolean
+\`ai_context.export.phoenix=false\` opts out. The header-derived routing attribute
+is deleted before export. Corporate mode defines no Phoenix exporter.
 See [Privacy](PRIVACY.md) and the versioned
 [Codex fixture](../fixtures/codex/0.146.1/README.md).
 

@@ -436,9 +436,11 @@ Host 預設：
 3. 隱私去除／轉換 processor
 4. `batch`
 
-Evaluation curated trace pipeline 額外包含：
+Evaluation trace pipeline 額外包含：
 
-5. `filter`：只保留 `ai_context.export.phoenix == true` 的 span／trace，或另一個有文件與測試支援的明確 allowlist 條件。
+5. request-metadata routing：缺少 `x-ai-observability-phoenix` 或值為 `true` 時轉送，值為 `false` 時退出。
+6. legacy resource routing：`ai_context.export.phoenix == false` 時退出，`true` 時轉送。
+7. routing metadata cleanup：Phoenix export 前刪除暫存 header attribute。
 
 Processor 順序 MUST 先去機敏，再 fan-out 到任何後端。
 
@@ -814,15 +816,17 @@ MVP 只建立設計與 dashboard placeholder，不建立官方 ChatGPT Enterpris
 
 ## 11.1 定位
 
-Phoenix 是 AI evaluation layer，不是所有 telemetry 的備份。
+Phoenix 是 AI evaluation layer，不是 Tempo 的替代品。Evaluation mode 預設接收已去機敏 traces，
+使不支援自訂 attributes／headers 的 AI agent 仍可被評估。
 
 只接收：
 
 - 已去機敏。
-- 有明確分析價值。
-- 具 workflow／task 語意。
-- `ai_context.export.phoenix == true`。
-- 或另有受測試 allowlist 的 traces。
+- 缺少 `x-ai-observability-phoenix` header，或值為 `true`。
+- 未設定 legacy resource attribute，或 `ai_context.export.phoenix != false`。
+
+Header 與 resource attribute 的 `false` 都是明確 opt-out。所有路由判斷發生在 privacy
+processor 之後；header 衍生的暫存 attribute 必須在 export 前刪除。
 
 ## 11.2 Persistence
 
@@ -854,10 +858,13 @@ MVP：
 
 ## 11.5 Phoenix 驗收
 
-Evaluation smoke test 至少送兩個 traces：
+Evaluation smoke test 至少送五個 traces：
 
-1. `ai_context.export.phoenix=true`：Tempo 與 Phoenix 都能找到。
-2. 未設定或為 `false`：Tempo 能找到，Phoenix 找不到。
+1. 缺少 header 與 resource attribute：Tempo 與 Phoenix 都能找到。
+2. header `true`：Tempo 與 Phoenix 都能找到。
+3. header `false`：Tempo 能找到，Phoenix 找不到。
+4. `ai_context.export.phoenix=true`：Tempo 與 Phoenix 都能找到。
+5. `ai_context.export.phoenix=false`：Tempo 能找到，Phoenix 找不到。
 
 若 Phoenix 沒有穩定公開查詢 API，必須：
 

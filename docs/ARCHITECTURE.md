@@ -36,7 +36,7 @@ OpenTelemetry Collector is the canonical ingress, minimization, cardinality, and
                                   Grafana
 
 Evaluation mode only:
-minimized traces → explicit resource-attribute filter → Phoenix → PostgreSQL
+minimized traces → default-on header/resource routing → Phoenix → PostgreSQL
 ```
 
 ## Deployment modes
@@ -58,11 +58,13 @@ client upgrade requires the sentinel smoke test and representative metadata insp
 
 - Adds Phoenix and PostgreSQL.
 - Every minimized trace still reaches Tempo.
-- Only traces whose **resource** contains boolean
-  `ai_context.export.phoenix=true` reach Phoenix.
-- The selection filter runs after the same privacy transform used by the Tempo route.
-- Runtime smoke sends one selected and one rejected trace, confirms both in Tempo, and confirms only
-  the selected trace through Phoenix's project trace API.
+- Minimized traces reach Phoenix by default. The OTLP header
+  `x-ai-observability-phoenix: false` or legacy boolean resource attribute
+  `ai_context.export.phoenix=false` opts out.
+- The routing processors run after the same privacy transform used by the Tempo route. Temporary
+  header-derived routing metadata is deleted before Phoenix export.
+- Runtime smoke verifies missing-header, header-true, and header-false traces in Tempo and confirms
+  only the first two through Phoenix's project span API. Legacy resource true/false remains covered.
 
 ### Corporate
 
@@ -140,8 +142,8 @@ fields to escape. Native and canonical metrics are both retained, but
 dashboards never use fallback expressions across contract layers.
 
 The only host-facing telemetry ingress remains the OpenTelemetry Collector.
-Phoenix is not an ingress and receives only explicitly selected, already
-redacted Evaluation traces.
+Phoenix is not an ingress and receives already-redacted Evaluation traces under
+the default-on routing contract.
 
 ## Why not one all-in-one backend
 

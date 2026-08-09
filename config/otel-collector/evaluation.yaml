@@ -8,8 +8,10 @@ receivers:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
+        include_metadata: true
       http:
         endpoint: 0.0.0.0:4318
+        include_metadata: true
 processors:
   memory_limiter:
     check_interval: 2s
@@ -272,11 +274,22 @@ processors:
     timeout: 2s
     send_batch_size: 512
     send_batch_max_size: 1024
-  filter/phoenix-selected:
+  attributes/phoenix-routing:
+    actions:
+    - key: ai_observability.routing.phoenix
+      from_context: metadata.x-ai-observability-phoenix
+      default_value: "true"
+      action: upsert
+  filter/phoenix-routing:
     error_mode: propagate
     traces:
       span:
-      - resource.attributes["ai_context.export.phoenix"] != true
+      - resource.attributes["ai_context.export.phoenix"] == false
+      - attributes["ai_observability.routing.phoenix"] == "false"
+  attributes/phoenix-routing-cleanup:
+    actions:
+    - key: ai_observability.routing.phoenix
+      action: delete
   batch/phoenix:
     timeout: 2s
     send_batch_size: 256
@@ -384,7 +397,9 @@ service:
       - transform/privacy_initial
       - transform/ai_agent
       - transform/privacy
-      - filter/phoenix-selected
+      - attributes/phoenix-routing
+      - filter/phoenix-routing
+      - attributes/phoenix-routing-cleanup
       - batch/phoenix
       exporters:
       - otlphttp/phoenix

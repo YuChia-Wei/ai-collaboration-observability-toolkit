@@ -3,34 +3,57 @@
 ## Role
 
 Phoenix is not the primary telemetry store. Tempo keeps the complete minimized trace history for the
-running mode; Phoenix receives a deliberate subset for annotations, evaluators, datasets, and
-experiments.
+running mode; Phoenix receives Evaluation traces for annotations, evaluators, datasets, and
+experiments after the Collector privacy boundary.
 
-## Selection contract
+## v0.1.4 hybrid routing contract
 
-Set this **resource attribute** on the trace to opt in:
+Evaluation routing is default-on:
 
-```text
-ai_context.export.phoenix = true
+- missing `x-ai-observability-phoenix` header: forward;
+- `x-ai-observability-phoenix: true`: forward;
+- `x-ai-observability-phoenix: false`: do not forward.
+
+The legacy boolean resource attribute remains supported. `ai_context.export.phoenix=false` opts out;
+`true` forwards. The header cannot enable Phoenix in Core or Corporate because those profiles define
+no Phoenix pipeline or exporter.
+
+The Evaluation OTLP receiver reads request metadata only for routing. The Collector performs privacy
+processing first, copies the header into a temporary
+`ai_observability.routing.phoenix` attribute, filters explicit opt-outs, then deletes the temporary
+attribute before export. Neither the transport header nor the temporary attribute is stored in Tempo
+or Phoenix.
+
+Codex supports exporter headers in the user-level `~/.codex/config.toml`. For a global opt-out, add a
+header to the trace exporter:
+
+```toml
+trace_exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/traces", protocol = "binary", headers = { "x-ai-observability-phoenix" = "false" } } }
 ```
 
-The evaluation Collector applies the privacy transform first, then drops spans whose resource does
-not contain boolean true. The smoke fixture sends:
+Codex does not apply project-local `.codex/config.toml` overrides to the `[otel]` configuration. The
+default-on behavior therefore provides useful Phoenix data for Codex and ChatGPT Desktop even when a
+tool cannot attach custom resources or headers.
 
-- trace `2222…2222`: selected; expected in Tempo and Phoenix;
-- trace `3333…3333`: rejected; expected in Tempo only;
+The smoke fixture sends:
+
+- trace `2222…2222`: legacy resource true; expected in Tempo and Phoenix;
+- trace `3333…3333`: legacy resource false; expected in Tempo only;
+- trace `5555…5555`: header missing; expected in Tempo and Phoenix;
+- trace `6666…6666`: header true; expected in Tempo and Phoenix;
+- trace `8888…8888`: header false; expected in Tempo only;
 - trace `1111…1111`: normal core fixture; expected in Tempo.
 
-The selected and rejected fixtures use:
+The fixtures use:
 
 ```text
 openinference.project.name = ai-collaboration-observability-fixture
 openinference.span.kind = CHAIN
 ```
 
-The runtime test queries `GET /v1/projects/{project}/traces?include_spans=true` and searches the
-returned trace IDs. The negative assertion prevents a future configuration merge from exporting every
-trace by accident.
+The runtime test queries Phoenix's project span API and searches the returned trace IDs. Positive and
+negative assertions prevent future configuration changes from losing the default route or ignoring
+an explicit opt-out.
 
 ## Project naming
 
@@ -67,5 +90,5 @@ separated.
 ## Storage and privacy
 
 Phoenix uses PostgreSQL in evaluation mode. Its UI is loopback-bound and authentication is not enabled
-by this local Compose. Do not expose it to the network. Selected traces must already be minimized;
-Phoenix selection is not a substitute for privacy processing.
+by this local Compose. Do not expose it to the network. Forwarded traces must already be minimized;
+Phoenix routing is not a substitute for privacy processing.
