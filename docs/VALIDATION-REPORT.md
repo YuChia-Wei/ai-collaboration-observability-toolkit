@@ -24,8 +24,8 @@
 | Evaluation persistence | PASS | five owner volumes retained; data queryable after service restarts |
 | Phoenix annotation rubric | PASS | five configs created/assigned idempotently; read-only check passed after restart |
 | Browser visual QA | PASS | all six dashboards loaded expected panel headings; no console error |
-| Hosted PR CI | PENDING | recorded after the implementation branch is pushed |
-| Core hosted runtime | PENDING | part of the required PR validation workflow |
+| Hosted PR CI | PASS | PR #15 run 31303771882; repository policy, pinned validators, tests, artifacts, cleanup |
+| Core hosted runtime | PASS | PR #15 run 31303771882; Core smoke and named-volume persistence |
 | Historical data erasure | NOT EXECUTED | not required; no owner data was deleted or rewritten |
 
 ## Runtime assertions
@@ -44,6 +44,6 @@ without committing runtime-local details.
 
 ## Publication sequence
 
-Local implementation and runtime gates are closed. Hosted PR CI, merge, annotated tag, GitHub
-Release, Issue/Project read-back, and final deployment from merged main remain separate release gates
-until each is observed.
+Local implementation, runtime, and initial hosted PR CI gates are closed. The report-only follow-up
+commit must repeat hosted CI. Merge, annotated tag, GitHub Release, Issue/Project read-back, and final
+deployment from merged main remain separate release gates until each is observed.
