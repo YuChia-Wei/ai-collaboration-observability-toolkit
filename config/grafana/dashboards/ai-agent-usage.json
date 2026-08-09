@@ -9,8 +9,8 @@
   "panels": [
     {
       "id": 1,
-      "title": "Token usage by provider and type",
-      "description": "Canonical provider-reported token histogram sums.",
+      "title": "按 Provider 與類型統計 Token 用量",
+      "description": "Provider 回報並正規化為 canonical contract 的 token histogram 總和。",
       "type": "barchart",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
@@ -22,8 +22,8 @@
     },
     {
       "id": 2,
-      "title": "P95 turn duration",
-      "description": "Canonical AI-agent turn latency.",
+      "title": "AI Agent 回合耗時 P95",
+      "description": "Canonical AI-agent 回合延遲；P95 代表 95% 的觀測值不超過此數值。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
@@ -35,21 +35,21 @@
     },
     {
       "id": 3,
-      "title": "Tool calls by bounded category",
-      "description": "Canonical tool counter; raw tool names are removed.",
+      "title": "按受限分類統計工具呼叫（Tool calls）",
+      "description": "Canonical 工具 counter；原始工具名稱已移除，只保留 bounded category。",
       "type": "barchart",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
       "fieldConfig": {"defaults": {}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {"refId": "A", "expr": "sum(increase(ai_agent_tool_call[$__range])) by (ai_agent_provider, ai_agent_product, tool_category, success)", "legendFormat": "{{ai_agent_product}} {{tool_category}} success={{success}}"}
+        {"refId": "A", "expr": "sum(increase(ai_agent_tool_call[$__range])) by (ai_agent_provider, ai_agent_product, tool_category, success)", "legendFormat": "{{ai_agent_product}} {{tool_category}} 成功={{success}}"}
       ]
     },
     {
       "id": 4,
-      "title": "Observed session tokens",
-      "description": "Observed extension gauge, not provider billing.",
+      "title": "觀測到的 Session Token",
+      "description": "由 extension 觀測到的 gauge，不是 provider 帳務資料。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
@@ -61,8 +61,8 @@
     },
     {
       "id": 5,
-      "title": "Observed context used",
-      "description": "Current context gauge supplied by a local extension.",
+      "title": "觀測到的 Context 使用率",
+      "description": "本機 extension 提供的目前 context 使用率 gauge。",
       "type": "gauge",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 16, "w": 8, "h": 8},
@@ -74,8 +74,8 @@
     },
     {
       "id": 6,
-      "title": "Observed quota remaining",
-      "description": "Provider-extension observation, not an authoritative billing balance.",
+      "title": "觀測到的剩餘 Quota",
+      "description": "Provider extension 的觀測值，不是具權威性的帳務餘額。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 8, "y": 16, "w": 8, "h": 8},
@@ -87,8 +87,8 @@
     },
     {
       "id": 7,
-      "title": "Canonical evidence classes",
-      "description": "Inventory of canonical AI-agent metric series.",
+      "title": "Canonical 證據類別（Evidence classes）",
+      "description": "Canonical AI-agent metric series 的清單；顯示 evidence_class 與來源。",
       "type": "table",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 16, "y": 16, "w": 8, "h": 8},
@@ -100,11 +100,11 @@
     },
     {
       "id": 8,
-      "title": "Cost is unavailable",
-      "description": "No provider-independent price contract is present.",
+      "title": "費用不可用（Cost is unavailable）",
+      "description": "目前沒有跨 provider 且可驗證的價格 contract。",
       "type": "text",
       "gridPos": {"x": 0, "y": 24, "w": 24, "h": 5},
-      "options": {"mode": "markdown", "content": "### Cost unavailable\n\nThe canonical contract does not infer currency from token or request metrics. Add cost only from an explicit, versioned billing source."}
+      "options": {"mode": "markdown", "content": "### 費用不可用（Cost unavailable）\n\nCanonical contract 不會從 token 或 request metric 推估貨幣。只有取得明確且有版本的帳務來源後，才能加入費用資料。"}
     }
   ],
   "refresh": "10s",
@@ -113,8 +113,8 @@
   "templating": {"list": []},
   "time": {"from": "now-6h", "to": "now"},
   "timezone": "browser",
-  "title": "AI Agent Usage",
+  "title": "AI Agent 用量（AI Agent Usage）",
   "uid": "ai-agent-usage",
   "version": 1,
-  "description": "Canonical AI-agent telemetry only. Framework evidence remains on AI Context dashboards."
+  "description": "只呈現 canonical AI-agent telemetry；framework 證據仍由 AI Context dashboards 負責。"
 }

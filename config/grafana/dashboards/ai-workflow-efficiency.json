@@ -11,8 +11,8 @@
   "panels": [
     {
       "id": 1,
-      "title": "Workflow duration by stage",
-      "description": "",
+      "title": "各階段 Workflow 耗時 P95",
+      "description": "依 stage 與 task_type 顯示 ai_context workflow 耗時；只有上游送出 framework evidence 時才有資料。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -43,14 +43,14 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.95, sum(rate(ai_context_workflow_duration_seconds_bucket[$__rate_interval])) by (le, stage, task_type))",
-          "legendFormat": "{{model}}"
+          "legendFormat": "階段={{stage}} 類型={{task_type}}"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Wait duration by reason",
-      "description": "",
+      "title": "各原因等待時間（Wait duration）",
+      "description": "依 reason 與 stage 彙總有明確歸因的等待時間；沒有資料不代表沒有等待。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -81,14 +81,14 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_wait_duration_seconds_sum[$__range])) by (reason, stage)",
-          "legendFormat": "{{model}}"
+          "legendFormat": "原因={{reason}} 階段={{stage}}"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Validation runs",
-      "description": "",
+      "title": "驗證執行次數（Validation runs）",
+      "description": "依 tier、outcome 與 reused 統計驗證執行證據；不得把 skipped 或 blocked 解讀為 passed。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -119,14 +119,14 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_validation_runs_total[$__range])) by (tier, outcome, reused)",
-          "legendFormat": "{{model}} - {{outcome}}"
+          "legendFormat": "層級={{tier}} 結果={{outcome}} 重用={{reused}}"
         }
       ]
     },
     {
       "id": 4,
-      "title": "Duplicate validation ratio",
-      "description": "",
+      "title": "重複驗證比例（Duplicate ratio）",
+      "description": "重複 validation 次數除以所有 validation runs；需搭配 fingerprint invalidation 語意判讀。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -157,14 +157,14 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_validation_duplicate_total[$__range])) / clamp_min(sum(increase(ai_context_validation_runs_total[$__range])), 1)",
-          "legendFormat": "{{service_name}}"
+          "legendFormat": "重複比例"
         }
       ]
     },
     {
       "id": 5,
-      "title": "Retries by reason",
-      "description": "",
+      "title": "各原因重試次數（Retries）",
+      "description": "依 reason 與 stage 顯示明確記錄的 retry；重複 span 本身不等同 retry。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -195,7 +195,7 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_retry_total[$__range])) by (reason, stage)",
-          "legendFormat": "{{model}}"
+          "legendFormat": "原因={{reason}} 階段={{stage}}"
         }
       ]
     }
@@ -214,8 +214,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "AI Workflow Efficiency",
+  "title": "AI 工作流程效率（AI Workflow Efficiency）",
   "uid": "ai-workflow-efficiency",
   "version": 1,
-  "description": "Detects repeated validation, unattributed waiting, retries, and expensive workflow stages."
+  "description": "檢視重複驗證、有歸因的等待、重試與高耗時 workflow stage；只反映已送出的 ai_context evidence。"
 }

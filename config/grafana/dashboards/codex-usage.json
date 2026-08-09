@@ -9,8 +9,8 @@
   "panels": [
     {
       "id": 1,
-      "title": "Token usage by model and type",
-      "description": "Native Codex token histogram sums. This is provider telemetry, not billing.",
+      "title": "按模型與類型統計 Token 用量（Token usage）",
+      "description": "Codex 原生 token histogram 總和；這是 provider telemetry，不是帳務資料。",
       "type": "barchart",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
@@ -22,8 +22,8 @@
     },
     {
       "id": 2,
-      "title": "P95 turn duration",
-      "description": "Native Codex end-to-end turn duration.",
+      "title": "回合耗時 P95（Turn duration）",
+      "description": "Codex 原生端到端回合耗時；P95 代表 95% 的觀測值不超過此數值。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
@@ -35,8 +35,8 @@
     },
     {
       "id": 3,
-      "title": "P95 time to first token",
-      "description": "Native Codex TTFT histogram.",
+      "title": "首個 Token 等待時間 P95（TTFT）",
+      "description": "Codex 原生首個 token 等待時間（Time to first token）histogram。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
@@ -48,67 +48,67 @@
     },
     {
       "id": 4,
-      "title": "Tool calls",
-      "description": "Native Codex monotonic tool-call counter.",
+      "title": "工具呼叫（Tool calls）",
+      "description": "Codex 原生單調遞增工具呼叫 counter；依工具與 success 狀態分組。",
       "type": "barchart",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
       "fieldConfig": {"defaults": {}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {"refId": "A", "expr": "sum(increase(codex_tool_call[$__range])) by (tool, success)", "legendFormat": "{{tool}} success={{success}}"}
+        {"refId": "A", "expr": "sum(increase(codex_tool_call[$__range])) by (tool, success)", "legendFormat": "{{tool}} 成功={{success}}"}
       ]
     },
     {
       "id": 5,
-      "title": "MCP calls and errors",
-      "description": "Native Codex MCP counters.",
+      "title": "MCP 呼叫與錯誤（Calls and errors）",
+      "description": "Codex 原生 MCP counters；分開顯示呼叫與錯誤。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
       "fieldConfig": {"defaults": {}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {"refId": "A", "expr": "sum(increase(codex_mcp_call[$__range])) by (status)", "legendFormat": "calls {{status}}"},
-        {"refId": "B", "expr": "sum(increase(codex_mcp_error[$__range])) by (status)", "legendFormat": "errors {{status}}"}
+        {"refId": "A", "expr": "sum(increase(codex_mcp_call[$__range])) by (status)", "legendFormat": "呼叫 {{status}}"},
+        {"refId": "B", "expr": "sum(increase(codex_mcp_error[$__range])) by (status)", "legendFormat": "錯誤 {{status}}"}
       ]
     },
     {
       "id": 6,
-      "title": "P95 Responses API time",
-      "description": "Inference and client-side overhead reported by Codex.",
+      "title": "Responses API 耗時 P95",
+      "description": "Codex 回報的推論時間與 client-side 額外開銷。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
       "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_inference_time_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "inference {{model}}"},
-        {"refId": "B", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_overhead_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "overhead {{model}}"}
+        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_inference_time_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "推論 {{model}}"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_overhead_duration_ms_bucket[$__rate_interval])) by (le, model))", "legendFormat": "額外開銷 {{model}}"}
       ]
     },
     {
       "id": 7,
-      "title": "Compaction, skill injection, and threads",
-      "description": "Native Codex lifecycle counters.",
+      "title": "內容壓縮、Skill 注入與 Thread",
+      "description": "Codex 原生 lifecycle counters；顯示 compaction、skill injection 與 thread 啟動次數。",
       "type": "timeseries",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
       "fieldConfig": {"defaults": {}, "overrides": []},
       "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
       "targets": [
-        {"refId": "A", "expr": "sum(increase(codex_task_compact[$__range])) by (type, manual)", "legendFormat": "compact {{type}} manual={{manual}}"},
-        {"refId": "B", "expr": "sum(increase(codex_skill_injected[$__range])) by (source)", "legendFormat": "skill {{source}}"},
-        {"refId": "C", "expr": "sum(increase(codex_thread_started[$__range])) by (source)", "legendFormat": "thread {{source}}"}
+        {"refId": "A", "expr": "sum(increase(codex_task_compact[$__range])) by (type, manual)", "legendFormat": "壓縮 {{type}} 人工={{manual}}"},
+        {"refId": "B", "expr": "sum(increase(codex_skill_injected[$__range])) by (source)", "legendFormat": "Skill {{source}}"},
+        {"refId": "C", "expr": "sum(increase(codex_thread_started[$__range])) by (source)", "legendFormat": "Thread {{source}}"}
       ]
     },
     {
       "id": 8,
-      "title": "Cost is unavailable",
-      "description": "Codex telemetry does not provide a verified price or billing contract. No cost estimate is inferred.",
+      "title": "費用不可用（Cost is unavailable）",
+      "description": "Codex telemetry 沒有提供可驗證的價格或帳務 contract，因此不推估費用。",
       "type": "text",
       "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
-      "options": {"mode": "markdown", "content": "### Cost unavailable\n\nThis dashboard reports native telemetry only. It does not convert tokens, turns, or requests into currency."}
+      "options": {"mode": "markdown", "content": "### 費用不可用（Cost unavailable）\n\n本 dashboard 只呈現原生 telemetry，不會把 token、回合或 request 換算成貨幣。"}
     }
   ],
   "refresh": "10s",
@@ -117,8 +117,8 @@
   "templating": {"list": []},
   "time": {"from": "now-6h", "to": "now"},
   "timezone": "browser",
-  "title": "Codex Native Telemetry",
+  "title": "Codex 原生 Telemetry（Codex Native Telemetry）",
   "uid": "ai-codex-usage",
   "version": 2,
-  "description": "Native, privacy-filtered Codex telemetry. No ai_agent or ai_context fallback queries."
+  "description": "經隱私過濾的 Codex 原生 telemetry；不使用 ai_agent 或 ai_context fallback query。"
 }

@@ -55,6 +55,22 @@ The runtime test queries Phoenix's project span API and searches the returned tr
 negative assertions prevent future configuration changes from losing the default route or ignoring
 an explicit opt-out.
 
+For Traditional Chinese trace-reading order, operational caveats, deterministic fixture
+identification, and the annotation rubric, see
+[Phoenix Trace 閱讀指南](PHOENIX-READING-GUIDE.zh-TW.md) and
+[Telemetry 詞彙表](TELEMETRY-GLOSSARY.zh-TW.md).
+
+Phoenix 19.19.0 exposes versioned annotation-config REST endpoints. The toolkit checks the rubric in
+read-only mode unless `--apply` is explicit, then idempotently creates or updates the five configs and
+assigns them to the named existing project:
+
+```powershell
+python scripts/toolkit.py phoenix-annotations --project "<project-name>"
+python scripts/toolkit.py phoenix-annotations --project "<project-name>" --apply
+```
+
+This operation does not delete annotations, traces, projects, or PostgreSQL owner data.
+
 ## Project naming
 
 A suitable project separates framework-source evolution, a public downstream lab, and deliberately

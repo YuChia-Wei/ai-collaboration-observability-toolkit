@@ -64,12 +64,17 @@ See the [provider support matrix](docs/PROVIDER-SUPPORT.md),
 
 ## Dashboards
 
-- Collector Health
-- Codex Native Telemetry
-- AI Agent Usage
-- Antigravity Usage (observed, not billing)
-- AI Workflow Efficiency
-- AI Context Effectiveness
+- Collector 健康狀態 (Collector Health)
+- Codex 原生 Telemetry (Codex Native Telemetry)
+- AI Agent 用量 (AI Agent Usage)
+- Antigravity 用量 (observed, not billing)
+- AI 工作流程效率 (AI Workflow Efficiency)
+- AI Context 有效性 (Effectiveness)
+
+The provisioned dashboards use zh-TW-first human-facing text while keeping English search terms,
+canonical identifiers, UIDs, and queries stable. See the
+[zh-TW Phoenix reading guide](docs/PHOENIX-READING-GUIDE.zh-TW.md) and
+[telemetry glossary](docs/TELEMETRY-GLOSSARY.zh-TW.md).
 
 ## Validation
 

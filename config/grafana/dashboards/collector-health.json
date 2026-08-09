@@ -11,8 +11,8 @@
   "panels": [
     {
       "id": 1,
-      "title": "Scrape targets",
-      "description": "",
+      "title": "擷取目標（Scrape targets）",
+      "description": "顯示 Prometheus 是否能擷取 Collector 自我 telemetry；1 代表目標可用。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -26,7 +26,16 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "No Collector scrape targets"
+          "noValue": "沒有 Collector 擷取目標",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "無法擷取"},
+                "1": {"text": "正常"}
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -51,8 +60,8 @@
     },
     {
       "id": 2,
-      "title": "Accepted spans",
-      "description": "OpenTelemetry Collector self-telemetry scraped from port 8888.",
+      "title": "已接收 Span（Accepted spans）",
+      "description": "由 8888 埠擷取的 Collector 自我 telemetry；顯示已接收 span 的每秒速率。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -89,8 +98,8 @@
     },
     {
       "id": 3,
-      "title": "Accepted log records",
-      "description": "OpenTelemetry Collector self-telemetry scraped from port 8888.",
+      "title": "已接收 Log record（Accepted logs）",
+      "description": "由 8888 埠擷取的 Collector 自我 telemetry；顯示已接收 log record 的每秒速率。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -127,8 +136,8 @@
     },
     {
       "id": 4,
-      "title": "Accepted metric points",
-      "description": "OpenTelemetry Collector self-telemetry scraped from port 8888.",
+      "title": "已接收 Metric point（Accepted metrics）",
+      "description": "由 8888 埠擷取的 Collector 自我 telemetry；顯示已接收 metric point 的每秒速率。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -165,8 +174,8 @@
     },
     {
       "id": 5,
-      "title": "Exporter send failures",
-      "description": "OpenTelemetry Collector self-telemetry scraped from port 8888.",
+      "title": "Exporter 傳送失敗（Send failures）",
+      "description": "由 8888 埠擷取的 Collector 自我 telemetry；正常情況應維持為零。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -203,8 +212,8 @@
     },
     {
       "id": 6,
-      "title": "Collector process RSS",
-      "description": "OpenTelemetry Collector self-telemetry scraped from port 8888.",
+      "title": "Collector 程序 RSS 記憶體",
+      "description": "由 8888 埠擷取的 Collector 自我 telemetry；RSS 是程序目前占用的實體記憶體。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -254,8 +263,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Collector Health",
+  "title": "Collector 健康狀態（Collector Health）",
   "uid": "ai-collector-health",
   "version": 1,
-  "description": "Collector ingress, export, and process-health signals. A healthy stack should accept telemetry while exporter send-failure rates remain zero."
+  "description": "查看 Collector 的接收、匯出與程序健康訊號。正常時應持續接收 telemetry，且 exporter 傳送失敗率維持為零。"
 }

@@ -75,7 +75,7 @@ metrics so the ai_agent.* form retains the original instrument type and
 temporality; Prometheus exposes histogram bucket/count/sum series.
 
 The Collector retains privacy-filtered codex.* telemetry and creates a separate
-ai_agent.* copy. Codex Native Telemetry queries only codex_*, AI Agent Usage
+ai_agent.* copy. Codex 原生 Telemetry queries only codex_*, AI Agent 用量
 queries only ai_agent_*, and AI Context dashboards query only ai_context_*.
 No dashboard substitutes one evidence type for another and no token/request
 count is converted into cost.

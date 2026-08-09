@@ -323,6 +323,38 @@ class RepositoryTests(unittest.TestCase):
         )
         self.assertNotIn("serviceMap", by_uid["tempo"].get("jsonData", {}))
 
+    def test_dashboards_are_zh_tw_first_and_keep_stable_uids(self) -> None:
+        expected = {
+            "ai-agent-usage.json": "ai-agent-usage",
+            "ai-context-effectiveness.json": "ai-context-effectiveness",
+            "ai-workflow-efficiency.json": "ai-workflow-efficiency",
+            "antigravity-usage.json": "ai-antigravity-usage",
+            "codex-usage.json": "ai-codex-usage",
+            "collector-health.json": "ai-collector-health",
+        }
+        dashboard_dir = ROOT / "config/grafana/dashboards"
+        self.assertEqual({path.name for path in dashboard_dir.glob("*.json")}, set(expected))
+        for filename, uid in expected.items():
+            dashboard = json.loads((dashboard_dir / filename).read_text(encoding="utf-8"))
+            self.assertEqual(dashboard["uid"], uid)
+            self.assertRegex(dashboard["title"], r"[\u4e00-\u9fff]")
+            self.assertRegex(dashboard["description"], r"[\u4e00-\u9fff]")
+            for panel in dashboard["panels"]:
+                self.assertRegex(panel["title"], r"[\u4e00-\u9fff]", (filename, panel["id"]))
+                self.assertRegex(
+                    panel["description"], r"[\u4e00-\u9fff]", (filename, panel["id"])
+                )
+
+    def test_phoenix_zh_tw_annotation_rubric_is_complete(self) -> None:
+        configs = toolkit.load_phoenix_annotation_configs()
+        self.assertEqual(
+            {config["name"] for config in configs},
+            {"執行結果", "問題類型", "是否值得保留為案例", "人工判斷原因", "後續處置"},
+        )
+        self.assertEqual(
+            {config["type"] for config in configs}, {"CATEGORICAL", "FREEFORM"}
+        )
+
     def test_dashboard_contracts_do_not_cross_query_boundaries(self) -> None:
         rules = {
             "codex-usage.json": ("codex_", {"ai_agent_", "ai_context_", "antigravity_"}),
@@ -404,7 +436,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(list(Draft202012Validator(schema).iter_errors(instance)), [])
 
     def test_version_and_requirement_metadata(self) -> None:
-        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.4")
+        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.5")
         self.assertEqual((ROOT / "requirements-dev.txt").read_text(), "-r requirements.txt\n")
 
     def test_cli_exposes_explicit_report_snapshot_and_persistence_options(self) -> None:

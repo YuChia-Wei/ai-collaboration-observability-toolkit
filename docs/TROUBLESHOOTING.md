@@ -48,7 +48,7 @@ Check all of these:
 7. `openinference.project.name` is present when querying a named Phoenix project.
 
 An explicitly opted-out trace being absent from Phoenix is correct. A missing header is expected to
-route in v0.1.4.
+route in v0.1.4 and later.
 
 ## Grafana datasource health fails
 
@@ -80,6 +80,9 @@ or Phoenix OTLP ports. AI tools must use the updated Collector host port.
 The synthetic trace IDs are deterministic. A previous unsafe configuration may have persisted the
 rejected trace. Preserve the failed report as evidence, then intentionally reset the disposable
 laboratory volumes and rerun with the corrected configuration. Do not weaken the negative assertion.
+For an owner stack, do not delete history merely to make the UI cleaner. Filter the fixed
+`ai-collaboration-observability-fixture` Project and IDs described in the
+[Phoenix Trace 閱讀指南](PHOENIX-READING-GUIDE.zh-TW.md).
 
 ## Runtime test fails only on Phoenix API shape
 

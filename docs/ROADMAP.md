@@ -16,6 +16,13 @@
 - OTLP header and legacy resource-attribute opt-outs remain explicit and tested.
 - Header-derived routing metadata is removed before persistence.
 
+## v0.1.5 — Human-readable Observability
+
+- Make all six Grafana dashboards zh-TW-first without changing UIDs, PromQL, or telemetry contracts.
+- Add a Traditional Chinese Phoenix reading guide and bilingual telemetry glossary.
+- Provision an idempotent Chinese operational annotation rubric through the pinned Phoenix REST API.
+- Close the planned 0.1.x line; subsequent feature planning targets v0.2.0.
+
 ## v0.2.0 — AI Collaboration Improvement Loop
 
 - Issue #4: instrument genuine ai_context.* framework evidence and validate AI
