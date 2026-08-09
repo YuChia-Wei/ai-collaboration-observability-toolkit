@@ -24,7 +24,7 @@
 | Corporate isolation | PASS | alternate ports/project; five services; no Phoenix |
 | Corporate privacy/persistence | PASS | privacy and reconciliation repeated after restart |
 | Corporate test cleanup | PASS | exact test containers, network, and four test volumes removed |
-| Hosted PR CI | PENDING | recorded after the pull request checks complete |
+| Hosted PR CI | PASS | PR #13 run 31296145054: repository policy, native validators, unit tests, Core runtime/persistence, artifacts, cleanup |
 | Historical data erasure | NOT EXECUTED | not required; no owner Evaluation volume was deleted |
 
 ## Runtime routing assertions
@@ -45,6 +45,6 @@ release evidence without committing runtime-local details.
 
 ## Release sequence
 
-Local implementation and runtime gates are closed. Pull request CI, merge,
-annotated tag, GitHub Release, Issue/Project read-back, and final deployment
-from merged main remain distinct release gates until each occurs.
+Local implementation, runtime, and initial hosted PR CI gates are closed.
+Merge, annotated tag, GitHub Release, Issue/Project read-back, and final
+deployment from merged main remain distinct release gates until each occurs.
