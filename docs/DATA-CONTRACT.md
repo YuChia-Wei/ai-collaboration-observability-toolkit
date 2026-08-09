@@ -6,9 +6,9 @@ Version 0.1.3 defines three deliberately separate contracts:
 
 | Contract | Purpose | Producer/normalizer | Dashboard |
 |---|---|---|---|
-| Native provider telemetry | Preserve a privacy-filtered provider view for troubleshooting | Provider, then Collector privacy transforms | Codex Native Telemetry / Antigravity Usage |
-| \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent Usage |
-| \`ai_context.*\` | Explain framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | AI Context framework instrumentation | AI Context Effectiveness / AI Workflow Efficiency |
+| Native provider telemetry | Preserve a privacy-filtered provider view for troubleshooting | Provider, then Collector privacy transforms | Codex 原生 Telemetry / Antigravity 用量 |
+| \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent 用量 |
+| \`ai_context.*\` | Explain framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | AI Context framework instrumentation | AI Context 有效性 / AI 工作流程效率 |
 
 Native provider telemetry is not framework evidence. A Codex turn or tool call
 must never be presented as proof that an AI Context skill, rule, or validation
@@ -140,8 +140,8 @@ See [Privacy](PRIVACY.md) and the versioned
 
 ## Compatibility and migration
 
-- The Codex Native Telemetry dashboard keeps UID \`ai-codex-usage\`; its title
-  and queries changed in place to avoid creating a duplicate dashboard.
+- The Codex 原生 Telemetry dashboard keeps UID \`ai-codex-usage\`; human-facing text changes in
+  place while the PromQL contract remains stable, avoiding a duplicate dashboard.
 - Raw privacy-filtered \`codex.*\` and \`antigravity_*\` series remain available.
 - \`ai_agent.*\` is additive in 0.1.3.
 - AI Context dashboards no longer fall back to provider-native metrics.

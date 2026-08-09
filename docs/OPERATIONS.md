@@ -98,6 +98,21 @@ project label matches the reviewed isolated test project.
 Smoke reports are written under artifacts/smoke unless an explicit report path
 is supplied.
 
+## Human trace review and annotations
+
+Use [Phoenix Trace 閱讀指南](PHOENIX-READING-GUIDE.zh-TW.md) before treating low-level spans as
+task outcomes. The [Telemetry 詞彙表](TELEMETRY-GLOSSARY.zh-TW.md) maps canonical English
+identifiers to stable zh-TW explanations without changing query keys.
+
+Check the five-config rubric without mutation, then explicitly provision it for one existing Phoenix
+Project when desired:
+
+    python scripts/toolkit.py phoenix-annotations --project "<project-name>"
+    python scripts/toolkit.py phoenix-annotations --project "<project-name>" --apply
+
+The apply path uses idempotent create/update/assignment requests. It never removes owner data.
+Synthetic smoke traces remain distinguishable by their fixed Project and trace IDs.
+
 ## Codex configuration
 
 Before changing the user-level Codex config:

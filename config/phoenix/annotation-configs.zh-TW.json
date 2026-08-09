@@ -1,0 +1,58 @@
+[
+  {
+    "name": "執行結果",
+    "type": "CATEGORICAL",
+    "optimization_direction": "NONE",
+    "description": "人工判斷這次執行是否完成預期工作；不可只依 span status 推論。",
+    "values": [
+      {"label": "成功", "score": 1},
+      {"label": "部分完成", "score": 0.5},
+      {"label": "受阻", "score": 0},
+      {"label": "失敗", "score": 0}
+    ]
+  },
+  {
+    "name": "問題類型",
+    "type": "CATEGORICAL",
+    "optimization_direction": "NONE",
+    "description": "標記最主要的操作層問題；答案品質需另行判斷。",
+    "values": [
+      {"label": "無明顯問題", "score": 1},
+      {"label": "工具失敗", "score": 0},
+      {"label": "環境問題", "score": 0},
+      {"label": "等待過久", "score": 0},
+      {"label": "重複工作", "score": 0},
+      {"label": "證據不足", "score": 0},
+      {"label": "其他", "score": 0}
+    ]
+  },
+  {
+    "name": "是否值得保留為案例",
+    "type": "CATEGORICAL",
+    "optimization_direction": "NONE",
+    "description": "判斷這筆 trace 是否值得納入後續人工研究或資料集候選。",
+    "values": [
+      {"label": "是", "score": 1},
+      {"label": "否", "score": 0},
+      {"label": "待確認", "score": 0.5}
+    ]
+  },
+  {
+    "name": "人工判斷原因",
+    "type": "FREEFORM",
+    "description": "只記錄去識別的判斷理由，不貼入 prompt、response、程式碼、路徑或工具輸出。"
+  },
+  {
+    "name": "後續處置",
+    "type": "CATEGORICAL",
+    "optimization_direction": "NONE",
+    "description": "記錄人工 review 後的下一步，不代表處置已完成。",
+    "values": [
+      {"label": "無需處理", "score": 1},
+      {"label": "追蹤觀察", "score": 0.5},
+      {"label": "建立 Issue", "score": 0},
+      {"label": "候選資料集", "score": 0.5},
+      {"label": "升級討論", "score": 0}
+    ]
+  }
+]

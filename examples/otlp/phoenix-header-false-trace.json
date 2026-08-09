@@ -11,7 +11,7 @@
       },
       "scopeSpans": [
         {
-          "scope": {"name": "ai-observability-fixture", "version": "0.1.4"},
+          "scope": {"name": "ai-observability-fixture", "version": "0.1.5"},
           "spans": [
             {
               "traceId": "88888888888888888888888888888888",

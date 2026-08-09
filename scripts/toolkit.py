@@ -41,6 +41,7 @@ TRACE_PHOENIX_HEADER_TRUE = "66666666666666666666666666666666"
 TRACE_PHOENIX_HEADER_FALSE = "88888888888888888888888888888888"
 PHOENIX_ROUTING_HEADER = "x-ai-observability-phoenix"
 PHOENIX_ROUTING_ATTRIBUTE = "ai_observability.routing.phoenix"
+PHOENIX_ANNOTATION_CONFIGS = ROOT / "config/phoenix/annotation-configs.zh-TW.json"
 EXACT_IMAGES = {
     "otel-collector": "otel/opentelemetry-collector-contrib:0.158.0",
     "prometheus": "prom/prometheus:v3.13.2",
@@ -92,11 +93,15 @@ REQUIRED_DOCS = {
     "docs/CODEX-INTEGRATION.md",
     "docs/ANTIGRAVITY-INTEGRATION.md",
     "docs/PHOENIX-INTEGRATION.md",
+    "docs/PHOENIX-READING-GUIDE.zh-TW.md",
+    "docs/TELEMETRY-GLOSSARY.zh-TW.md",
     "docs/PROVIDER-SUPPORT.md",
     "docs/COST-ATTRIBUTION.md",
     "docs/DEPENDENCIES.md",
     "docs/RESOURCE-BASELINE.md",
     "docs/RELEASE-NOTES-v0.1.3.md",
+    "docs/RELEASE-NOTES-v0.1.4.md",
+    "docs/RELEASE-NOTES-v0.1.5.md",
     "docs/IMPLEMENTATION-REPORT.md",
     "docs/VALIDATION-REPORT.md",
     "requirements.txt",
@@ -358,6 +363,11 @@ def static_validate() -> list[str]:
             tomllib.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:  # noqa: BLE001
             errors.append(f"TOML {path.relative_to(ROOT)}: {exc}")
+
+    try:
+        load_phoenix_annotation_configs()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"Phoenix annotation configs: {exc}")
 
     markdown_link = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
     for path in sorted(ROOT.rglob("*.md")):
@@ -1329,6 +1339,148 @@ def http(
         return exc.code, exc.read()
 
 
+def load_phoenix_annotation_configs() -> list[dict[str, Any]]:
+    configs = json.loads(PHOENIX_ANNOTATION_CONFIGS.read_text(encoding="utf-8"))
+    if not isinstance(configs, list) or not configs:
+        raise ValueError("annotation configuration must be a non-empty array")
+    names: set[str] = set()
+    required_names = {
+        "執行結果",
+        "問題類型",
+        "是否值得保留為案例",
+        "人工判斷原因",
+        "後續處置",
+    }
+    for config in configs:
+        if not isinstance(config, dict):
+            raise ValueError("every annotation configuration must be an object")
+        name = config.get("name")
+        config_type = config.get("type")
+        if not isinstance(name, str) or not name.strip() or name in names:
+            raise ValueError(f"annotation configuration name is missing or duplicated: {name!r}")
+        names.add(name)
+        if config_type not in {"CATEGORICAL", "FREEFORM"}:
+            raise ValueError(f"unsupported annotation configuration type for {name}: {config_type}")
+        if not isinstance(config.get("description"), str) or not config["description"].strip():
+            raise ValueError(f"annotation configuration description is required: {name}")
+        if config_type == "CATEGORICAL":
+            if config.get("optimization_direction") not in {"MINIMIZE", "MAXIMIZE", "NONE"}:
+                raise ValueError(f"invalid optimization direction: {name}")
+            values = config.get("values")
+            if not isinstance(values, list) or not values:
+                raise ValueError(f"categorical values are required: {name}")
+            labels = [value.get("label") for value in values if isinstance(value, dict)]
+            if len(labels) != len(values) or any(not isinstance(label, str) for label in labels):
+                raise ValueError(f"categorical labels are invalid: {name}")
+    if names != required_names:
+        raise ValueError(
+            "annotation configuration names must exactly match the zh-TW operational rubric"
+        )
+    return configs
+
+
+def _annotation_payload(config: dict[str, Any]) -> dict[str, Any]:
+    keys = {"name", "type", "description"}
+    if config["type"] == "CATEGORICAL":
+        keys.update({"optimization_direction", "values"})
+    return {key: config.get(key) for key in keys}
+
+
+def _json_response(status: int, body: bytes, operation: str) -> dict[str, Any]:
+    if not 200 <= status < 300:
+        detail = body.decode("utf-8", errors="replace")[:500]
+        raise RuntimeError(f"Phoenix {operation} failed: HTTP {status} {detail}")
+    payload = json.loads(body or b"{}")
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Phoenix {operation} returned a non-object response")
+    return payload
+
+
+def phoenix_annotations(project: str, *, apply: bool) -> None:
+    """Check or idempotently provision the zh-TW rubric for one Phoenix project."""
+    if not project.strip():
+        raise ValueError("Phoenix project must not be empty")
+    base = urls("evaluation")["Phoenix"].rstrip("/")
+    project_path = urllib.parse.quote(project, safe="")
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    configs = load_phoenix_annotation_configs()
+
+    assigned_status, assigned_body = http(
+        "GET", f"{base}/v1/projects/{project_path}/annotation_configs?limit=100"
+    )
+    assigned_payload = _json_response(
+        assigned_status, assigned_body, f"project annotation lookup for {project}"
+    )
+    assigned_names = {
+        item.get("name")
+        for item in assigned_payload.get("data", [])
+        if isinstance(item, dict)
+    }
+    pending: list[str] = []
+
+    for expected in configs:
+        name = expected["name"]
+        name_path = urllib.parse.quote(name, safe="")
+        status, body = http("GET", f"{base}/v1/annotation_configs/{name_path}")
+        actual: dict[str, Any] | None = None
+        if status == 200:
+            actual = _json_response(status, body, f"annotation lookup for {name}").get("data")
+            if not isinstance(actual, dict):
+                raise RuntimeError(f"Phoenix annotation lookup returned no data for {name}")
+        elif status != 404:
+            _json_response(status, body, f"annotation lookup for {name}")
+
+        desired = _annotation_payload(expected)
+        if actual is None:
+            if not apply:
+                pending.append(f"missing config: {name}")
+                continue
+            create_status, create_body = http(
+                "POST",
+                f"{base}/v1/annotation_configs",
+                data=json.dumps(desired, ensure_ascii=False).encode("utf-8"),
+                headers=headers,
+            )
+            actual = _json_response(
+                create_status, create_body, f"annotation creation for {name}"
+            ).get("data")
+            print(f"CREATED: Phoenix annotation config {name}")
+        elif any(actual.get(key) != value for key, value in desired.items()):
+            if not apply:
+                pending.append(f"drifted config: {name}")
+                continue
+            config_id = urllib.parse.quote(str(actual.get("id", "")), safe="")
+            update_status, update_body = http(
+                "PUT",
+                f"{base}/v1/annotation_configs/{config_id}",
+                data=json.dumps(desired, ensure_ascii=False).encode("utf-8"),
+                headers=headers,
+            )
+            actual = _json_response(
+                update_status, update_body, f"annotation update for {name}"
+            ).get("data")
+            print(f"UPDATED: Phoenix annotation config {name}")
+
+        if name not in assigned_names:
+            if not apply:
+                pending.append(f"not assigned to {project}: {name}")
+                continue
+            assign_status, assign_body = http(
+                "PUT",
+                f"{base}/v1/projects/{project_path}/annotation_configs/{name_path}",
+            )
+            _json_response(assign_status, assign_body, f"annotation assignment for {name}")
+            print(f"ASSIGNED: {name} -> {project}")
+
+    if pending:
+        for item in pending:
+            print(f"DRIFT: {item}", file=sys.stderr)
+        raise RuntimeError(
+            "Phoenix zh-TW annotation rubric is not provisioned; rerun with --apply"
+        )
+    print(f"PASS: Phoenix zh-TW annotation rubric for project {project}")
+
+
 def wait_url(name: str, url: str, timeout: float = 180.0) -> None:
     deadline = time.monotonic() + timeout
     last_error = ""
@@ -1746,8 +1898,12 @@ def _check_grafana(report: SmokeReport, prefix: str = "") -> None:
         detail = str(payload.get("message", payload.get("status", "OK")))
         report.pass_(prefix + f"grafana datasource {uid}", detail)
     for uid, title in (
-        ("ai-codex-usage", "Codex Native Telemetry"),
-        ("ai-agent-usage", "AI Agent Usage"),
+        ("ai-collector-health", "Collector 健康狀態（Collector Health）"),
+        ("ai-codex-usage", "Codex 原生 Telemetry（Codex Native Telemetry）"),
+        ("ai-agent-usage", "AI Agent 用量（AI Agent Usage）"),
+        ("ai-antigravity-usage", "Antigravity 用量（觀測值，非帳務）"),
+        ("ai-workflow-efficiency", "AI 工作流程效率（AI Workflow Efficiency）"),
+        ("ai-context-effectiveness", "AI Context 有效性（Effectiveness）"),
     ):
         payload = retry(
             f"Grafana dashboard {uid}",
@@ -2160,6 +2316,16 @@ def main() -> int:
         help="Write the smoke report to this repository-relative or absolute path.",
     )
 
+    annotations_parser = sub.add_parser("phoenix-annotations")
+    annotations_parser.add_argument(
+        "--project", required=True, help="Phoenix project name or ID to receive the rubric."
+    )
+    annotations_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Create or update configs and assign them; without this flag the command is read-only.",
+    )
+
     reset_parser = sub.add_parser("reset")
     reset_parser.add_argument("--mode", choices=sorted(MODES), default="core")
     reset_parser.add_argument("--confirm")
@@ -2186,6 +2352,8 @@ def main() -> int:
             reset(args.mode, args.confirm)
         elif args.command == "snapshot":
             resource_snapshot(args.mode, args.output)
+        elif args.command == "phoenix-annotations":
+            phoenix_annotations(args.project, apply=args.apply)
         return 0
     except (
         RuntimeError,

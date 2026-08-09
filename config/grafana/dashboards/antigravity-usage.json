@@ -11,8 +11,8 @@
   "panels": [
     {
       "id": 1,
-      "title": "Observed session tokens (not billing)",
-      "description": "Antigravity CLI status-line totals. These are not official credits or invoice data.",
+      "title": "觀測到的 Session Token（非帳務）",
+      "description": "Antigravity CLI status line 的 token 總量；不是官方 credit 或發票資料。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -51,8 +51,8 @@
     },
     {
       "id": 2,
-      "title": "Current context composition",
-      "description": "Current context-window fields reported to the custom status-line command.",
+      "title": "目前 Context 組成（Composition）",
+      "description": "傳給自訂 status-line command 的目前 context window 欄位。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -91,8 +91,8 @@
     },
     {
       "id": 3,
-      "title": "Context window used",
-      "description": "Ratio reported by the Antigravity CLI status payload.",
+      "title": "Context Window 使用率",
+      "description": "Antigravity CLI status payload 回報的 context window 使用比例。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -127,14 +127,14 @@
         {
           "refId": "A",
           "expr": "100 * max(antigravity_context_used_ratio{tool=\"antigravity\"})",
-          "legendFormat": "used"
+          "legendFormat": "已使用"
         }
       ]
     },
     {
       "id": 4,
-      "title": "Quota remaining (observed)",
-      "description": "Quota ratios exposed to the status line; not an accounting ledger.",
+      "title": "剩餘 Quota（觀測值）",
+      "description": "Status line 可見的 quota 比例；不是帳務 ledger。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -175,8 +175,8 @@
     },
     {
       "id": 5,
-      "title": "Background tasks",
-      "description": "Running background task count from the documented Antigravity CLI status payload.",
+      "title": "背景 Task（Background tasks）",
+      "description": "Antigravity CLI status payload 回報的執行中背景 task 數量。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -212,19 +212,19 @@
         {
           "refId": "A",
           "expr": "max(antigravity_background_task_count{tool=\"antigravity\"})",
-          "legendFormat": "tasks"
+          "legendFormat": "Tasks"
         },
         {
           "refId": "B",
           "expr": "max(antigravity_artifact_count{tool=\"antigravity\"})",
-          "legendFormat": "artifacts"
+          "legendFormat": "Artifacts"
         }
       ]
     },
     {
       "id": 6,
-      "title": "Context exceeds 200k",
-      "description": "Boolean observation from the CLI status payload; 1 means true.",
+      "title": "Context 是否超過 200k",
+      "description": "CLI status payload 的布林觀測值；1 代表是，0 代表否。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -238,7 +238,16 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bool"
+          "unit": "bool",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "否"},
+                "1": {"text": "是"}
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -260,14 +269,14 @@
         {
           "refId": "A",
           "expr": "max(antigravity_context_exceeds_200k{tool=\"antigravity\"})",
-          "legendFormat": "exceeds 200k"
+          "legendFormat": "超過 200k"
         }
       ]
     },
     {
       "id": 7,
-      "title": "Lifecycle metadata events",
-      "description": "Metadata-only hook and status-line logs. Raw prompt, paths, e-mail, tool arguments/output, and transcript content are not emitted by the example.",
+      "title": "Lifecycle Metadata 事件",
+      "description": "只含 metadata 的 hook 與 status-line logs。範例不送出原始 prompt、路徑、電子郵件、工具參數／輸出或逐字內容。",
       "type": "logs",
       "datasource": {
         "type": "loki",
@@ -303,8 +312,8 @@
     },
     {
       "id": 8,
-      "title": "Pending input",
-      "description": "Observed CLI status flag for pending user input. This is workflow-state metadata, not billing.",
+      "title": "等待使用者輸入（Pending input）",
+      "description": "觀測到的 CLI pending-input 狀態；這是 workflow-state metadata，不是帳務資料。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -344,7 +353,7 @@
           },
           "editorMode": "code",
           "expr": "max(antigravity_pending_input_count{tool=\"antigravity\"})",
-          "legendFormat": "pending input",
+          "legendFormat": "等待輸入",
           "range": true,
           "refId": "A"
         }
@@ -352,8 +361,8 @@
     },
     {
       "id": 9,
-      "title": "Tool confirmation pending",
-      "description": "Boolean observation from the CLI status payload; 1 means confirmation is pending.",
+      "title": "等待工具確認（Tool confirmation）",
+      "description": "CLI status payload 的布林觀測值；1 代表正在等待確認。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -367,7 +376,16 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bool"
+          "unit": "bool",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "否"},
+                "1": {"text": "是"}
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -389,7 +407,7 @@
         {
           "refId": "A",
           "expr": "max(antigravity_tool_confirmation_pending{tool=\"antigravity\"})",
-          "legendFormat": "confirmation pending"
+          "legendFormat": "等待確認"
         }
       ]
     }
@@ -409,8 +427,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Antigravity Usage (observed, not billing)",
+  "title": "Antigravity 用量（觀測值，非帳務）",
   "uid": "ai-antigravity-usage",
   "version": 1,
-  "description": "Metadata-first Antigravity lifecycle and CLI status-payload view. Values are not official credits."
+  "description": "以 metadata 為主的 Antigravity lifecycle 與 CLI status payload 檢視；數值不是官方 credit。"
 }

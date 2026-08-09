@@ -95,15 +95,31 @@ Codex 設定只合併 examples/codex/config.toml.example 的 [otel] 區段，
 
 ## Dashboard
 
-- Collector Health
-- Codex Native Telemetry
-- AI Agent Usage
-- Antigravity Usage（observed, not billing）
-- AI Workflow Efficiency
-- AI Context Effectiveness
+- Collector 健康狀態（Collector Health）
+- Codex 原生 Telemetry（Codex Native Telemetry）
+- AI Agent 用量（AI Agent Usage）
+- Antigravity 用量（觀測值，非帳務）
+- AI 工作流程效率（AI Workflow Efficiency）
+- AI Context 有效性（Effectiveness）
 
 Codex Native 保留既有 UID ai-codex-usage。AI Agent Usage 僅查詢
 ai_agent_*；兩個 AI Context dashboards 僅查詢 ai_context_*。
+
+## 閱讀 Phoenix
+
+Phoenix 的 waterfall、span status 與 attributes 可以協助找出慢操作、重複處理、
+工具錯誤與長等待，但目前的 privacy-safe traces 不含 prompt/response 內容，不能
+單獨證明答案正確。請依 [Phoenix Trace 閱讀指南](docs/PHOENIX-READING-GUIDE.zh-TW.md)
+逐步判讀，並以 [Telemetry 詞彙表](docs/TELEMETRY-GLOSSARY.zh-TW.md) 對照 canonical
+英文 identifier。
+
+可先唯讀檢查，再把中文 annotation rubric 套用到一個既有 Phoenix Project：
+
+    python scripts/toolkit.py phoenix-annotations --project "<project-name>"
+    python scripts/toolkit.py phoenix-annotations --project "<project-name>" --apply
+
+Synthetic smoke traces 固定使用 `ai-collaboration-observability-fixture` Project
+與可辨識的 trace IDs；不需要刪除歷史資料來區分真實 traces。
 
 ## 驗證
 
@@ -125,6 +141,8 @@ ai_agent_*；兩個 AI Context dashboards 僅查詢 ai_context_*。
 - [Data contract](docs/DATA-CONTRACT.md)
 - [Privacy](docs/PRIVACY.md)
 - [Operations](docs/OPERATIONS.md)
+- [Phoenix Trace 閱讀指南（zh-TW）](docs/PHOENIX-READING-GUIDE.zh-TW.md)
+- [Telemetry 詞彙表（zh-TW）](docs/TELEMETRY-GLOSSARY.zh-TW.md)
 - [Provider support matrix](docs/PROVIDER-SUPPORT.md)
 - [Dependencies](docs/DEPENDENCIES.md)
 - [Validation report](docs/VALIDATION-REPORT.md)

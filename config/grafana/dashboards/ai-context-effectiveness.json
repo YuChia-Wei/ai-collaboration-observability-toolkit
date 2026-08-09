@@ -11,8 +11,8 @@
   "panels": [
     {
       "id": 1,
-      "title": "Successful tasks by framework version",
-      "description": "",
+      "title": "各 Framework 版本的成功 Task",
+      "description": "依 framework_version 與 task_type 統計上游明確回報 outcome=success 的 task；不是從 provider span 推測。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -43,14 +43,14 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_task_outcome_total{outcome=\"success\"}[$__range])) by (framework_version, task_type)",
-          "legendFormat": "{{model}}"
+          "legendFormat": "版本={{framework_version}} 類型={{task_type}}"
         }
       ]
     },
     {
       "id": 2,
-      "title": "Manual correction ratio",
-      "description": "",
+      "title": "人工修正比例（Manual correction）",
+      "description": "人工修正次數除以 task outcome 次數；只代表已記錄的 framework evidence。",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -81,14 +81,14 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_manual_correction_total[$__range])) by (framework_version) / clamp_min(sum(increase(ai_context_task_outcome_total[$__range])) by (framework_version), 1)",
-          "legendFormat": "{{model}}"
+          "legendFormat": "版本={{framework_version}}"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Loaded context bytes",
-      "description": "",
+      "title": "載入的 Context Bytes",
+      "description": "依 framework_version 與 task_type 顯示載入內容的 bytes；載入不代表內容實際影響行為。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -119,14 +119,14 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_loaded_bytes_total[$__range])) by (framework_version, task_type)",
-          "legendFormat": "{{model}}"
+          "legendFormat": "版本={{framework_version}} 類型={{task_type}}"
         }
       ]
     },
     {
       "id": 4,
-      "title": "Estimated context tokens",
-      "description": "",
+      "title": "估算的 Context Token",
+      "description": "依 framework_version 與 task_type 顯示估算 token；不是 provider 帳務 token。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -157,14 +157,14 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_estimated_context_tokens_total[$__range])) by (framework_version, task_type)",
-          "legendFormat": "{{model}} - {{token_type}}"
+          "legendFormat": "版本={{framework_version}} 類型={{task_type}}"
         }
       ]
     },
     {
       "id": 5,
-      "title": "Rule state transitions",
-      "description": "",
+      "title": "Rule 狀態轉換（State transitions）",
+      "description": "依 framework_version 與 state 統計 rule lifecycle；loaded 不等同 applied 或 effective。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -195,7 +195,7 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_context_rule_state_total[$__range])) by (framework_version, state)",
-          "legendFormat": "{{model}}"
+          "legendFormat": "版本={{framework_version}} 狀態={{state}}"
         }
       ]
     }
@@ -214,8 +214,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "AI Context Effectiveness",
+  "title": "AI Context 有效性（Effectiveness）",
   "uid": "ai-context-effectiveness",
   "version": 1,
-  "description": "Compares framework versions and context profiles. A loaded rule is not assumed to have affected behavior."
+  "description": "比較 framework 版本與 context profile；rule 已載入不代表它影響了行為或答案品質。"
 }

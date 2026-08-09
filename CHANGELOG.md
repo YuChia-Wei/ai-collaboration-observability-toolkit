@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented here.
 
+## [0.1.5] - 2026-08-09
+
+### Added
+
+- Added a Traditional Chinese Phoenix trace-reading guide covering projects, traces, spans,
+  waterfalls, status, attributes, events, annotations, datasets, experiments, and four operational
+  diagnostic scenarios.
+- Added a bilingual telemetry glossary that preserves canonical English identifiers.
+- Added a five-config zh-TW operational annotation rubric with read-only drift detection and
+  explicit, idempotent Phoenix REST provisioning for a selected project.
+
+### Changed
+
+- Made all six Grafana dashboards zh-TW-first while preserving dashboard UIDs, PromQL, datasource
+  boundaries, units, and telemetry semantics.
+- Corrected AI Context legend templates to use labels actually produced by their unchanged queries.
+- Documented deterministic smoke-fixture identification without deleting historical owner data.
+
+### Release boundary
+
+- v0.1.5 closes the planned 0.1.x line. Semantic normalization, evaluators, datasets, experiments,
+  and the AI Collaboration Improvement Loop remain v0.2.0 planning work.
+
 ## [0.1.4] - 2026-08-09
 
 ### Changed
