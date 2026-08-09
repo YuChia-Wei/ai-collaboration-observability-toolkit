@@ -2,7 +2,7 @@
 
 一套隱私優先、以 OpenTelemetry Collector 為唯一 host telemetry
 入口的本機 AI 協作可觀測性工具。Grafana、Loki、Tempo 與 Prometheus
-提供執行與用量證據；Phoenix 僅在 Evaluation 模式接收明確選取且已去識別的 traces。
+提供執行與用量證據；Phoenix 在 Evaluation 模式預設接收已去識別的 traces，並支援 header 明確退出。
 
 [English](README.en.md)
 
@@ -24,12 +24,12 @@
               |-- metrics --> Prometheus --+
               |-- logs ----> Loki ---------+--> Grafana
               +-- traces --> Tempo --------+
-                           +--> selected redacted traces --> Phoenix
+                           +--> redacted traces (default-on) --> Phoenix
 
 | 模式 | 用途 | Phoenix | 資料政策 |
 | --- | --- | --- | --- |
 | core | 個人本機 LGTM 基線 | 無 | 初始 denylist 加最終 privacy filter |
-| evaluation | trace 評註、資料集與實驗 | 有 | 僅 ai_context.export.phoenix=true 的已去識別 trace |
+| evaluation | trace 評註、資料集與實驗 | 有 | 已去識別 trace 預設轉送；`x-ai-observability-phoenix: false` 可退出 |
 | corporate | 公司電腦 metadata-only 基線 | 無 | exact keep_keys allowlist，未知欄位一律丟棄 |
 
 Evaluation 與 Corporate 不可同時啟用。所有 host ports 預設綁定

@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented here.
 
+## [0.1.4] - 2026-08-09
+
+### Changed
+
+- Made already-redacted Evaluation traces route to Phoenix by default so
+  clients without custom resource attributes still produce useful evaluation
+  data.
+- Added `x-ai-observability-phoenix` OTLP request-header routing: missing or
+  `true` forwards, while `false` opts out.
+- Preserved the legacy boolean `ai_context.export.phoenix` resource contract;
+  explicit `false` remains an opt-out.
+- Changed the Antigravity exporter to omit the legacy attribute by default and
+  retain `--phoenix`/`--no-phoenix` as explicit overrides.
+
+### Privacy and validation
+
+- Kept privacy transforms ahead of Phoenix routing and deleted temporary
+  header-derived routing metadata before export.
+- Added deterministic runtime fixtures for missing-header, header-true, and
+  header-false behavior, including Tempo continuity and Phoenix positive/
+  negative assertions.
+- Core and Corporate remain unchanged and expose no Phoenix route.
+
 ## [0.1.3] - 2026-08-09
 
 ### Added

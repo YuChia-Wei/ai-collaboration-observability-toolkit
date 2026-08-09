@@ -40,14 +40,15 @@ Collector exporter as a workaround.
 Check all of these:
 
 1. evaluation mode is running;
-2. `ai_context.export.phoenix` is a boolean `true`, not string `"true"`;
-3. the attribute is on the resource so the entire trace routes consistently;
-4. the privacy transform precedes `filter/phoenix-selected`;
+2. the OTLP request does not carry `x-ai-observability-phoenix: false`;
+3. the resource does not carry boolean `ai_context.export.phoenix=false`;
+4. privacy precedes `attributes/phoenix-routing`, and cleanup follows the filter;
 5. Phoenix and PostgreSQL are healthy;
 6. Collector exporter queue/failure metrics are not increasing;
 7. `openinference.project.name` is present when querying a named Phoenix project.
 
-An unselected trace being absent from Phoenix is correct.
+An explicitly opted-out trace being absent from Phoenix is correct. A missing header is expected to
+route in v0.1.4.
 
 ## Grafana datasource health fails
 
@@ -84,5 +85,5 @@ laboratory volumes and rerun with the corrected configuration. Do not weaken the
 
 Phoenix is version-pinned, but its REST API may evolve during a deliberate upgrade. Verify the
 selected route in the UI, read the pinned release's `/v1/projects/{project}/traces` API contract, then
-update `scripts/toolkit.py`. Preserve all three assertions: selected trace present, rejected trace
+update `scripts/toolkit.py`. Preserve all routing assertions: missing and true present, false absent,
 absent, sentinel absent.

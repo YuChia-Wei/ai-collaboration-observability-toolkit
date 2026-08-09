@@ -59,7 +59,7 @@ Python tool provides the same lifecycle plus structured validation reports:
 
 This checks structured-file parsing, duplicate YAML keys, pinned images,
 loopback ports, mode boundaries, exact Collector processor order, initial and
-final privacy policy, canonical mapping parity, Phoenix opt-in routing, Loki
+final privacy policy, canonical mapping parity, Phoenix default-on/opt-out routing, Loki
 label policy, dashboards, versioned fixtures, and privacy sentinels.
 
 If Windows exposes bash.exe but the execution sandbox denies WSL startup, shell
@@ -86,7 +86,7 @@ Runtime smoke:
   Tempo, and selected Phoenix window;
 - reconciles native and canonical Codex histogram values;
 - checks Grafana datasources and provisioned dashboard availability;
-- verifies Phoenix positive and negative routing in Evaluation;
+- verifies Phoenix missing-header default, header true/false, and legacy resource routing in Evaluation;
 - restarts services and proves named-volume data remains queryable when
   persistence-check is selected.
 

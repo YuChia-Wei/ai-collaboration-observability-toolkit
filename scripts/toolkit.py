@@ -36,6 +36,11 @@ TRACE_CORE = "11111111111111111111111111111111"
 TRACE_SELECTED = "22222222222222222222222222222222"
 TRACE_REJECTED = "33333333333333333333333333333333"
 TRACE_CODEX = "44444444444444444444444444444444"
+TRACE_PHOENIX_DEFAULT = "55555555555555555555555555555555"
+TRACE_PHOENIX_HEADER_TRUE = "66666666666666666666666666666666"
+TRACE_PHOENIX_HEADER_FALSE = "88888888888888888888888888888888"
+PHOENIX_ROUTING_HEADER = "x-ai-observability-phoenix"
+PHOENIX_ROUTING_ATTRIBUTE = "ai_observability.routing.phoenix"
 EXACT_IMAGES = {
     "otel-collector": "otel/opentelemetry-collector-contrib:0.158.0",
     "prometheus": "prom/prometheus:v3.13.2",
@@ -491,8 +496,25 @@ def static_validate() -> list[str]:
         != "http://loki:3100/otlp"
     ):
         errors.append("Core Collector Loki endpoint must be http://loki:3100/otlp")
-    if "filter/phoenix-selected" not in evaluation.get("processors", {}):
-        errors.append("Evaluation Collector is missing the Phoenix selection filter")
+    evaluation_processors = evaluation.get("processors", {})
+    for processor_name in (
+        "attributes/phoenix-routing",
+        "filter/phoenix-routing",
+        "attributes/phoenix-routing-cleanup",
+    ):
+        if processor_name not in evaluation_processors:
+            errors.append(
+                f"Evaluation Collector is missing the {processor_name} processor"
+            )
+    evaluation_protocols = (
+        ((evaluation.get("receivers") or {}).get("otlp") or {}).get("protocols")
+        or {}
+    )
+    for protocol in ("grpc", "http"):
+        if (evaluation_protocols.get(protocol) or {}).get("include_metadata") is not True:
+            errors.append(
+                f"Evaluation Collector OTLP {protocol} must include request metadata"
+            )
     phoenix_exporter = evaluation.get("exporters", {}).get("otlphttp/phoenix")
     if not isinstance(phoenix_exporter, dict):
         errors.append("Evaluation Collector is missing the OTLP/HTTP Phoenix exporter")
@@ -623,12 +645,12 @@ def static_validate() -> list[str]:
 
     if (
         evaluation.get("processors", {})
-        .get("filter/phoenix-selected", {})
+        .get("filter/phoenix-routing", {})
         .get("error_mode")
         != "propagate"
     ):
         errors.append(
-            "Evaluation Collector Phoenix selection must fail closed with error_mode=propagate"
+            "Evaluation Collector Phoenix routing must fail closed with error_mode=propagate"
         )
     for forbidden in [
         "prompt.content",
@@ -711,13 +733,56 @@ def static_validate() -> list[str]:
         "transform/privacy_initial",
         "transform/ai_agent",
         "transform/privacy",
-        "filter/phoenix-selected",
+        "attributes/phoenix-routing",
+        "filter/phoenix-routing",
+        "attributes/phoenix-routing-cleanup",
         "batch/phoenix",
     ]
     if phoenix_processors != required_order:
         errors.append(
-            "Evaluation Collector: traces/phoenix processor order must redact before selection and batching; "
+            "Evaluation Collector: traces/phoenix must redact, route, clean routing metadata, then batch; "
             f"found={phoenix_processors}"
+        )
+
+    routing_actions = (
+        evaluation_processors.get("attributes/phoenix-routing", {}).get("actions")
+        or []
+    )
+    if routing_actions != [
+        {
+            "key": PHOENIX_ROUTING_ATTRIBUTE,
+            "from_context": f"metadata.{PHOENIX_ROUTING_HEADER}",
+            "default_value": "true",
+            "action": "upsert",
+        }
+    ]:
+        errors.append(
+            "Evaluation Collector Phoenix routing must default missing headers to true"
+        )
+    routing_conditions = (
+        evaluation_processors.get("filter/phoenix-routing", {})
+        .get("traces", {})
+        .get("span", [])
+    )
+    expected_routing_conditions = [
+        'resource.attributes["ai_context.export.phoenix"] == false',
+        f'attributes["{PHOENIX_ROUTING_ATTRIBUTE}"] == "false"',
+    ]
+    if routing_conditions != expected_routing_conditions:
+        errors.append(
+            "Evaluation Collector Phoenix routing must preserve resource opt-out and header false opt-out"
+        )
+    cleanup_actions = (
+        evaluation_processors.get("attributes/phoenix-routing-cleanup", {}).get(
+            "actions"
+        )
+        or []
+    )
+    if cleanup_actions != [
+        {"key": PHOENIX_ROUTING_ATTRIBUTE, "action": "delete"}
+    ]:
+        errors.append(
+            "Evaluation Collector must delete temporary Phoenix routing metadata"
         )
 
     selected = json.loads(
@@ -754,6 +819,22 @@ def static_validate() -> list[str]:
             errors.append(
                 "Phoenix fixtures must set a deterministic openinference.project.name"
             )
+
+    for filename, expected_trace in (
+        ("phoenix-default-trace.json", TRACE_PHOENIX_DEFAULT),
+        ("phoenix-header-true-trace.json", TRACE_PHOENIX_HEADER_TRUE),
+        ("phoenix-header-false-trace.json", TRACE_PHOENIX_HEADER_FALSE),
+    ):
+        payload = json.loads(
+            (ROOT / "examples/otlp" / filename).read_text(encoding="utf-8")
+        )
+        resource = payload["resourceSpans"][0]
+        attrs = resource["resource"]["attributes"]
+        if any(x["key"] == "ai_context.export.phoenix" for x in attrs):
+            errors.append(f"{filename} must exercise missing resource selection")
+        observed_trace = resource["scopeSpans"][0]["spans"][0]["traceId"]
+        if observed_trace != expected_trace:
+            errors.append(f"{filename} has an unexpected trace ID")
 
     for config_name in ["config.toml.example", "config.corporate.toml.example"]:
         config = tomllib.loads(
@@ -1317,6 +1398,7 @@ def send_fixture(
     signal: str,
     *,
     directory: Path | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     port = os.getenv("OTLP_HTTP_PORT", "4318")
     fixture_directory = directory or ROOT / "examples/otlp"
@@ -1325,7 +1407,7 @@ def send_fixture(
         "POST",
         f"http://127.0.0.1:{port}/v1/{signal}",
         data,
-        {"Content-Type": "application/json"},
+        {"Content-Type": "application/json", **(headers or {})},
     )
     if status not in {200, 202}:
         raise RuntimeError(
@@ -1635,6 +1717,9 @@ def _check_backend_data(
         for trace_id, label in [
             (TRACE_SELECTED, "selected trace"),
             (TRACE_REJECTED, "rejected trace"),
+            (TRACE_PHOENIX_DEFAULT, "default-routed trace"),
+            (TRACE_PHOENIX_HEADER_TRUE, "header-true trace"),
+            (TRACE_PHOENIX_HEADER_FALSE, "header-false trace"),
         ]:
             status, body = retry(
                 f"Tempo {label}",
@@ -1678,25 +1763,41 @@ def _check_grafana(report: SmokeReport, prefix: str = "") -> None:
 
 
 def _check_phoenix(report: SmokeReport, prefix: str = "") -> None:
-    selected = retry(
-        "Phoenix selected trace",
-        lambda: phoenix_spans(TRACE_SELECTED),
-        lambda value: value[0] == 200 and TRACE_SELECTED.encode() in value[2],
-    )
-    if SENTINEL.encode() in selected[2]:
-        raise RuntimeError("privacy sentinel leaked into Phoenix selected trace")
-    report.pass_(prefix + "phoenix selected trace")
+    for trace_id, label in (
+        (TRACE_SELECTED, "legacy selected trace"),
+        (TRACE_PHOENIX_DEFAULT, "missing-header default trace"),
+        (TRACE_PHOENIX_HEADER_TRUE, "header-true trace"),
+    ):
+        observed = retry(
+            f"Phoenix {label}",
+            lambda trace_id=trace_id: phoenix_spans(trace_id),
+            lambda value, trace_id=trace_id: (
+                value[0] == 200 and trace_id.encode() in value[2]
+            ),
+        )
+        for forbidden in (
+            SENTINEL.encode(),
+            PHOENIX_ROUTING_HEADER.encode(),
+            PHOENIX_ROUTING_ATTRIBUTE.encode(),
+        ):
+            if forbidden in observed[2]:
+                raise RuntimeError(f"private or routing metadata leaked into {label}")
+        report.pass_(prefix + "phoenix " + label)
 
-    rejected = retry(
-        "Phoenix rejected trace query",
-        lambda: phoenix_spans(TRACE_REJECTED),
-        lambda value: value[0] == 200,
-    )
-    if TRACE_REJECTED.encode() in rejected[2]:
-        raise RuntimeError("Phoenix received the explicitly rejected trace")
-    if SENTINEL.encode() in rejected[2]:
-        raise RuntimeError("privacy sentinel leaked into Phoenix")
-    report.pass_(prefix + "phoenix rejected trace absent")
+    for trace_id, label in (
+        (TRACE_REJECTED, "legacy resource opt-out trace"),
+        (TRACE_PHOENIX_HEADER_FALSE, "header-false trace"),
+    ):
+        rejected = retry(
+            f"Phoenix {label} query",
+            lambda trace_id=trace_id: phoenix_spans(trace_id),
+            lambda value: value[0] == 200,
+        )
+        if trace_id.encode() in rejected[2]:
+            raise RuntimeError(f"Phoenix received the {label}")
+        if SENTINEL.encode() in rejected[2]:
+            raise RuntimeError("privacy sentinel leaked into Phoenix")
+        report.pass_(prefix + "phoenix " + label + " absent")
 
 
 def _check_collector_logs(mode: str, report: SmokeReport) -> None:
@@ -1786,6 +1887,17 @@ def smoke(
         if mode == "evaluation":
             send_fixture("phoenix-rejected-trace.json", "traces")
             send_fixture("phoenix-selected-trace.json", "traces")
+            send_fixture("phoenix-default-trace.json", "traces")
+            send_fixture(
+                "phoenix-header-true-trace.json",
+                "traces",
+                headers={PHOENIX_ROUTING_HEADER: "true"},
+            )
+            send_fixture(
+                "phoenix-header-false-trace.json",
+                "traces",
+                headers={PHOENIX_ROUTING_HEADER: "false"},
+            )
         report.pass_("collector OTLP HTTP")
         _check_backend_data(mode, report)
         _check_grafana(report)

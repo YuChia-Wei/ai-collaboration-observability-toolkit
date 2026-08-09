@@ -23,6 +23,11 @@ The current Codex configuration resolves logs, traces, and metrics independently
 may use a different default exporter. Explicitly setting all three prevents a false assumption that
 one endpoint covers every signal.
 
+Evaluation sends privacy-safe traces to Phoenix by default. To opt all Codex traces out, add
+`headers = { "x-ai-observability-phoenix" = "false" }` inside the `otlp-http` trace exporter table.
+Codex does not apply `[otel]` from project-local `.codex/config.toml`, so this is a user-level setting;
+per-project routing requires a producer that can attach the header or legacy resource attribute.
+
 ## Privacy
 
 `log_user_prompt=false` is mandatory but insufficient. Client versions may add new tool or event

@@ -10,6 +10,12 @@
 - Docker Compose as the primary runtime; Python remains an optional validation
   and operations convenience.
 
+## v0.1.4 — Phoenix Routing Compatibility
+
+- Evaluation forwards already-redacted traces to Phoenix by default.
+- OTLP header and legacy resource-attribute opt-outs remain explicit and tested.
+- Header-derived routing metadata is removed before persistence.
+
 ## v0.2.0 — AI Collaboration Improvement Loop
 
 - Issue #4: instrument genuine ai_context.* framework evidence and validate AI
