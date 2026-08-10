@@ -19,7 +19,7 @@ override remains possible, but floating tags and unmatched defaults fail validat
 | Loki | `grafana/loki:3.7.6` | AGPL-3.0 | Native OTLP log store/query | Uses filesystem TSDB v13 and structured metadata |
 | Tempo | `grafana/tempo:3.0.2` | AGPL-3.0 | Trace store/query | Uses the Tempo 3 monolithic local-storage configuration |
 | Grafana | `grafana/grafana:13.1.3` | AGPL-3.0 | Dashboards and cross-signal exploration | Provisioned datasources/dashboards; no floating plugin installation |
-| Phoenix | `arizephoenix/phoenix:version-19.19.0-nonroot` | Elastic License 2.0 | Optional AI trace evaluation | Evaluation receives minimized traces by default with explicit opt-out |
+| Phoenix | `arizephoenix/phoenix:version-19.19.0-nonroot` | Elastic License 2.0 | Optional AI trace evaluation | Evaluation receives minimized OpenInference-compatible spans by default with explicit opt-out; generic spans remain in Tempo |
 | PostgreSQL | `postgres:18.4-alpine3.24` | PostgreSQL License | Phoenix persistence | Exact image tag; PostgreSQL 18 data volume mounts at `/var/lib/postgresql` |
 | PyYAML | `6.0.3` | MIT | YAML parsing and duplicate-key/policy validation | Pinned in `requirements.txt` |
 | jsonschema | `4.26.0` | MIT | Feedback-bundle schema validation | Pinned in `requirements.txt` |

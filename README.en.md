@@ -2,15 +2,17 @@
 
 A privacy-first local observability toolkit with the OpenTelemetry Collector as
 the only host-facing telemetry ingress. Grafana, Loki, Tempo, and Prometheus
-provide execution and usage evidence. Phoenix receives already-redacted traces
-by default in Evaluation mode, with an explicit header-based opt-out.
+provide execution and usage evidence. In Evaluation mode, Phoenix receives only
+already-redacted spans that declare an OpenInference span kind, with an explicit
+header-based opt-out.
 
 ## Evidence layers
 
 - Native provider telemetry: privacy-filtered codex.* and antigravity_* data.
 - Canonical AI-agent usage: bounded ai_agent.* copies created by the Collector.
-- Framework evidence: ai_context.* skills, rules, validation, waits, retries,
-  and outcomes emitted independently by the AI Context framework.
+- Framework evidence: ai_context.* is reserved for independently emitted skills,
+  rules, validation, waits, retries, and outcomes. The repository currently has
+  schema/fixtures only, not a production emitter or dashboard.
 
 Dashboards never use cross-contract fallback queries. A public API base-price
 estimate is produced only when provider-reported tokens, an exact model, and a
@@ -22,7 +24,7 @@ counters or billing.
 | Mode | Purpose | Policy |
 | --- | --- | --- |
 | core | Personal LGTM baseline | Initial denylist plus final privacy filter |
-| evaluation | Phoenix annotations/datasets/experiments | Redacted traces reach Phoenix by default; `x-ai-observability-phoenix: false` opts out |
+| evaluation | Phoenix annotations/datasets/experiments | Redacted OpenInference-compatible spans reach Phoenix by default; generic spans remain in Tempo; `x-ai-observability-phoenix: false` opts out |
 | corporate | Company workstation metadata baseline | Exact allowlist, unknown fields dropped, no Phoenix |
 
 ## Compose-first quick start
@@ -58,8 +60,9 @@ Collector on 4317/4318.
   exact mapped models.
 - Google Antigravity: direct Hooks and CLI status-line extension; values are
   observed metadata, not billing.
-- Claude Code and GitHub Copilot: documentation only; normalization is not
-  claimed without a version-pinned fixture.
+- Claude Code has upstream OpenTelemetry support and GitHub Copilot has upstream
+  organization/enterprise usage metrics. This repository has documentation only;
+  normalization is not claimed without a version-pinned fixture.
 
 See the [provider support matrix](docs/PROVIDER-SUPPORT.md),
 [data contract](docs/DATA-CONTRACT.md), and
@@ -70,14 +73,18 @@ See the [provider support matrix](docs/PROVIDER-SUPPORT.md),
 - Collector 健康狀態 (Collector Health)
 - Codex 原生 Telemetry (Codex Native Telemetry)
 - AI Agent 用量 (AI Agent Usage)
+- AI Agent 活動 (Metadata and Trace)
 - Antigravity 用量 (observed, not billing)
-- AI 工作流程效率 (AI Workflow Efficiency)
-- AI Context 有效性 (Effectiveness)
 
 The provisioned dashboards use zh-TW-first human-facing text while keeping English search terms,
 canonical identifiers, UIDs, and queries stable. See the
 [zh-TW Phoenix reading guide](docs/PHOENIX-READING-GUIDE.zh-TW.md) and
 [telemetry glossary](docs/TELEMETRY-GLOSSARY.zh-TW.md).
+
+The former AI Context effectiveness/workflow dashboards were retired because no
+production framework emitter exists. Prompts alone cannot independently prove
+that a rule was loaded, applied, or caused a better outcome. The contract remains
+available for a future explicit emitter.
 
 The estimate is not a Codex subscription, enterprise contract, credit, or
 invoice. Antigravity status-line token/context/quota values remain unpriced

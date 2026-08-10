@@ -59,8 +59,9 @@ Python tool provides the same lifecycle plus structured validation reports:
 
 This checks structured-file parsing, duplicate YAML keys, pinned images,
 loopback ports, mode boundaries, exact Collector processor order, initial and
-final privacy policy, canonical mapping parity, Phoenix default-on/opt-out routing, Loki
-label policy, dashboards, versioned fixtures, and privacy sentinels.
+final privacy policy, canonical mapping parity, Phoenix OpenInference compatibility
+plus default-on/opt-out routing, Loki label policy, dashboards, versioned fixtures,
+and privacy sentinels.
 
 If Windows exposes bash.exe but the execution sandbox denies WSL startup, shell
 syntax is reported as SKIP/not-executed and must be run directly or in CI.
@@ -116,7 +117,9 @@ Runtime smoke:
   Tempo, and selected Phoenix window;
 - reconciles native and canonical Codex histogram values;
 - checks Grafana datasources and provisioned dashboard availability;
-- verifies Phoenix missing-header default, header true/false, and legacy resource routing in Evaluation;
+- verifies Phoenix missing-header default, header true/false, and legacy resource
+  routing for compatible spans in Evaluation, and proves a generic span remains
+  in Tempo without entering Phoenix;
 - restarts services and proves named-volume data remains queryable when
   persistence-check is selected.
 
@@ -133,6 +136,10 @@ is supplied.
 Use [Phoenix Trace 閱讀指南](PHOENIX-READING-GUIDE.zh-TW.md) before treating low-level spans as
 task outcomes. The [Telemetry 詞彙表](TELEMETRY-GLOSSARY.zh-TW.md) maps canonical English
 identifiers to stable zh-TW explanations without changing query keys.
+
+Use Grafana's AI Agent Activity dashboard for native prompt/tool/API/sandbox
+metadata and Tempo trace correlation. Phoenix is appropriate only when a trace
+already carries OpenInference semantics needed for annotation or evaluation.
 
 Check the five-config rubric without mutation, then explicitly provision it for one existing Phoenix
 Project when desired:

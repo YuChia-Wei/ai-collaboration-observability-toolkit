@@ -1,6 +1,6 @@
 # Phoenix Trace 閱讀指南（zh-TW）
 
-這份指南說明如何閱讀本工具包送進 Phoenix 的隱私安全 trace。Phoenix
+這份指南說明如何閱讀本工具包送進 Phoenix 的隱私安全、OpenInference-compatible trace。Phoenix
 用於逐筆檢視執行路徑與人工評註；Grafana 用於趨勢、用量和系統健康；Tempo
 則保留目前 mode 中較完整的最小化 trace 歷史。三者回答的問題不同。
 
@@ -19,6 +19,12 @@ Phoenix trace 可以支持「發生哪些操作、花多久、是否重複、是
 
 `UNSET` 通常表示 producer 沒有設定 status；`UNKNOWN` 通常表示 UI 或 backend
 無法從現有 metadata 判定分類。兩者都不等同成功，也不等同失敗。
+
+Phoenix 首頁或 Dashboards 顯示「No project selected」時，必須先選 Project；
+但選完後 cost/token/LLM/tool panels 仍可能是空的。這代表 spans 缺少相應的
+OpenInference kind/model/token/cost/input/output attributes，不代表服務故障。
+一般 Codex internal spans 現在只保留在 Tempo 與 AI Agent 活動 dashboard，
+不再送入 Phoenix。
 
 ## 核心名詞
 
@@ -110,11 +116,12 @@ Runtime smoke 使用固定 trace ID 和固定 Project，以便重跑 positive/ne
 | `5555…5555` | header 缺少、default-on | 有 |
 | `6666…6666` | header `true` | 有 |
 | `8888…8888` | header `false` | 無 |
+| `9999…9999` | 缺少 OpenInference span kind 的 generic trace | 無；但 Tempo 必須有 |
 | `1111…1111` | Core 一般 fixture | 不屬於 Phoenix routing positive case |
 
-這些 fixtures 的 Project 是 `ai-collaboration-observability-fixture`，並使用
-`openinference.span.kind=CHAIN`。辨識真實與 fixture 的安全做法是依 Project 加上
-固定 trace IDs 過濾，而不是刪除 PostgreSQL 歷史資料。若舊版錯誤設定曾把 negative
+這些 fixtures 的 Project 是 `ai-collaboration-observability-fixture`；positive／opt-out
+fixtures 使用 `openinference.span.kind=CHAIN`，`9999…9999` 刻意省略它。辨識真實與
+fixture 的安全做法是依 Project 加上固定 trace IDs 過濾，而不是刪除 PostgreSQL 歷史資料。若舊版錯誤設定曾把 negative
 fixture 存入 Phoenix，保留它作為歷史 evidence，並以新的 smoke 時間窗判讀。
 
 ## 中文 Annotation Rubric
@@ -148,4 +155,3 @@ semantic span normalization 和受控 experiments 屬於 v0.2 規劃，不應從
 - [Phoenix tracing concepts](https://arize.com/docs/phoenix/tracing/concepts-tracing/what-are-traces)
 - [Phoenix UI annotations](https://arize.com/docs/phoenix/tracing/how-to-tracing/feedback-and-annotations/annotating-in-the-ui)
 - [Phoenix annotation config REST API](https://arize.com/docs/phoenix/sdk-api-reference/rest-api/api-reference/annotation-configs/create-an-annotation-configuration)
-

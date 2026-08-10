@@ -186,8 +186,22 @@ class RepositoryTests(unittest.TestCase):
             pipeline["processors"].index("attributes/phoenix-routing"),
         )
         self.assertLess(
+            pipeline["processors"].index("transform/privacy"),
+            pipeline["processors"].index("filter/phoenix-openinference"),
+        )
+        self.assertLess(
+            pipeline["processors"].index("filter/phoenix-openinference"),
+            pipeline["processors"].index("attributes/phoenix-routing"),
+        )
+        self.assertLess(
             pipeline["processors"].index("filter/phoenix-routing"),
             pipeline["processors"].index("attributes/phoenix-routing-cleanup"),
+        )
+        compatibility = config["processors"]["filter/phoenix-openinference"]
+        self.assertEqual(compatibility["error_mode"], "propagate")
+        self.assertEqual(
+            compatibility["traces"]["span"],
+            ['attributes["openinference.span.kind"] == nil'],
         )
         route_action = config["processors"]["attributes/phoenix-routing"]["actions"][0]
         self.assertEqual(
@@ -218,6 +232,18 @@ class RepositoryTests(unittest.TestCase):
         exporter = config["exporters"]["otlphttp/phoenix"]
         self.assertEqual(exporter["endpoint"], "http://phoenix:6006")
         self.assertEqual(exporter["headers"]["x-project-name"], toolkit.PHOENIX_PROJECT)
+
+        generic = json.loads(
+            (ROOT / "examples/otlp/phoenix-generic-trace.json").read_text()
+        )
+        generic_span = generic["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+        self.assertEqual(generic_span["traceId"], toolkit.TRACE_PHOENIX_GENERIC)
+        self.assertFalse(
+            any(
+                attribute["key"] == "openinference.span.kind"
+                for attribute in generic_span.get("attributes", [])
+            )
+        )
 
     def test_corporate_mode_is_allowlist_only_and_has_no_phoenix(self) -> None:
         compose = (ROOT / "compose.corporate.yaml").read_text(encoding="utf-8")
@@ -438,9 +464,8 @@ class RepositoryTests(unittest.TestCase):
 
     def test_dashboards_are_zh_tw_first_and_keep_stable_uids(self) -> None:
         expected = {
+            "ai-agent-activity.json": "ai-agent-activity",
             "ai-agent-usage.json": "ai-agent-usage",
-            "ai-context-effectiveness.json": "ai-context-effectiveness",
-            "ai-workflow-efficiency.json": "ai-workflow-efficiency",
             "antigravity-usage.json": "ai-antigravity-usage",
             "codex-usage.json": "ai-codex-usage",
             "collector-health.json": "ai-collector-health",
@@ -471,17 +496,10 @@ class RepositoryTests(unittest.TestCase):
     def test_dashboard_contracts_do_not_cross_query_boundaries(self) -> None:
         rules = {
             "ai-agent-usage.json": ("ai_agent_", {"codex_", "ai_context_", "antigravity_"}),
+            "ai-agent-activity.json": ("event_name", {"ai_context_", "antigravity_"}),
             "antigravity-usage.json": (
                 "antigravity_",
                 {"codex_", "ai_agent_", "ai_context_"},
-            ),
-            "ai-context-effectiveness.json": (
-                "ai_context_",
-                {"codex_", "ai_agent_", "antigravity_"},
-            ),
-            "ai-workflow-efficiency.json": (
-                "ai_context_",
-                {"codex_", "ai_agent_", "antigravity_"},
             ),
         }
         for filename, (required, forbidden) in rules.items():
@@ -498,6 +516,21 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn(required, expressions, filename)
             for prefix in forbidden:
                 self.assertNotIn(prefix, expressions, (filename, prefix))
+
+        activity = json.loads(
+            (ROOT / "config/grafana/dashboards/ai-agent-activity.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        activity_expressions = "\n".join(
+            target.get("expr", "")
+            for panel in activity["panels"]
+            for target in panel.get("targets", [])
+        )
+        self.assertIn("codex.user_prompt", activity_expressions)
+        self.assertIn("trace_id", activity_expressions)
+        self.assertNotIn("prompt.content", activity_expressions)
+        self.assertNotIn("tool.result", activity_expressions)
 
         codex = json.loads(
             (ROOT / "config/grafana/dashboards/codex-usage.json").read_text(

@@ -286,6 +286,11 @@ processors:
       from_context: metadata.x-ai-observability-phoenix
       default_value: "true"
       action: upsert
+  filter/phoenix-openinference:
+    error_mode: propagate
+    traces:
+      span:
+      - attributes["openinference.span.kind"] == nil
   filter/phoenix-routing:
     error_mode: propagate
     traces:
@@ -403,6 +408,7 @@ service:
       - transform/privacy_initial
       - transform/ai_agent
       - transform/privacy
+      - filter/phoenix-openinference
       - attributes/phoenix-routing
       - filter/phoenix-routing
       - attributes/phoenix-routing-cleanup

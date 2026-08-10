@@ -25,10 +25,24 @@
 
 ## v0.2.0 — AI Collaboration Improvement Loop
 
-- Issue #4: instrument genuine ai_context.* framework evidence and validate AI
-  Context dashboards without provider fallbacks.
-- Issue #5: build a curated Phoenix evaluation/annotation loop using only
-  explicitly selected, already-redacted traces.
+- Issue #4 requires re-scoping around a deterministic framework-owned emitter
+  or hook. Provider-native telemetry and prompt self-reports do not satisfy the
+  effectiveness evidence contract; no AI Context dashboard is provisioned until
+  a real emitter is available.
+- Issue #5 remains downstream of compatible application/framework traces and
+  meaningful outputs. Phoenix receives only already-redacted spans with an
+  OpenInference span kind; generic agent-internal traces remain in Tempo.
+
+## Issue #18 — Actionable usage and activity views
+
+- Retire the two no-source AI Context dashboards while preserving the reserved
+  schema/fixture contract.
+- Make AI Agent Usage lead with telemetry freshness and selected-range
+  token/cost/turn/coverage/cache evidence.
+- Add an AI Agent Activity dashboard for metadata-only prompt/tool/API/sandbox
+  logs and Tempo trace correlation.
+- Filter generic non-OpenInference spans out of Phoenix without deleting
+  historical PostgreSQL/Phoenix data.
 
 ## Unassigned and later horizons
 

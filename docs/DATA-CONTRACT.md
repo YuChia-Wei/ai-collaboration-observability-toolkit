@@ -8,7 +8,8 @@ Version 0.1.3 defines three deliberately separate contracts:
 |---|---|---|---|
 | Native provider telemetry | Preserve a privacy-filtered provider view for troubleshooting | Provider, then Collector privacy transforms | Codex 原生 Telemetry / Antigravity 用量 |
 | \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent 用量 |
-| \`ai_context.*\` | Explain framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | AI Context framework instrumentation | AI Context 有效性 / AI 工作流程效率 |
+| metadata events + trace IDs | Inspect prompt submission, tool/API/sandbox events, and correlate to Tempo | Provider logs after Collector privacy transforms | AI Agent 活動 |
+| \`ai_context.*\` | Reserve framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | Future explicit AI Context framework instrumentation | None until a real emitter exists |
 
 Native provider telemetry is not framework evidence. A Codex turn or tool call
 must never be presented as proof that an AI Context skill, rule, or validation
@@ -123,7 +124,11 @@ participate in cost estimation. Runtime smoke exports them under the dedicated
 ## AI Context framework evidence
 
 \`ai_context.*\` is reserved for independently emitted framework/workflow
-evidence. Typical bounded attributes include:
+evidence. The repository currently has schema and synthetic fixtures only. A
+prompt cannot independently prove that its own rule was loaded, applied, or
+caused an outcome, so no AI Context effectiveness/workflow dashboard is
+provisioned until a deterministic framework-owned emitter or hook exists.
+Typical bounded attributes include:
 
 - framework and workflow version/type/stage;
 - task type, skill ID, rule ID/state;
@@ -181,10 +186,12 @@ the mode's final policy:
 3. final Core/Evaluation privacy filter or Corporate exact allowlist;
 4. batching and local export.
 
-Evaluation traces reach Phoenix only after redaction and are routed by default.
+Evaluation spans reach Phoenix only after redaction and only when they declare
+\`openinference.span.kind\`. Compatible spans are routed by default;
 \`x-ai-observability-phoenix: false\` or legacy boolean
-\`ai_context.export.phoenix=false\` opts out. The header-derived routing attribute
-is deleted before export. Corporate mode defines no Phoenix exporter.
+\`ai_context.export.phoenix=false\` opts out. Generic spans remain in Tempo. The
+header-derived routing attribute is deleted before export. Corporate mode
+defines no Phoenix exporter.
 See [Privacy](PRIVACY.md) and the versioned
 [Codex fixture](../fixtures/codex/0.146.1/README.md).
 
@@ -200,6 +207,7 @@ See [Privacy](PRIVACY.md) and the versioned
   canonical metric but are excluded from accounting and cost recording rules.
 - Dashboard model variables use the non-empty all-pattern \`.+\`, preventing
   historical label-less series from re-entering the new-data accounting view.
-- AI Context dashboards no longer fall back to provider-native metrics.
+- AI Context dashboards are retired until a real framework emitter exists;
+  provider-native metrics are never used as a fallback for framework evidence.
 - Producers should migrate from \`ai_context.environment.profile\` to
   \`ai_observability.profile\`; the alias remains during the 0.1.x line.

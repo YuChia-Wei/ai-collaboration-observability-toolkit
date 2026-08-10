@@ -12,7 +12,7 @@
 4. 完成：
    - Core：OpenTelemetry Collector + Prometheus + Loki + Tempo + Grafana。
    - Corporate：嚴格 metadata-only 去機敏設定，不啟動 Phoenix、不對外 export。
-   - Evaluation：Core + Phoenix + PostgreSQL；只有明確選取的 curated traces 進 Phoenix。
+   - Evaluation：Core + Phoenix + PostgreSQL；只有已去識別且具 `openinference.span.kind` 的 compatible spans 進 Phoenix，明確 `false` 可退出。
 5. 建立 PowerShell 與 Bash 啟停、驗證、smoke test、resource snapshot、reset scripts。
 6. 建立 Grafana provisioning、dashboards、Codex `config.toml` 範例與完整臺灣繁體中文文件。
 7. 實際執行可執行的驗證；敏感 sentinel 必須證明未出現在 Loki、Tempo、Phoenix。

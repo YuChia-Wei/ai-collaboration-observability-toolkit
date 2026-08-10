@@ -40,15 +40,25 @@ Collector exporter as a workaround.
 Check all of these:
 
 1. evaluation mode is running;
-2. the OTLP request does not carry `x-ai-observability-phoenix: false`;
-3. the resource does not carry boolean `ai_context.export.phoenix=false`;
-4. privacy precedes `attributes/phoenix-routing`, and cleanup follows the filter;
-5. Phoenix and PostgreSQL are healthy;
-6. Collector exporter queue/failure metrics are not increasing;
-7. `openinference.project.name` is present when querying a named Phoenix project.
+2. the span declares `openinference.span.kind`; a generic span is expected only in Tempo;
+3. the OTLP request does not carry `x-ai-observability-phoenix: false`;
+4. the resource does not carry boolean `ai_context.export.phoenix=false`;
+5. privacy precedes `filter/phoenix-openinference`, then routing and cleanup;
+6. Phoenix and PostgreSQL are healthy;
+7. Collector exporter queue/failure metrics are not increasing;
+8. `openinference.project.name` is present when querying a named Phoenix project.
 
-An explicitly opted-out trace being absent from Phoenix is correct. A missing header is expected to
-route in v0.1.4 and later.
+An explicitly opted-out or generic trace being absent from Phoenix is correct. A
+missing header routes only after the OpenInference compatibility check.
+
+## Phoenix dashboard has traces but cost/token/LLM panels are empty
+
+This is expected when the stored spans lack OpenInference LLM kind, model, token,
+cost, input, or output attributes. Project selection can reveal an existing
+project, but it cannot add missing semantics. Use AI Agent 活動 and Tempo for
+native Codex metadata/internal traces. Use Phoenix only for compatible traces
+that were instrumented for evaluation; privacy policy still removes raw
+prompt/response content.
 
 ## Grafana datasource health fails
 

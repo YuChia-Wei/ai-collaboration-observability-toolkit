@@ -23,8 +23,10 @@ The current Codex configuration resolves logs, traces, and metrics independently
 may use a different default exporter. Explicitly setting all three prevents a false assumption that
 one endpoint covers every signal.
 
-Evaluation sends privacy-safe traces to Phoenix by default. To opt all Codex traces out, add
-`headers = { "x-ai-observability-phoenix" = "false" }` inside the `otlp-http` trace exporter table.
+Evaluation sends privacy-safe spans that already declare `openinference.span.kind`
+to Phoenix by default. Generic Codex internal spans remain in Tempo. To opt all
+compatible Codex traces out, add `headers = { "x-ai-observability-phoenix" = "false" }`
+inside the `otlp-http` trace exporter table.
 Codex does not apply `[otel]` from project-local `.codex/config.toml`, so this is a user-level setting;
 per-project routing requires a producer that can attach the header or legacy resource attribute.
 
@@ -44,7 +46,8 @@ smoke test after a Codex upgrade.
 6. Confirm no prompt, response, command, source, diff, path, email, or secret is present.
 
 Codex native events do not automatically know which AI Context skill/rule/document affected the
-work. Framework hooks must add `ai_context.*` evidence separately.
+work. Framework hooks must add `ai_context.*` evidence separately; asking the
+prompt to self-report this state is not independent evidence.
 
 ## Corporate mode
 
@@ -78,8 +81,9 @@ The Collector retains privacy-filtered codex.* telemetry and creates a separate
 ai_agent.* copy. Codex 原生 Telemetry keeps native `codex_*` diagnostics and
 uses only three narrowly scoped canonical recording metrics for token
 accounting, rate-card facts, and estimated cost. AI Agent 用量 queries only
-`ai_agent_*`, and AI Context dashboards query only `ai_context_*`. No dashboard
-substitutes provider activity for framework evidence.
+`ai_agent_*`; AI Agent 活動 reads metadata-only Loki events and links them to
+Tempo. The AI Context dashboards are retired until a real framework emitter
+exists. No dashboard substitutes provider activity for framework evidence.
 
 Exact Codex models are mapped to bounded `model_id` before the raw model label
 is removed from the canonical copy. Unknown models become `unmapped` and remain

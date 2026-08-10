@@ -2,7 +2,8 @@
 
 一套隱私優先、以 OpenTelemetry Collector 為唯一 host telemetry
 入口的本機 AI 協作可觀測性工具。Grafana、Loki、Tempo 與 Prometheus
-提供執行與用量證據；Phoenix 在 Evaluation 模式預設接收已去識別的 traces，並支援 header 明確退出。
+提供執行與用量證據；Phoenix 在 Evaluation 模式只接收已去識別且具
+OpenInference span kind 的 traces，並支援 header 明確退出。
 
 [English](README.en.md)
 
@@ -10,7 +11,7 @@
 
 - Provider native：經隱私過濾後保留 codex.* 與 antigravity_*，供原生診斷。
 - AI-agent canonical：Collector 建立 ai_agent.* 副本，供跨 AI coding agent 的 bounded usage 分析。
-- AI Context：ai_context.* 僅代表 framework、skill、rule、validation、wait、retry 與 outcome 證據。
+- AI Context：ai_context.* 保留給 framework、skill、rule、validation、wait、retry 與 outcome 的顯式 emitter；目前只有 schema／fixture，沒有 production emitter 或 dashboard。
 
 三者不互相代替。Dashboard 不用 fallback 把 provider 訊號冒充 framework
 證據。只有 provider-reported token、exact model 與版本化 rate card 都存在
@@ -26,12 +27,12 @@ counter 或帳務。
               |-- metrics --> Prometheus --+
               |-- logs ----> Loki ---------+--> Grafana
               +-- traces --> Tempo --------+
-                           +--> redacted traces (default-on) --> Phoenix
+                           +--> redacted OpenInference spans (default-on) --> Phoenix
 
 | 模式 | 用途 | Phoenix | 資料政策 |
 | --- | --- | --- | --- |
 | core | 個人本機 LGTM 基線 | 無 | 初始 denylist 加最終 privacy filter |
-| evaluation | trace 評註、資料集與實驗 | 有 | 已去識別 trace 預設轉送；`x-ai-observability-phoenix: false` 可退出 |
+| evaluation | trace 評註、資料集與實驗 | 有 | 已去識別且含 `openinference.span.kind` 的 span 預設轉送；一般 spans 留在 Tempo，`x-ai-observability-phoenix: false` 可退出 |
 | corporate | 公司電腦 metadata-only 基線 | 無 | exact keep_keys allowlist，未知欄位一律丟棄 |
 
 Evaluation 與 Corporate 不可同時啟用。所有 host ports 預設綁定
@@ -85,7 +86,7 @@ smoke orchestrator 與報告工具：
   版本化公開 API 牌價估算。
 - Google Antigravity：direct Hooks 與 CLI status-line extension；usage 為
   observed metadata，非帳務。
-- Claude Code 與 GitHub Copilot：目前只有文件，不宣稱 normalized support。
+- Claude Code 上游可輸出 OpenTelemetry，GitHub Copilot 上游提供組織／企業 usage metrics；本 repository 目前都只有文件，沒有 versioned fixture，因此不宣稱 normalized support。
 
 詳見 [Provider support matrix](docs/PROVIDER-SUPPORT.md)、
 [Codex integration](docs/CODEX-INTEGRATION.md) 與
@@ -101,20 +102,23 @@ Codex 設定只合併 examples/codex/config.toml.example 的 [otel] 區段，
 - Collector 健康狀態（Collector Health）
 - Codex 原生 Telemetry（Codex Native Telemetry）
 - AI Agent 用量（AI Agent Usage）
+- AI Agent 活動（Metadata 與 Trace）
 - Antigravity 用量（觀測值，非帳務）
-- AI 工作流程效率（AI Workflow Efficiency）
-- AI Context 有效性（Effectiveness）
 
 Codex Native 保留既有 UID ai-codex-usage，並只對同一批 Codex telemetry
 使用三個明確的 canonical accounting/rate/cost recording metrics。AI Agent
-Usage 僅查詢 ai_agent_*；Antigravity dashboard 維持 provider-native observed
-gauges；兩個 AI Context dashboards 僅查詢 ai_context_*。
+Usage 僅查詢 ai_agent_*；Activity 從 Loki 查 metadata-only events，並以
+trace_id 關聯 Tempo；Antigravity dashboard 維持 provider-native observed
+gauges。因目前沒有真實 AI Context emitter，原先兩張 ai_context_* dashboards
+已移除，避免把設計中的 contract 呈現成已可觀測能力。
 
 ## 閱讀 Phoenix
 
 Phoenix 的 waterfall、span status 與 attributes 可以協助找出慢操作、重複處理、
-工具錯誤與長等待，但目前的 privacy-safe traces 不含 prompt/response 內容，不能
-單獨證明答案正確。請依 [Phoenix Trace 閱讀指南](docs/PHOENIX-READING-GUIDE.zh-TW.md)
+工具錯誤與長等待，但前提是 sender 產生 OpenInference-compatible spans。一般
+Codex internal spans 缺少 LLM kind/model/token/input/output 語意，只保留在 Tempo；
+這也是 Phoenix 預設 cost/token/LLM panels 無資料的預期原因。privacy-safe traces
+不含 prompt/response 內容，也不能單獨證明答案正確。請依 [Phoenix Trace 閱讀指南](docs/PHOENIX-READING-GUIDE.zh-TW.md)
 逐步判讀，並以 [Telemetry 詞彙表](docs/TELEMETRY-GLOSSARY.zh-TW.md) 對照 canonical
 英文 identifier。
 

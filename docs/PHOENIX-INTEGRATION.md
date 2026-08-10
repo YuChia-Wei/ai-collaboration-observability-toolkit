@@ -3,12 +3,14 @@
 ## Role
 
 Phoenix is not the primary telemetry store. Tempo keeps the complete minimized trace history for the
-running mode; Phoenix receives Evaluation traces for annotations, evaluators, datasets, and
-experiments after the Collector privacy boundary.
+running mode; Phoenix receives only OpenInference-compatible Evaluation spans for annotations,
+evaluators, datasets, and experiments after the Collector privacy boundary.
 
-## v0.1.4 hybrid routing contract
+## Semantic compatibility and hybrid routing contract
 
-Evaluation routing is default-on:
+The Collector first drops any span that does not declare
+`openinference.span.kind` from the Phoenix branch. Those generic spans remain in
+Tempo. For compatible spans, Evaluation routing is default-on:
 
 - missing `x-ai-observability-phoenix` header: forward;
 - `x-ai-observability-phoenix: true`: forward;
@@ -19,7 +21,7 @@ The legacy boolean resource attribute remains supported. `ai_context.export.phoe
 no Phoenix pipeline or exporter.
 
 The Evaluation OTLP receiver reads request metadata only for routing. The Collector performs privacy
-processing first, copies the header into a temporary
+processing first, filters for OpenInference-compatible spans, copies the header into a temporary
 `ai_observability.routing.phoenix` attribute, filters explicit opt-outs, then deletes the temporary
 attribute before export. Neither the transport header nor the temporary attribute is stored in Tempo
 or Phoenix.
@@ -31,9 +33,14 @@ header to the trace exporter:
 trace_exporter = { otlp-http = { endpoint = "http://127.0.0.1:4318/v1/traces", protocol = "binary", headers = { "x-ai-observability-phoenix" = "false" } } }
 ```
 
-Codex does not apply project-local `.codex/config.toml` overrides to the `[otel]` configuration. The
-default-on behavior therefore provides useful Phoenix data for Codex and ChatGPT Desktop even when a
-tool cannot attach custom resources or headers.
+Codex does not apply project-local `.codex/config.toml` overrides to the `[otel]` configuration.
+Native Codex internal spans normally do not declare OpenInference span kind/model/token/input/output
+semantics, so they remain available in Tempo and the AI Agent Activity dashboard instead of being
+copied into Phoenix. A header can opt a compatible span out; it cannot make a generic span evaluable.
+
+This distinction explains the prior Phoenix UI state: ingestion was healthy, but default cost,
+token, LLM, tool, input, and output panels had no compatible attributes. Selecting a Project only
+fixes the UI selection state; it cannot manufacture missing semantics.
 
 The smoke fixture sends:
 
@@ -42,6 +49,7 @@ The smoke fixture sends:
 - trace `5555…5555`: header missing; expected in Tempo and Phoenix;
 - trace `6666…6666`: header true; expected in Tempo and Phoenix;
 - trace `8888…8888`: header false; expected in Tempo only;
+- trace `9999…9999`: generic span without OpenInference kind; expected in Tempo only;
 - trace `1111…1111`: normal core fixture; expected in Tempo.
 
 The fixtures use:
@@ -52,8 +60,8 @@ openinference.span.kind = CHAIN
 ```
 
 The runtime test queries Phoenix's project span API and searches the returned trace IDs. Positive and
-negative assertions prevent future configuration changes from losing the default route or ignoring
-an explicit opt-out.
+negative assertions prevent future configuration changes from losing the compatible default route,
+ignoring an explicit opt-out, or copying generic internal spans into the evaluation store.
 
 For Traditional Chinese trace-reading order, operational caveats, deterministic fixture
 identification, and the annotation rubric, see
@@ -78,6 +86,10 @@ redacted corporate experiments. Do not encode internal repository names into cor
 Corporate mode has no Phoenix exporter.
 
 ## Initial evaluator backlog
+
+These evaluators require a real framework-owned emitter or a deliberately built
+OpenInference application trace. Native agent telemetry and prompt self-reports
+alone do not establish the required workflow/outcome semantics.
 
 Prefer deterministic code evaluators before LLM-as-a-judge:
 

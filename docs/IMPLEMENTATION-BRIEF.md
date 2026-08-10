@@ -351,8 +351,9 @@ ai-collaboration-observability-toolkit/
 │     └─ dashboards/
 │        ├─ collector-health.json
 │        ├─ codex-usage.json
-│        ├─ ai-workflow-efficiency.json
-│        └─ ai-context-effectiveness.json
+│        ├─ ai-agent-usage.json
+│        ├─ ai-agent-activity.json
+│        └─ antigravity-usage.json
 │
 ├─ examples/
 │  ├─ codex/
@@ -816,12 +817,13 @@ MVP 只建立設計與 dashboard placeholder，不建立官方 ChatGPT Enterpris
 
 ## 11.1 定位
 
-Phoenix 是 AI evaluation layer，不是 Tempo 的替代品。Evaluation mode 預設接收已去機敏 traces，
-使不支援自訂 attributes／headers 的 AI agent 仍可被評估。
+Phoenix 是 AI evaluation layer，不是 Tempo 的替代品。Evaluation mode 預設接收已去機敏、
+且已宣告 `openinference.span.kind` 的 spans；generic agent internal spans 留在 Tempo。
 
 只接收：
 
 - 已去機敏。
+- 具 `openinference.span.kind`，因此有明確 evaluation semantic boundary。
 - 缺少 `x-ai-observability-phoenix` header，或值為 `true`。
 - 未設定 legacy resource attribute，或 `ai_context.export.phoenix != false`。
 
@@ -849,8 +851,8 @@ Codex、Claude、Copilot 的原生 OTel 不保證完整符合 OpenInference。
 
 MVP：
 
-- 允許 Phoenix 顯示 generic traces。
-- 不建立未經驗證的欄位轉換。
+- generic traces 只保留在 Tempo，不複製進 Phoenix。
+- 不建立未經驗證的欄位轉換，也不把一般 internal span 冒充成 LLM/CHAIN/TOOL。
 - 在 `PHOENIX-INTEGRATION.md` 說明：
   - generic OTel trace 的限制。
   - 未來 OpenInference adapter。
@@ -858,13 +860,14 @@ MVP：
 
 ## 11.5 Phoenix 驗收
 
-Evaluation smoke test 至少送五個 traces：
+Evaluation smoke test 至少送六個 traces：
 
 1. 缺少 header 與 resource attribute：Tempo 與 Phoenix 都能找到。
 2. header `true`：Tempo 與 Phoenix 都能找到。
 3. header `false`：Tempo 能找到，Phoenix 找不到。
 4. `ai_context.export.phoenix=true`：Tempo 與 Phoenix 都能找到。
 5. `ai_context.export.phoenix=false`：Tempo 能找到，Phoenix 找不到。
+6. 缺少 `openinference.span.kind`：Tempo 能找到，Phoenix 找不到。
 
 若 Phoenix 沒有穩定公開查詢 API，必須：
 
@@ -963,40 +966,21 @@ Codex 目前可提供 conversation、API request、SSE／WebSocket、tool、MCP�
 - skill injection 次數。
 - Grafana time range 與 environment 變數。
 
-## 13.3 `ai-workflow-efficiency`
+## 13.3 `ai-agent-usage`
 
-先使用已存在的 vendor metrics，並為自訂 `ai_context.*` 預留 panels：
+首屏至少包含 telemetry 新鮮度、所選時間範圍 token／estimated cost／turns、
+估價 coverage 與 cached-input ratio。Provider-specific 或 extension-observed
+snapshots 應收進清楚標示的細節區，不讓不支援的欄位佔滿首屏。
 
-- turn end-to-end duration。
-- time to first token。
-- active／wait／blocked 時間。
-- validation duration。
-- duplicate validation。
-- retry。
-- environment preflight failure。
-- no-output interval。
-- manual correction。
-- outcome。
-- 每個成功 task 的 token。
+## 13.4 `ai-agent-activity`
 
-自訂資料尚未接入時，panel 要清楚顯示「尚無自訂 workflow telemetry」，不能顯示誤導的 0。
+使用 Loki metadata-only events 呈現 prompt 提交、tool/API/sandbox 活動、
+失敗狀態與時間軸，並保留 trace_id 供 Tempo 關聯。不得呈現 raw prompt、
+assistant response、tool arguments/results、command output、source code 或 path。
 
-## 13.4 `ai-context-effectiveness`
-
-預留：
-
-- framework version。
-- skill ID。
-- rule state。
-- loaded files／bytes／estimated token。
-- successful task。
-- accepted change。
-- first-pass build／test success。
-- manual correction rate。
-- validation reuse rate。
-- framework 版本比較。
-
-這個 dashboard 的 README 必須說明它需要上游 hooks／wrapper 才會完整運作。
+`ai_context.*` schema 與 fixtures 保留，但在 deterministic framework-owned
+emitter 完成前，不 provision workflow/effectiveness dashboards。Prompt
+self-report 與 provider-native telemetry 都不能替代獨立 framework evidence。
 
 ## 13.5 Dashboard 品質
 
@@ -1493,6 +1477,9 @@ corporate
 # 22. Roadmap
 
 ## 22.1 Phase 2：AI Context instrumentation
+
+此 phase 必須先交付 deterministic framework-owned emitter 或 hooks，並以
+至少一個真實 workflow 驗證。完成前不得恢復 AI Context dashboards。
 
 - workflow root span。
 - stage spans。

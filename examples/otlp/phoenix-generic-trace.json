@@ -1,0 +1,62 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "ai-observability-generic-fixture"
+            }
+          },
+          {
+            "key": "service.namespace",
+            "value": {
+              "stringValue": "ai-collaboration"
+            }
+          },
+          {
+            "key": "openinference.project.name",
+            "value": {
+              "stringValue": "ai-collaboration-observability-fixture"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "ai-observability-generic-fixture"
+          },
+          "spans": [
+            {
+              "traceId": "99999999999999999999999999999999",
+              "spanId": "9999999999999999",
+              "name": "generic.internal.operation",
+              "kind": 1,
+              "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+              "endTimeUnixNano": "{{END_TIME_UNIX_NANO}}",
+              "attributes": [
+                {
+                  "key": "code.function.name",
+                  "value": {
+                    "stringValue": "internal_operation"
+                  }
+                },
+                {
+                  "key": "prompt.content",
+                  "value": {
+                    "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                  }
+                }
+              ],
+              "status": {
+                "code": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

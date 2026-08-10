@@ -9,8 +9,8 @@ evidence fields. The Collector retains the native antigravity_* gauges and
 creates ai_agent.observed.* gauge copies.
 
 These values are extension observations, not provider billing records. They do
-not satisfy the AI Context framework evidence contract and are not used as a
-fallback on AI Context dashboards.
+not satisfy the AI Context framework evidence contract. AI Context dashboards
+are not provisioned until an independent framework emitter exists.
 
 ## Decision
 
@@ -52,7 +52,7 @@ Antigravity CLI custom status line ─────┘                           
                                                              ├─▶ Loki
                                                              ├─▶ Tempo
                                                              ├─▶ Prometheus
-                                                             └─▶ Phoenix (Evaluation default-on)
+                                                             └─▶ Phoenix (Evaluation, OpenInference-compatible only)
 ```
 
 The client exporter applies a strict allowlist. The Collector remains the canonical privacy, routing,
@@ -196,16 +196,20 @@ Corporate Collector allowlist removes session identities as a second control.
 
 ## Phoenix route
 
-Evaluation Phoenix routing is default-on. With no Phoenix flag, the exporter omits the legacy
-resource attribute and lets the Collector apply its default. Adding `--no-phoenix` sets:
+Evaluation Phoenix routing is default-on only for spans that already declare
+`openinference.span.kind`. Generic Antigravity spans remain in Tempo. With no
+Phoenix flag, the exporter omits the legacy resource attribute and lets the
+Collector apply its compatibility filter and default. Adding `--no-phoenix` sets:
 
 ```text
 ai_context.export.phoenix = false
 ```
 
-Adding `--phoenix` explicitly sets the legacy attribute to true. Only Evaluation mode has a Phoenix
-exporter, and Collector privacy transforms execute before that route. Corporate mode has no Phoenix
-pipeline, regardless of this producer-side flag.
+Adding `--phoenix` explicitly sets the legacy attribute to true, but does not
+manufacture missing OpenInference semantics. Only Evaluation mode has a Phoenix
+exporter, and Collector privacy transforms execute before the compatibility and
+routing filters. Corporate mode has no Phoenix pipeline, regardless of this
+producer-side flag.
 
 ## Failure semantics
 

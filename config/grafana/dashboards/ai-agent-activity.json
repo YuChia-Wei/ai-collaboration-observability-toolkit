@@ -1,0 +1,555 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "活動、Prompt 事件與 Trace 的資料界線",
+      "description": "說明這張 dashboard 能查閱的 metadata、Tempo 關聯方式，以及刻意不保留的敏感內容。",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### 查得到事件與 trace，查不到也不保存 prompt 原文\n\ncodex.user_prompt 證明 prompt 提交事件發生，並保留時間、provider／product／model 與 trace_id 等安全 metadata。Collector 會把 log body 固定改成 **AI telemetry metadata event**，raw prompt、assistant response、tool arguments/results、command output、source code 與路徑都不會進入此 dashboard。展開 log details 可複製 trace_id，再由下方 Tempo trace 清單或 Explore 追查執行路徑。"
+      }
+    },
+    {
+      "id": 2,
+      "title": "全部 Metadata 事件",
+      "description": "所選服務與時間範圍內具有 event_name 的 metadata-only log 數。",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\"} | event_name != \"\" [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "事件"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Prompt 提交事件",
+      "description": "所選時間範圍的 codex.user_prompt 次數；不包含 prompt 本文。",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 4,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\"} | event_name = \"codex.user_prompt\" [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "Prompts"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "工具決策事件",
+      "description": "所選時間範圍的 codex.tool_decision 次數；工具參數不會保留。",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\"} | event_name = \"codex.tool_decision\" [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "決策"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "失敗工具結果",
+      "description": "所選時間範圍內 success=false 的 codex.tool_result 次數；只有結果狀態，沒有工具輸出。",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\"} | event_name = \"codex.tool_result\" | success = \"false\" [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "失敗"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "API 請求事件",
+      "description": "所選時間範圍的 codex.api_request 次數；request body、headers 與帳號識別不保留。",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\"} | event_name = \"codex.api_request\" [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "API"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Sandbox 結果事件",
+      "description": "所選時間範圍的 codex.sandbox_outcome 次數；command 與 output 不保留。",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 4,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service_name=~\"$service_name\"} | event_name = \"codex.sandbox_outcome\" [$__range]))",
+          "queryType": "instant",
+          "legendFormat": "Sandbox"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "事件量時間軸（依 event_name）",
+      "description": "每個自動區間的 metadata event 數；用 event_name 分組，快速確認活動型態與尖峰。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "sum",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (event_name) (count_over_time({service_name=~\"$service_name\"} | event_name != \"\" [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{event_name}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "最近 Traces（Tempo）",
+      "description": "依所選 service_name 搜尋最近 traces；選取 trace 後可查看 waterfall、span 狀態與已去識別 attributes。",
+      "type": "table",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "enablePagination": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "query": "{ resource.service.name =~ \"${service_name:regex}\" }",
+          "queryType": "traceql",
+          "limit": 50
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Prompt 提交事件明細",
+      "description": "只顯示 codex.user_prompt 的安全 metadata 與固定 log body；展開 details 可查看 trace_id。",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 12
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service_name=~\"$service_name\"} | event_name = \"codex.user_prompt\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "失敗活動明細",
+      "description": "顯示 success=false 的安全 metadata events，供確認工具、API 或 sandbox 失敗現況。",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 12
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service_name=~\"$service_name\"} | success = \"false\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "全部 Trace-linked 活動",
+      "description": "顯示具有 trace_id 的 metadata-only events；可依時間、event_name、model 與狀態縮小調查範圍。",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 14
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service_name=~\"$service_name\"} | trace_id != \"\"",
+          "queryType": "range"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": [
+    "ai-observability",
+    "ai-agent",
+    "activity",
+    "logs",
+    "traces"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service_name",
+        "label": "Service",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "query": "label_values(service_name)",
+        "definition": "label_values(service_name)",
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "refresh": 1,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": [
+            "codex-app-server"
+          ],
+          "value": [
+            "codex-app-server"
+          ]
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "AI Agent 活動（Metadata 與 Trace）",
+  "uid": "ai-agent-activity",
+  "version": 1,
+  "description": "以 Loki metadata-only events 查閱 prompt 提交、工具／API／sandbox 活動，並以 trace_id 關聯 Tempo；不保存 raw prompt、回覆或工具內容。"
+}

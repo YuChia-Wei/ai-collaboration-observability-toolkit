@@ -36,7 +36,7 @@ OpenTelemetry Collector is the canonical ingress, minimization, cardinality, and
                                   Grafana
 
 Evaluation mode only:
-minimized traces → default-on header/resource routing → Phoenix → PostgreSQL
+minimized traces → OpenInference compatibility filter → default-on header/resource routing → Phoenix → PostgreSQL
 ```
 
 ## Deployment modes
@@ -58,13 +58,17 @@ client upgrade requires the sentinel smoke test and representative metadata insp
 
 - Adds Phoenix and PostgreSQL.
 - Every minimized trace still reaches Tempo.
-- Minimized traces reach Phoenix by default. The OTLP header
+- Minimized spans that declare `openinference.span.kind` reach Phoenix by default.
+  Generic/internal spans remain in Tempo because Phoenix cannot infer LLM or
+  evaluation semantics from them. The OTLP header
   `x-ai-observability-phoenix: false` or legacy boolean resource attribute
   `ai_context.export.phoenix=false` opts out.
 - The routing processors run after the same privacy transform used by the Tempo route. Temporary
   header-derived routing metadata is deleted before Phoenix export.
-- Runtime smoke verifies missing-header, header-true, and header-false traces in Tempo and confirms
-  only the first two through Phoenix's project span API. Legacy resource true/false remains covered.
+- Runtime smoke verifies missing-header, header-true, and header-false semantic
+  traces in Tempo and confirms only the first two through Phoenix's project span
+  API. Legacy resource true/false remains covered, and a generic trace is
+  required in Tempo but absent from Phoenix.
 
 ### Corporate
 
@@ -133,7 +137,8 @@ The Collector separates three layers:
 
 1. privacy-filtered native provider signals such as codex.* and antigravity_*;
 2. canonical ai_agent.* copies for bounded cross-agent usage analysis;
-3. independently emitted ai_context.* framework/workflow evidence.
+3. independently emitted ai_context.* framework/workflow evidence (contract
+   reserved; no production emitter or dashboard currently exists).
 
 Canonicalization runs after an initial denylist and before the final
 mode-specific privacy policy. This lets the normalizer derive bounded
@@ -142,8 +147,9 @@ fields to escape. Native and canonical metrics are both retained, but
 dashboards never use fallback expressions across contract layers.
 
 The only host-facing telemetry ingress remains the OpenTelemetry Collector.
-Phoenix is not an ingress and receives already-redacted Evaluation traces under
-the default-on routing contract.
+Phoenix is not an ingress and receives already-redacted, OpenInference-compatible
+Evaluation spans under the default-on routing contract. Tempo remains the complete
+minimized trace store.
 
 ## Why not one all-in-one backend
 

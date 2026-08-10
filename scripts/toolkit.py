@@ -40,6 +40,7 @@ TRACE_CODEX = "44444444444444444444444444444444"
 TRACE_PHOENIX_DEFAULT = "55555555555555555555555555555555"
 TRACE_PHOENIX_HEADER_TRUE = "66666666666666666666666666666666"
 TRACE_PHOENIX_HEADER_FALSE = "88888888888888888888888888888888"
+TRACE_PHOENIX_GENERIC = "99999999999999999999999999999999"
 PHOENIX_ROUTING_HEADER = "x-ai-observability-phoenix"
 PHOENIX_ROUTING_ATTRIBUTE = "ai_observability.routing.phoenix"
 PHOENIX_ANNOTATION_CONFIGS = ROOT / "config/phoenix/annotation-configs.zh-TW.json"
@@ -663,6 +664,15 @@ def static_validate() -> list[str]:
         errors.append(
             "Evaluation Collector Phoenix routing must fail closed with error_mode=propagate"
         )
+    if (
+        evaluation.get("processors", {})
+        .get("filter/phoenix-openinference", {})
+        .get("error_mode")
+        != "propagate"
+    ):
+        errors.append(
+            "Evaluation Collector Phoenix compatibility filter must fail closed with error_mode=propagate"
+        )
     for forbidden in [
         "prompt.content",
         "tool.result",
@@ -744,6 +754,7 @@ def static_validate() -> list[str]:
         "transform/privacy_initial",
         "transform/ai_agent",
         "transform/privacy",
+        "filter/phoenix-openinference",
         "attributes/phoenix-routing",
         "filter/phoenix-routing",
         "attributes/phoenix-routing-cleanup",
@@ -782,6 +793,17 @@ def static_validate() -> list[str]:
     if routing_conditions != expected_routing_conditions:
         errors.append(
             "Evaluation Collector Phoenix routing must preserve resource opt-out and header false opt-out"
+        )
+    compatibility_conditions = (
+        evaluation_processors.get("filter/phoenix-openinference", {})
+        .get("traces", {})
+        .get("span", [])
+    )
+    if compatibility_conditions != [
+        'attributes["openinference.span.kind"] == nil'
+    ]:
+        errors.append(
+            "Evaluation Collector Phoenix compatibility filter must retain only OpenInference spans"
         )
     cleanup_actions = (
         evaluation_processors.get("attributes/phoenix-routing-cleanup", {}).get(
@@ -846,6 +868,20 @@ def static_validate() -> list[str]:
         observed_trace = resource["scopeSpans"][0]["spans"][0]["traceId"]
         if observed_trace != expected_trace:
             errors.append(f"{filename} has an unexpected trace ID")
+
+    generic = json.loads(
+        (ROOT / "examples/otlp/phoenix-generic-trace.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    generic_span = generic["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    if generic_span["traceId"] != TRACE_PHOENIX_GENERIC:
+        errors.append("phoenix-generic-trace.json has an unexpected trace ID")
+    if any(
+        attribute["key"] == "openinference.span.kind"
+        for attribute in generic_span.get("attributes", [])
+    ):
+        errors.append("Phoenix generic fixture must not declare OpenInference span kind")
 
     for config_name in ["config.toml.example", "config.corporate.toml.example"]:
         config = tomllib.loads(
@@ -1041,20 +1077,23 @@ def static_validate() -> list[str]:
             "forbidden": ("ai_context_", "antigravity_"),
         },
         "ai-agent-usage.json": {
-            "required": ("ai_agent_", "Estimated cost", "公開 API"),
+            "required": (
+                "ai_agent_",
+                "Estimated cost",
+                "公開 API",
+                "Telemetry 距今",
+                "所選範圍 Token",
+                "所選範圍回合數",
+            ),
             "forbidden": ("codex_", "ai_context_", "antigravity_"),
+        },
+        "ai-agent-activity.json": {
+            "required": ("event_name", "codex.user_prompt", "trace_id"),
+            "forbidden": ("ai_context_", "antigravity_"),
         },
         "antigravity-usage.json": {
             "required": ("antigravity_", "目前不猜價"),
             "forbidden": ("codex_", "ai_agent_", "ai_context_"),
-        },
-        "ai-context-effectiveness.json": {
-            "required": ("ai_context_",),
-            "forbidden": ("codex_", "ai_agent_", "antigravity_"),
-        },
-        "ai-workflow-efficiency.json": {
-            "required": ("ai_context_",),
-            "forbidden": ("codex_", "ai_agent_", "antigravity_"),
         },
     }
     for filename, rules in dashboard_contract.items():
@@ -1826,11 +1865,11 @@ def _check_backend_data(
 
     metric_results = retry(
         "Prometheus smoke metric",
-        lambda: prometheus_query("ai_context_token_usage_total"),
+        lambda: prometheus_query("ai_agent_token_usage_total"),
         bool,
     )
     report.pass_(prefix + "prometheus metric", f"series={len(metric_results)}")
-    series = prometheus_series("ai_context_token_usage_total")
+    series = prometheus_series("ai_agent_token_usage_total")
     forbidden = {
         "session_id",
         "session.id",
@@ -2064,6 +2103,7 @@ def _check_backend_data(
             (TRACE_PHOENIX_DEFAULT, "default-routed trace"),
             (TRACE_PHOENIX_HEADER_TRUE, "header-true trace"),
             (TRACE_PHOENIX_HEADER_FALSE, "header-false trace"),
+            (TRACE_PHOENIX_GENERIC, "generic trace"),
         ]:
             status, body = retry(
                 f"Tempo {label}",
@@ -2093,9 +2133,8 @@ def _check_grafana(report: SmokeReport, prefix: str = "") -> None:
         ("ai-collector-health", "Collector 健康狀態（Collector Health）"),
         ("ai-codex-usage", "Codex 原生 Telemetry（Codex Native Telemetry）"),
         ("ai-agent-usage", "AI Agent 用量（AI Agent Usage）"),
+        ("ai-agent-activity", "AI Agent 活動（Metadata 與 Trace）"),
         ("ai-antigravity-usage", "Antigravity 用量（觀測值，非帳務）"),
-        ("ai-workflow-efficiency", "AI 工作流程效率（AI Workflow Efficiency）"),
-        ("ai-context-effectiveness", "AI Context 有效性（Effectiveness）"),
     ):
         payload = retry(
             f"Grafana dashboard {uid}",
@@ -2135,6 +2174,7 @@ def _check_phoenix(report: SmokeReport, prefix: str = "") -> None:
     for trace_id, label in (
         (TRACE_REJECTED, "legacy resource opt-out trace"),
         (TRACE_PHOENIX_HEADER_FALSE, "header-false trace"),
+        (TRACE_PHOENIX_GENERIC, "generic non-OpenInference trace"),
     ):
         rejected = retry(
             f"Phoenix {label} query",
@@ -2249,6 +2289,7 @@ def smoke(
                 "traces",
                 headers={PHOENIX_ROUTING_HEADER: "false"},
             )
+            send_fixture("phoenix-generic-trace.json", "traces")
         report.pass_("collector OTLP HTTP")
         _check_backend_data(mode, report)
         _check_grafana(report)

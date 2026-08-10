@@ -7,7 +7,9 @@
 
 Prometheus, Loki, Tempo, and Grafana remain the primary execution evidence system. Phoenix is enabled
 only in Evaluation mode. Since v0.1.4, it receives already-redacted traces by default and supports an
-explicit OTLP-header or legacy resource-attribute opt-out.
+explicit OTLP-header or legacy resource-attribute opt-out. ADR 0004 qualifies
+this route: only spans declaring `openinference.span.kind` enter Phoenix;
+generic spans remain in Tempo.
 
 ## Rationale
 
