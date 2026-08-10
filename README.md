@@ -13,7 +13,9 @@
 - AI Context：ai_context.* 僅代表 framework、skill、rule、validation、wait、retry 與 outcome 證據。
 
 三者不互相代替。Dashboard 不用 fallback 把 provider 訊號冒充 framework
-證據，也不把 token、turn 或 request 推估成費用。
+證據。只有 provider-reported token、exact model 與版本化 rate card 都存在
+時才顯示公開 API 基礎牌價估算；extension-observed gauges 不會被冒充成
+counter 或帳務。
 
 ## 架構與模式
 
@@ -79,7 +81,8 @@ smoke orchestrator 與報告工具：
 ## 已驗證的 provider surfaces
 
 - Codex CLI 0.146.1 / app-server 0.147.0-alpha.6.5：versioned fixture、
-  native dashboard 與 ai_agent.* normalization。
+  native dashboard、ai_agent.* normalization，以及 exact mapped model 的
+  版本化公開 API 牌價估算。
 - Google Antigravity：direct Hooks 與 CLI status-line extension；usage 為
   observed metadata，非帳務。
 - Claude Code 與 GitHub Copilot：目前只有文件，不宣稱 normalized support。
@@ -102,8 +105,10 @@ Codex 設定只合併 examples/codex/config.toml.example 的 [otel] 區段，
 - AI 工作流程效率（AI Workflow Efficiency）
 - AI Context 有效性（Effectiveness）
 
-Codex Native 保留既有 UID ai-codex-usage。AI Agent Usage 僅查詢
-ai_agent_*；兩個 AI Context dashboards 僅查詢 ai_context_*。
+Codex Native 保留既有 UID ai-codex-usage，並只對同一批 Codex telemetry
+使用三個明確的 canonical accounting/rate/cost recording metrics。AI Agent
+Usage 僅查詢 ai_agent_*；Antigravity dashboard 維持 provider-native observed
+gauges；兩個 AI Context dashboards 僅查詢 ai_context_*。
 
 ## 閱讀 Phoenix
 

@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import tomllib
 import urllib.error
@@ -1036,12 +1037,16 @@ def static_validate() -> list[str]:
     dashboards = ROOT / "config/grafana/dashboards"
     dashboard_contract = {
         "codex-usage.json": {
-            "required": ("codex_", "Cost is unavailable"),
-            "forbidden": ("ai_agent_", "ai_context_", "antigravity_"),
+            "required": ("codex_", "Estimated cost", "公開 API"),
+            "forbidden": ("ai_context_", "antigravity_"),
         },
         "ai-agent-usage.json": {
-            "required": ("ai_agent_", "Cost is unavailable"),
+            "required": ("ai_agent_", "Estimated cost", "公開 API"),
             "forbidden": ("codex_", "ai_context_", "antigravity_"),
+        },
+        "antigravity-usage.json": {
+            "required": ("antigravity_", "目前不猜價"),
+            "forbidden": ("codex_", "ai_agent_", "ai_context_"),
         },
         "ai-context-effectiveness.json": {
             "required": ("ai_context_",),
@@ -1063,7 +1068,7 @@ def static_validate() -> list[str]:
             for panel in dashboard.get("panels", [])
             for target in panel.get("targets", [])
         )
-        rendered = json.dumps(dashboard)
+        rendered = json.dumps(dashboard, ensure_ascii=False)
         for required in rules["required"]:
             haystack = expressions if required.endswith("_") else rendered
             if required not in haystack:
@@ -1072,6 +1077,23 @@ def static_validate() -> list[str]:
             if forbidden in expressions:
                 errors.append(
                     f"Dashboard contract {filename}: forbidden cross-contract query {forbidden}"
+                )
+        if filename == "codex-usage.json":
+            allowed_canonical = {
+                "ai_agent_token_usage_total",
+                "ai_agent_token_price_usd_per_million",
+                "ai_agent_estimated_cost_usd_total",
+                "ai_agent_provider",
+                "ai_agent_product",
+            }
+            observed_canonical = set(
+                re.findall(r"\bai_agent_[a-z0-9_]+", expressions)
+            )
+            unexpected = observed_canonical - allowed_canonical
+            if unexpected:
+                errors.append(
+                    "Dashboard contract codex-usage.json: unexpected canonical "
+                    f"recording metric(s) {sorted(unexpected)}"
                 )
 
     allowed_sentinel_paths = {
@@ -1569,6 +1591,52 @@ def send_fixture(
     print(f"SENT: {filename}")
 
 
+def send_antigravity_status_fixture(mode: str) -> None:
+    port = os.getenv("OTLP_HTTP_PORT", "4318")
+    artifacts = ROOT / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    profile = (
+        "corporate-local-redacted" if mode == "corporate" else "personal-local"
+    )
+    with tempfile.TemporaryDirectory(
+        dir=artifacts, prefix="antigravity-smoke-"
+    ) as directory:
+        state_dir = Path(directory) / "state"
+        command = [
+            sys.executable,
+            str(ROOT / "examples/antigravity/antigravity_otel_exporter.py"),
+            "statusline",
+            "--endpoint",
+            f"http://127.0.0.1:{port}",
+            "--profile",
+            profile,
+            "--product",
+            "antigravity",
+            "--service-namespace",
+            "ai-collaboration-fixture",
+            "--state-dir",
+            str(state_dir),
+            "--timeout",
+            "2",
+        ]
+        if mode == "corporate":
+            command.append("--no-include-session-hash")
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            input=(
+                ROOT / "examples/antigravity/fixtures/statusline.json"
+            ).read_text(encoding="utf-8"),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0 or "AGY Gemini 3.6 Flash" not in result.stdout:
+            detail = (result.stderr or result.stdout).strip()
+            raise RuntimeError(f"Antigravity status-line fixture failed: {detail}")
+    print("SENT: Antigravity status-line fixture")
+
+
 def retry(
     name: str,
     fn: Callable[[], Any],
@@ -1753,6 +1821,9 @@ class SmokeReport:
 def _check_backend_data(
     mode: str, report: SmokeReport, prefix: str = ""
 ) -> None:
+    def current_or_recent(selector: str) -> str:
+        return f"max_over_time({selector}[15m])" if prefix else selector
+
     metric_results = retry(
         "Prometheus smoke metric",
         lambda: prometheus_query("ai_context_token_usage_total"),
@@ -1822,6 +1893,115 @@ def _check_backend_data(
         f"raw_sum={raw_sum:g}, canonical_sum={canonical_sum:g}",
     )
 
+    expected_accounting = {
+        "input_uncached": 3000.0,
+        "input_cached": 6000.0,
+        "input_cache_write": 1000.0,
+        "output": 2000.0,
+    }
+    accounting_values = retry(
+        "Codex token accounting classes",
+        lambda: {
+            usage_class: prometheus_scalar(
+                "sum("
+                + current_or_recent(
+                    "ai_agent_token_usage_total{"
+                    'ai_agent_provider="openai",ai_agent_product="codex",'
+                    'model_id="gpt-5.6-sol",'
+                    'service_namespace="ai-collaboration-cost-fixture",'
+                    'accounting_schema="v1",'
+                    f'usage_class="{usage_class}"}}'
+                )
+                + ")"
+            )
+            for usage_class in expected_accounting
+        },
+        lambda value: all(
+            abs(value[usage_class] - expected) < 0.000001
+            for usage_class, expected in expected_accounting.items()
+        ),
+    )
+    estimated_cost = retry(
+        "Codex estimated public API cost",
+        lambda: prometheus_scalar(
+            "sum("
+            + current_or_recent(
+                'ai_agent_estimated_cost_usd_total{ai_agent_provider="openai",'
+                'ai_agent_product="codex",model_id="gpt-5.6-sol",'
+                'service_namespace="ai-collaboration-cost-fixture",'
+                'accounting_schema="v1"}'
+            )
+            + ")"
+        ),
+        lambda value: abs(value - 0.08425) < 0.000000001,
+    )
+    if prometheus_query(
+        'ai_agent_estimated_cost_usd_total{model_id="codex-auto-review"}'
+    ):
+        raise RuntimeError("unmapped Codex auto-review usage was unexpectedly priced")
+    price_series = prometheus_query("ai_agent_token_price_usd_per_million")
+    if len(price_series) != 12:
+        raise RuntimeError(
+            f"expected 12 exact rate-card series, found {len(price_series)}"
+        )
+    report.pass_(
+        prefix + "codex token accounting and estimated cost",
+        f"classes={accounting_values}, estimated_usd={estimated_cost:g}",
+    )
+
+    raw_antigravity, canonical_antigravity = retry(
+        "Antigravity raw/canonical observed session tokens",
+        lambda: (
+            prometheus_scalar(
+                "sum("
+                + current_or_recent(
+                    'antigravity_session_tokens{ai_agent_provider="google",'
+                    'ai_agent_product="antigravity",'
+                    'service_namespace="ai-collaboration-fixture"}'
+                )
+                + ")"
+            ),
+            prometheus_scalar(
+                "sum("
+                + current_or_recent(
+                    'ai_agent_observed_session_tokens{ai_agent_provider="google",'
+                    'ai_agent_product="antigravity",'
+                    'service_namespace="ai-collaboration-fixture"}'
+                )
+                + ")"
+            ),
+        ),
+        lambda value: value[0] > 0 and abs(value[0] - value[1]) < 0.000001,
+    )
+    observed_context_ratio = prometheus_scalar(
+        "max("
+        + current_or_recent(
+            'ai_agent_observed_context_used_ratio{ai_agent_provider="google",'
+            'ai_agent_product="antigravity",'
+            'service_namespace="ai-collaboration-fixture"}'
+        )
+        + ")"
+    )
+    observed_quota_ratio = prometheus_scalar(
+        "max("
+        + current_or_recent(
+            'ai_agent_observed_quota_remaining_ratio{ai_agent_provider="google",'
+            'ai_agent_product="antigravity",'
+            'service_namespace="ai-collaboration-fixture"}'
+        )
+        + ")"
+    )
+    if prometheus_query(
+        'ai_agent_estimated_cost_usd_total{ai_agent_provider="google"}'
+    ):
+        raise RuntimeError("extension-observed Antigravity gauges were unexpectedly priced")
+    report.pass_(
+        prefix + "antigravity observed usage boundary",
+        "session_tokens="
+        f"{canonical_antigravity:g}, context_ratio={observed_context_ratio:g}, "
+        f"quota_ratio={observed_quota_ratio:g}, estimated_cost=absent",
+    )
+
     loki_payload, loki_raw = retry(
         "Loki smoke log",
         loki_query,
@@ -1845,6 +2025,18 @@ def _check_backend_data(
     report.pass_(
         prefix + "codex loki privacy window",
         f"streams={len(codex_loki_payload['data']['result'])}",
+    )
+
+    antigravity_loki_payload, antigravity_loki_raw = retry(
+        "Loki Antigravity sanitized status log",
+        lambda: loki_query("antigravity"),
+        lambda value: bool(value[0].get("data", {}).get("result")),
+    )
+    if ANTIGRAVITY_SENTINEL.encode() in antigravity_loki_raw:
+        raise RuntimeError("Antigravity privacy sentinel leaked into Loki")
+    report.pass_(
+        prefix + "antigravity loki privacy window",
+        f"streams={len(antigravity_loki_payload['data']['result'])}",
     )
 
     status, body = retry(
@@ -1961,8 +2153,9 @@ def _check_collector_logs(mode: str, report: SmokeReport) -> None:
         mode, ["logs", "--no-color", "otel-collector"], capture=True
     )
     text = result.stdout + result.stderr
-    if SENTINEL in text:
-        raise RuntimeError("privacy sentinel leaked into Collector logs")
+    for sentinel in (SENTINEL, ANTIGRAVITY_SENTINEL, CODEX_FIXTURE_SENTINEL):
+        if sentinel in text:
+            raise RuntimeError("privacy sentinel leaked into Collector logs")
     report.pass_("collector logs sentinel absent")
 
 
@@ -2035,6 +2228,8 @@ def smoke(
         report.pass_("stack readiness")
         send_fixture("logs.json", "logs")
         send_fixture("metrics.json", "metrics")
+        send_fixture("codex-cost-accounting-metrics.json", "metrics")
+        send_antigravity_status_fixture(mode)
         send_fixture("traces.json", "traces")
         codex_fixture = ROOT / "fixtures/codex/0.146.1"
         send_fixture("logs.sanitized.json", "logs", directory=codex_fixture)

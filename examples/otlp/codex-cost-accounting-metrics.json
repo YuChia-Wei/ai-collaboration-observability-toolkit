@@ -1,0 +1,103 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "codex-app-server"}},
+          {"key": "service.namespace", "value": {"stringValue": "ai-collaboration-cost-fixture"}},
+          {"key": "service.version", "value": {"stringValue": "synthetic-cost-v1"}},
+          {"key": "deployment.environment.name", "value": {"stringValue": "fixture-local"}},
+          {"key": "conversation_id", "value": {"stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"}}
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {"name": "ai-observability-cost-fixture", "version": "1.0"},
+          "metrics": [
+            {
+              "name": "codex.turn.token_usage",
+              "unit": "{token}",
+              "histogram": {
+                "aggregationTemporality": 1,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "token_type", "value": {"stringValue": "input"}}
+                    ],
+                    "count": "1",
+                    "sum": 10000,
+                    "bucketCounts": ["0", "0", "1", "0"],
+                    "explicitBounds": [100, 1000, 10000]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "token_type", "value": {"stringValue": "cached_input"}}
+                    ],
+                    "count": "1",
+                    "sum": 6000,
+                    "bucketCounts": ["0", "0", "1", "0"],
+                    "explicitBounds": [100, 1000, 10000]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "token_type", "value": {"stringValue": "cache_write_input"}}
+                    ],
+                    "count": "1",
+                    "sum": 1000,
+                    "bucketCounts": ["0", "1", "0", "0"],
+                    "explicitBounds": [100, 1000, 10000]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "token_type", "value": {"stringValue": "output"}}
+                    ],
+                    "count": "1",
+                    "sum": 2000,
+                    "bucketCounts": ["0", "0", "1", "0"],
+                    "explicitBounds": [100, 1000, 10000]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "token_type", "value": {"stringValue": "reasoning_output"}}
+                    ],
+                    "count": "1",
+                    "sum": 500,
+                    "bucketCounts": ["0", "1", "0", "0"],
+                    "explicitBounds": [100, 1000, 10000]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "token_type", "value": {"stringValue": "total"}}
+                    ],
+                    "count": "1",
+                    "sum": 12000,
+                    "bucketCounts": ["0", "0", "0", "1"],
+                    "explicitBounds": [100, 1000, 10000]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

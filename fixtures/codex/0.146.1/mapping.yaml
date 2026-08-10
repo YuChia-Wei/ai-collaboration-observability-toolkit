@@ -69,6 +69,8 @@ metrics:
     unit: "{thread}"
 
 bounded_dimensions:
+  model_id: [codex-auto-review, gpt-5.6-luna, gpt-5.6-sol, gpt-5.6-terra, unmapped]
+  model_family: [codex-auto-review, gpt-5.6, unmapped]
   token_type: [input, non_cached_input, cached_input, cache_write_input, output, reasoning_output, total]
   operation: [api, compaction, mcp, thread, tool, turn]
   evidence_class: [provider-reported]

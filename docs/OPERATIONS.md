@@ -74,6 +74,28 @@ OTELCOL_BIN, PROMTOOL_BIN, LOKI_BIN, and TEMPO_BIN, it also runs the exact
 native validators. Equivalent pinned-container validation is acceptable.
 Unavailable checks are SKIP/not-executed, never PASS.
 
+### Token accounting and estimated-cost rules
+
+Prometheus loads `config/prometheus/rules/ai-agent-cost.yml` from a read-only
+Compose mount. After changing the mapping or rate card:
+
+1. run `promtool check rules config/prometheus/rules/ai-agent-cost.yml` (the
+   pinned Prometheus container is an acceptable validator);
+2. run `docker compose ... up -d` without `-v` so named volumes are retained;
+3. confirm the `ai-agent-token-accounting-and-cost` rule group is healthy;
+4. query `ai_agent_token_usage_total`,
+   `ai_agent_token_price_usd_per_million`, and
+   `ai_agent_estimated_cost_usd_total`;
+5. confirm new accounting/cost series carry `accounting_schema="v1"` and retain
+   their bounded `service_namespace`;
+6. confirm dashboard queries exclude
+   `^ai-collaboration(-cost)?-fixture$`, while unknown real models appear as
+   unpriced usage rather than disappearing.
+
+The rate card applies only to newly mapped data and does not rewrite existing
+stored series. Its cost is a public API base-price estimate, not a subscription
+or invoice.
+
 ### 3. Runtime smoke and persistence
 
     python scripts/toolkit.py smoke --mode evaluation --persistence-check
@@ -82,6 +104,14 @@ Runtime smoke:
 
 - sends legacy compatibility fixtures plus the versioned Codex metrics/logs/
   traces fixture;
+- sends a synthetic exact-model accounting fixture and proves the four
+  non-overlapping token classes, 12 versioned rate series, an estimated cost,
+  and the absence of a price for `codex-auto-review`; this fixture uses
+  `service_namespace=ai-collaboration-cost-fixture`;
+- executes the Antigravity status-line exporter against its privacy fixture,
+  under `service_namespace=ai-collaboration-fixture`,
+  reconciles native/canonical observed gauges, and proves Google observations
+  do not produce an estimated-cost series;
 - proves the synthetic privacy fields are absent in the new Prometheus, Loki,
   Tempo, and selected Phoenix window;
 - reconciles native and canonical Codex histogram values;

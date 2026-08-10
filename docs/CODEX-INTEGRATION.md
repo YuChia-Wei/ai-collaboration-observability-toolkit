@@ -75,10 +75,19 @@ metrics so the ai_agent.* form retains the original instrument type and
 temporality; Prometheus exposes histogram bucket/count/sum series.
 
 The Collector retains privacy-filtered codex.* telemetry and creates a separate
-ai_agent.* copy. Codex 原生 Telemetry queries only codex_*, AI Agent 用量
-queries only ai_agent_*, and AI Context dashboards query only ai_context_*.
-No dashboard substitutes one evidence type for another and no token/request
-count is converted into cost.
+ai_agent.* copy. Codex 原生 Telemetry keeps native `codex_*` diagnostics and
+uses only three narrowly scoped canonical recording metrics for token
+accounting, rate-card facts, and estimated cost. AI Agent 用量 queries only
+`ai_agent_*`, and AI Context dashboards query only `ai_context_*`. No dashboard
+substitutes provider activity for framework evidence.
+
+Exact Codex models are mapped to bounded `model_id` before the raw model label
+is removed from the canonical copy. Unknown models become `unmapped` and remain
+visible without a price. The estimate uses versioned public API base rates; it
+is not Codex subscription/credit/invoice data and does not apply the
+greater-than-272K premium because aggregated telemetry cannot identify the
+affected requests. Raw `token_type` panels remain available to reconcile the
+non-overlapping accounting classes.
 
 Before changing a live Codex configuration, create a same-directory backup.
 For this toolkit, change only the [otel] block, keep all three endpoints on the

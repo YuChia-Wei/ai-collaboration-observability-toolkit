@@ -39,6 +39,9 @@ for 0.1.x producers. New integrations should use \`ai_observability.profile\`.
 Canonical metric datapoints may use only reviewed bounded dimensions:
 
 - \`operation\`: \`turn\`, \`tool\`, \`mcp\`, \`api\`, \`compaction\`, \`thread\`.
+- \`model_id\`: an exact, reviewed model identifier used only for bounded
+  accounting/rate-card joins. Unknown or non-exact values become \`unmapped\`;
+  raw provider values are never promoted automatically.
 - \`model_family\`: normalized family, not a request/session identifier.
 - \`tool_category\`: bounded category such as \`execution\`, \`editor\`, or
   \`connector\`; raw tool names are removed from canonical copies.
@@ -81,6 +84,42 @@ Prometheus renders dotted OTLP names with underscores and renders histograms as
 operations; a histogram sum must not be treated as a counter instrument in the
 contract.
 
+Prometheus adds three provider-neutral recording metrics for the new ingestion
+window:
+
+| Recording metric | Semantics |
+|---|---|
+| \`ai_agent_token_usage_total\` | Non-overlapping accounting classes: \`input_uncached\`, \`input_cached\`, \`input_cache_write\`, and \`output\` |
+| \`ai_agent_token_price_usd_per_million\` | Versioned rate-card fact for an exact provider/model/class tuple |
+| \`ai_agent_estimated_cost_usd_total\` | Accounting token total multiplied by the matching rate; absent when no exact rate exists |
+
+Every new accounting and estimated-cost series carries
+\`accounting_schema=v1\`. The recording rules also retain the bounded
+\`service_namespace\`, so owner telemetry and runtime fixtures cannot collapse
+into the same Prometheus series. The supplied dashboards require schema v1 and
+exclude \`ai-collaboration-fixture\` and \`ai-collaboration-cost-fixture\` by
+default. Older unversioned series remain stored and queryable but are not
+rewritten or included in the new usage totals.
+
+For the verified Codex contract, \`cached_input\`, \`cache_write_input\`, and
+\`reasoning_output\` are diagnostic subsets. The accounting series prefers an
+explicit \`non_cached_input\`; otherwise it derives uncached input as
+\`input - cached_input - cache_write_input\`, clamped at zero. It counts \`output\`
+once and does not add \`reasoning_output\` again. Raw provider token classes stay
+queryable for reconciliation.
+
+Dashboard cumulative stats reduce to the last observed recording value in the
+selected range, and the unpriced table uses \`last_over_time\`. Range charts use
+\`increase()\`; because a first-ever counter sample has no preceding baseline,
+operators should use the cumulative stat for the initial read-back and the
+range chart for subsequent changes.
+
+Antigravity status-line token/context/quota metrics remain instantaneous
+\`evidence_class=observed\` gauges. They are not transformed into
+\`ai_agent_token_usage_total\`, are not accumulated with \`increase()\`, and do not
+participate in cost estimation. Runtime smoke exports them under the dedicated
+\`ai-collaboration-fixture\` namespace, which usage dashboards exclude.
+
 ## AI Context framework evidence
 
 \`ai_context.*\` is reserved for independently emitted framework/workflow
@@ -115,10 +154,21 @@ instrumentation must not emit provider usage under \`ai_context.*\`.
 
 ## Cost
 
-Version 0.1.3 has no verified provider-independent price or billing contract.
-Neither token counts nor turn/request counts are converted into currency.
-Dashboards state “Cost unavailable.” Future cost data requires an explicit
-versioned rate/billing source, unit, attribution method, and confidence level.
+Cost is an explicitly versioned estimate, not provider billing. The initial
+rate card is \`openai-api-2026-08-10\`, denominated in USD per one million tokens,
+and covers only exact \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, and \`gpt-5.6-luna\`
+accounting classes. Each output series retains \`currency\`,
+\`rate_card_version\`, \`rate_card_source\`, \`pricing_scope\`, and
+\`cost_source=estimated_api_list_price\`.
+
+No price is guessed for \`codex-auto-review\`, \`unmapped\`, Antigravity, Claude,
+or Copilot. Those usage/observation series remain visible without a cost
+series. The initial rate card represents public API base pricing only; it does
+not represent Codex subscriptions, credits, enterprise contracts, invoices,
+or internal showback. Aggregated telemetry cannot determine which individual
+requests exceeded the long-context threshold, so the initial estimate does
+not apply the greater-than-272K premium. See
+[Cost attribution](COST-ATTRIBUTION.md).
 
 ## Privacy and routing
 
@@ -144,6 +194,12 @@ See [Privacy](PRIVACY.md) and the versioned
   place while the PromQL contract remains stable, avoiding a duplicate dashboard.
 - Raw privacy-filtered \`codex.*\` and \`antigravity_*\` series remain available.
 - \`ai_agent.*\` is additive in 0.1.3.
+- Existing stored series are not rewritten. Exact \`model_id\`, accounting, and
+  cost recording metrics apply to newly ingested/mapped data.
+- Legacy canonical token series without \`model_id\` remain queryable in the raw
+  canonical metric but are excluded from accounting and cost recording rules.
+- Dashboard model variables use the non-empty all-pattern \`.+\`, preventing
+  historical label-less series from re-entering the new-data accounting view.
 - AI Context dashboards no longer fall back to provider-native metrics.
 - Producers should migrate from \`ai_context.environment.profile\` to
   \`ai_observability.profile\`; the alias remains during the 0.1.x line.

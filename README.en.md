@@ -12,8 +12,10 @@ by default in Evaluation mode, with an explicit header-based opt-out.
 - Framework evidence: ai_context.* skills, rules, validation, waits, retries,
   and outcomes emitted independently by the AI Context framework.
 
-Dashboards never use cross-contract fallback queries. Token, turn, or request
-counts are not converted into cost.
+Dashboards never use cross-contract fallback queries. A public API base-price
+estimate is produced only when provider-reported tokens, an exact model, and a
+versioned rate card all exist. Extension-observed gauges are never presented as
+counters or billing.
 
 ## Modes
 
@@ -52,7 +54,8 @@ Collector on 4317/4318.
 ## Verified provider surfaces
 
 - Codex CLI 0.146.1 / app-server 0.147.0-alpha.6.5: versioned fixture, native
-  dashboard, and ai_agent.* normalization.
+  dashboard, ai_agent.* normalization, and a versioned public API estimate for
+  exact mapped models.
 - Google Antigravity: direct Hooks and CLI status-line extension; values are
   observed metadata, not billing.
 - Claude Code and GitHub Copilot: documentation only; normalization is not
@@ -75,6 +78,11 @@ The provisioned dashboards use zh-TW-first human-facing text while keeping Engli
 canonical identifiers, UIDs, and queries stable. See the
 [zh-TW Phoenix reading guide](docs/PHOENIX-READING-GUIDE.zh-TW.md) and
 [telemetry glossary](docs/TELEMETRY-GLOSSARY.zh-TW.md).
+
+The estimate is not a Codex subscription, enterprise contract, credit, or
+invoice. Antigravity status-line token/context/quota values remain unpriced
+observed snapshots. Claude and Copilot remain unnormalized and unpriced until
+version-pinned fixtures are available.
 
 ## Validation
 
