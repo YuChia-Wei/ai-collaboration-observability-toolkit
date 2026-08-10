@@ -115,7 +115,15 @@ class AntigravityExampleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             result = self.run_exporter(
-                ["statusline", "--profile", "personal-local", "--product", "antigravity"],
+                [
+                    "statusline",
+                    "--profile",
+                    "personal-local",
+                    "--product",
+                    "antigravity",
+                    "--service-namespace",
+                    "ai-collaboration-fixture",
+                ],
                 "statusline.json",
                 state_dir=root / "state",
                 capture_dir=root / "capture",
@@ -146,6 +154,7 @@ class AntigravityExampleTests(unittest.TestCase):
             self.assertIn('"ai_agent.product"', rendered)
             self.assertIn('"ai_agent.surface"', rendered)
             self.assertIn('"stringValue": "status-line"', rendered)
+            self.assertIn('"stringValue": "ai-collaboration-fixture"', rendered)
             self.assertIn('"ai_agent.evidence.class"', rendered)
             self.assertIn('"stringValue": "observed"', rendered)
             self.assertIn('"version": "0.1.5"', rendered)

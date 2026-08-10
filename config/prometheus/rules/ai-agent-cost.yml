@@ -1,0 +1,206 @@
+groups:
+  - name: ai-agent-token-accounting-and-cost
+    interval: 10s
+    rules:
+      # Public API list prices read back from the official model pages on 2026-08-10.
+      # They are estimates only; they are not Codex subscription or invoice prices.
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-sol
+          usage_class: input_uncached
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-sol
+          usage_class: input_cached
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(6.25)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-sol
+          usage_class: input_cache_write
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(30)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-sol
+          usage_class: output
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(2)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-terra
+          usage_class: input_uncached
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.2)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-terra
+          usage_class: input_cached
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(2.5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-terra
+          usage_class: input_cache_write
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(12)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-terra
+          usage_class: output
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.2)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-luna
+          usage_class: input_uncached
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.02)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-luna
+          usage_class: input_cached
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.25)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-luna
+          usage_class: input_cache_write
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(1.2)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-5.6-luna
+          usage_class: output
+          currency: USD
+          rate_card_version: openai-api-2026-08-10
+          rate_card_source: official_openai_api
+          pricing_scope: base_standard_context
+
+      # Only the new exact/unmapped model_id schema participates. Legacy series
+      # without model_id stay queryable as raw telemetry but are not backfilled.
+      # service_namespace keeps synthetic fixtures isolated from owner usage.
+      # Prefer an explicit non_cached_input series. If it is absent, derive it
+      # from input because OpenAI reports cached/cache-write tokens as subsets.
+      - record: ai_agent_token_usage_total
+        expr: |
+          sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+            ai_agent_turn_token_usage_sum{token_type="non_cached_input",model_id!=""}
+          )
+          or
+          (
+            clamp_min(
+              sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+                ai_agent_turn_token_usage_sum{token_type="input",model_id!=""}
+              )
+              - (
+                  sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+                    ai_agent_turn_token_usage_sum{token_type="cached_input",model_id!=""}
+                  )
+                  or
+                  sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+                    ai_agent_turn_token_usage_sum{token_type="input",model_id!=""}
+                  ) * 0
+                )
+              - (
+                  sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+                    ai_agent_turn_token_usage_sum{token_type="cache_write_input",model_id!=""}
+                  )
+                  or
+                  sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+                    ai_agent_turn_token_usage_sum{token_type="input",model_id!=""}
+                  ) * 0
+                ),
+              0
+            )
+            unless on (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace)
+            sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+              ai_agent_turn_token_usage_sum{token_type="non_cached_input",model_id!=""}
+            )
+          )
+        labels:
+          accounting_schema: v1
+          usage_class: input_uncached
+      - record: ai_agent_token_usage_total
+        expr: |
+          sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+            ai_agent_turn_token_usage_sum{token_type="cached_input",model_id!=""}
+          )
+        labels:
+          accounting_schema: v1
+          usage_class: input_cached
+      - record: ai_agent_token_usage_total
+        expr: |
+          sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+            ai_agent_turn_token_usage_sum{token_type="cache_write_input",model_id!=""}
+          )
+        labels:
+          accounting_schema: v1
+          usage_class: input_cache_write
+      - record: ai_agent_token_usage_total
+        expr: |
+          sum by (ai_agent_provider, ai_agent_product, model_id, model_family, evidence_class, service_namespace) (
+            ai_agent_turn_token_usage_sum{token_type="output",model_id!=""}
+          )
+        labels:
+          accounting_schema: v1
+          usage_class: output
+
+      - record: ai_agent_estimated_cost_usd_total
+        expr: |
+          ai_agent_token_usage_total{model_id!="",accounting_schema="v1"}
+          * on (ai_agent_provider, model_id, usage_class)
+            group_left (currency, rate_card_version, rate_card_source, pricing_scope)
+            (ai_agent_token_price_usd_per_million / 1000000)
+        labels:
+          cost_source: estimated_api_list_price

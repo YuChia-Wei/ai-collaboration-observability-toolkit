@@ -58,6 +58,11 @@ Antigravity CLI custom status line ─────┘                           
 The client exporter applies a strict allowlist. The Collector remains the canonical privacy, routing,
 and environment boundary before any backend fan-out.
 
+The exporter defaults `--service-namespace` to `ai-collaboration`. Runtime
+smoke passes `ai-collaboration-fixture` explicitly, and the provisioned usage
+dashboards exclude fixture namespaces so verification snapshots cannot appear
+as owner usage.
+
 ## Hooks configuration locations
 
 Antigravity documents project and user-level Hook configuration:
@@ -172,6 +177,11 @@ Metric labels are intentionally bounded to fields such as `tool`, `model_family`
 labels.
 
 These metrics are observed status data, **not official credit, price, invoice, or billing records**.
+They remain gauges in the canonical `ai_agent.observed.*` lane: the toolkit does
+not apply `increase()`, convert them to turn-token accounting, or attach a rate
+card. A future Antigravity estimate requires a version-pinned usage fixture and
+an independently verified pricing contract; current data is deliberately not
+guessed.
 
 ## Session correlation
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -157,6 +158,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn(attribute, text)
         self.assertNotIn('"ai_agent.session.id"', text)
         self.assertNotIn('"ai_agent.user.id"', text)
+        self.assertIn('"model_id"', text)
 
     def test_phoenix_hybrid_routing_and_exporter_are_explicit(self) -> None:
         for filename, expected, trace_id in (
@@ -272,6 +274,115 @@ class RepositoryTests(unittest.TestCase):
                 "UnderscoreEscapingWithoutSuffixes",
             )
 
+    def test_exact_model_id_is_mapped_before_raw_model_is_removed(self) -> None:
+        expected = {
+            "gpt-5.6-sol": "gpt-5.6-sol",
+            "gpt-5.6-terra": "gpt-5.6-terra",
+            "gpt-5.6-luna": "gpt-5.6-luna",
+            "codex-auto-review": "codex-auto-review",
+        }
+        for path in sorted((ROOT / "config/otel-collector").glob("*.yaml")):
+            text = path.read_text(encoding="utf-8")
+            self.assertIn('set(attributes["model_id"], "unmapped")', text)
+            delete_index = text.index('delete_key(attributes, "model")')
+            for source, model_id in expected.items():
+                statement = f'set(attributes["model_id"], "{model_id}")'
+                self.assertIn(statement, text, (path.name, source))
+                self.assertLess(text.index(statement), delete_index, (path.name, source))
+
+    def test_prometheus_rate_card_is_versioned_and_exact_model_only(self) -> None:
+        prometheus = toolkit.yaml_load(ROOT / "config/prometheus/prometheus.yml")
+        self.assertEqual(prometheus["rule_files"], ["/etc/prometheus/rules/*.yml"])
+        compose = toolkit.yaml_load(ROOT / "compose.yaml")
+        self.assertIn(
+            "./config/prometheus/rules:/etc/prometheus/rules:ro",
+            compose["services"]["prometheus"]["volumes"],
+        )
+
+        config = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-cost.yml")
+        rules = config["groups"][0]["rules"]
+        prices = [rule for rule in rules if rule["record"] == "ai_agent_token_price_usd_per_million"]
+        self.assertEqual(len(prices), 12)
+        expected = {
+            ("gpt-5.6-sol", "input_uncached"): 5.0,
+            ("gpt-5.6-sol", "input_cached"): 0.5,
+            ("gpt-5.6-sol", "input_cache_write"): 6.25,
+            ("gpt-5.6-sol", "output"): 30.0,
+            ("gpt-5.6-terra", "input_uncached"): 2.0,
+            ("gpt-5.6-terra", "input_cached"): 0.2,
+            ("gpt-5.6-terra", "input_cache_write"): 2.5,
+            ("gpt-5.6-terra", "output"): 12.0,
+            ("gpt-5.6-luna", "input_uncached"): 0.2,
+            ("gpt-5.6-luna", "input_cached"): 0.02,
+            ("gpt-5.6-luna", "input_cache_write"): 0.25,
+            ("gpt-5.6-luna", "output"): 1.2,
+        }
+        observed = {}
+        for rule in prices:
+            labels = rule["labels"]
+            self.assertEqual(labels["ai_agent_provider"], "openai")
+            self.assertEqual(labels["currency"], "USD")
+            self.assertEqual(labels["rate_card_version"], "openai-api-2026-08-10")
+            self.assertEqual(labels["pricing_scope"], "base_standard_context")
+            value = float(rule["expr"].removeprefix("vector(").removesuffix(")"))
+            observed[(labels["model_id"], labels["usage_class"])] = value
+        self.assertEqual(observed, expected)
+        self.assertFalse(any("codex-auto-review" in str(rule) for rule in prices))
+
+        accounting = [rule for rule in rules if rule["record"] == "ai_agent_token_usage_total"]
+        self.assertEqual(
+            {rule["labels"]["usage_class"] for rule in accounting},
+            {"input_uncached", "input_cached", "input_cache_write", "output"},
+        )
+        for rule in accounting:
+            self.assertIn('model_id!=""', rule["expr"])
+            self.assertIn("service_namespace", rule["expr"])
+            self.assertEqual(rule["labels"]["accounting_schema"], "v1")
+        cost = next(rule for rule in rules if rule["record"] == "ai_agent_estimated_cost_usd_total")
+        self.assertIn("group_left", cost["expr"])
+        self.assertIn("rate_card_version", cost["expr"])
+        self.assertIn('model_id!=""', cost["expr"])
+        self.assertIn('accounting_schema="v1"', cost["expr"])
+
+        fixture = json.loads(
+            toolkit.render_fixture(
+                ROOT / "examples/otlp/codex-cost-accounting-metrics.json"
+            ).decode("utf-8")
+        )
+        points = fixture["resourceMetrics"][0]["scopeMetrics"][0]["metrics"][0][
+            "histogram"
+        ]["dataPoints"]
+        token_values = {
+            next(
+                attribute["value"]["stringValue"]
+                for attribute in point["attributes"]
+                if attribute["key"] == "token_type"
+            ): point["sum"]
+            for point in points
+        }
+        accounting_values = {
+            "input_uncached": token_values["input"]
+            - token_values["cached_input"]
+            - token_values["cache_write_input"],
+            "input_cached": token_values["cached_input"],
+            "input_cache_write": token_values["cache_write_input"],
+            "output": token_values["output"],
+        }
+        self.assertEqual(
+            accounting_values,
+            {
+                "input_uncached": 3000,
+                "input_cached": 6000,
+                "input_cache_write": 1000,
+                "output": 2000,
+            },
+        )
+        estimated = sum(
+            value * expected[("gpt-5.6-sol", usage_class)] / 1_000_000
+            for usage_class, value in accounting_values.items()
+        )
+        self.assertAlmostEqual(estimated, 0.08425)
+
     def test_loki_only_indexes_approved_low_cardinality_attributes(self) -> None:
         loki = toolkit.yaml_load(ROOT / "config/loki/loki.yml")
         items = loki["limits_config"]["otlp_config"]["resource_attributes"]["attributes_config"]
@@ -309,6 +420,8 @@ class RepositoryTests(unittest.TestCase):
             self.assertTrue(dashboard["panels"])
             self.assertNotIn(dashboard["uid"], uids)
             uids.add(dashboard["uid"])
+            for panel in dashboard["panels"]:
+                self.assertTrue(panel.get("description"), (path.name, panel["id"]))
         datasources = toolkit.yaml_load(
             ROOT / "config/grafana/provisioning/datasources/datasources.yml"
         )
@@ -357,8 +470,11 @@ class RepositoryTests(unittest.TestCase):
 
     def test_dashboard_contracts_do_not_cross_query_boundaries(self) -> None:
         rules = {
-            "codex-usage.json": ("codex_", {"ai_agent_", "ai_context_", "antigravity_"}),
             "ai-agent-usage.json": ("ai_agent_", {"codex_", "ai_context_", "antigravity_"}),
+            "antigravity-usage.json": (
+                "antigravity_",
+                {"codex_", "ai_agent_", "ai_context_"},
+            ),
             "ai-context-effectiveness.json": (
                 "ai_context_",
                 {"codex_", "ai_agent_", "antigravity_"},
@@ -382,12 +498,90 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn(required, expressions, filename)
             for prefix in forbidden:
                 self.assertNotIn(prefix, expressions, (filename, prefix))
-        for filename in ("codex-usage.json", "ai-agent-usage.json"):
-            text = (ROOT / "config/grafana/dashboards" / filename).read_text(
+
+        codex = json.loads(
+            (ROOT / "config/grafana/dashboards/codex-usage.json").read_text(
                 encoding="utf-8"
             )
-            self.assertIn("Cost is unavailable", text)
-            self.assertNotIn("Estimated cost", text)
+        )
+        codex_expressions = "\n".join(
+            target.get("expr", "")
+            for panel in codex["panels"]
+            for target in panel.get("targets", [])
+        )
+        self.assertIn("codex_", codex_expressions)
+        self.assertNotIn("ai_context_", codex_expressions)
+        self.assertNotIn("antigravity_", codex_expressions)
+        allowed_canonical = {
+            "ai_agent_token_usage_total",
+            "ai_agent_estimated_cost_usd_total",
+            "ai_agent_token_price_usd_per_million",
+            "ai_agent_provider",
+            "ai_agent_product",
+        }
+        self.assertEqual(
+            set(re.findall(r"\bai_agent_[a-z0-9_]+", codex_expressions)),
+            allowed_canonical,
+        )
+        fixture_exclusion = (
+            'service_namespace!~"^ai-collaboration(-cost)?-fixture$"'
+        )
+        self.assertIn('accounting_schema="v1"', codex_expressions)
+        self.assertIn(fixture_exclusion, codex_expressions)
+
+        provider_neutral = json.loads(
+            (ROOT / "config/grafana/dashboards/ai-agent-usage.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        provider_neutral_expressions = "\n".join(
+            target.get("expr", "")
+            for panel in provider_neutral["panels"]
+            for target in panel.get("targets", [])
+        )
+        self.assertIn('accounting_schema="v1"', provider_neutral_expressions)
+        self.assertIn(fixture_exclusion, provider_neutral_expressions)
+
+        antigravity = json.loads(
+            (ROOT / "config/grafana/dashboards/antigravity-usage.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        antigravity_expressions = "\n".join(
+            target.get("expr", "")
+            for panel in antigravity["panels"]
+            for target in panel.get("targets", [])
+        )
+        self.assertIn(fixture_exclusion, antigravity_expressions)
+        for filename, variable_name in (
+            ("codex-usage.json", "model"),
+            ("ai-agent-usage.json", "model_id"),
+        ):
+            dashboard = json.loads(
+                (ROOT / "config/grafana/dashboards" / filename).read_text(
+                    encoding="utf-8"
+                )
+            )
+            variable = next(
+                item
+                for item in dashboard["templating"]["list"]
+                if item["name"] == variable_name
+            )
+            self.assertEqual(variable["allValue"], ".+", filename)
+            self.assertIn(fixture_exclusion, variable["definition"], filename)
+            if filename == "ai-agent-usage.json":
+                self.assertIn('accounting_schema="v1"', variable["definition"])
+
+        for filename in ("codex-usage.json", "ai-agent-usage.json"):
+            text = (ROOT / "config/grafana/dashboards" / filename).read_text(encoding="utf-8")
+            self.assertIn("Estimated cost", text)
+            self.assertIn("公開 API", text)
+            self.assertIn("不是", text)
+        antigravity_text = (
+            ROOT / "config/grafana/dashboards/antigravity-usage.json"
+        ).read_text(encoding="utf-8")
+        self.assertIn("目前不猜價", antigravity_text)
+        self.assertNotIn("ai_agent_estimated_cost_usd_total", antigravity_text)
 
     def test_codex_fixture_preserves_metric_semantics_and_contains_privacy_inputs(self) -> None:
         root = ROOT / "fixtures/codex/0.146.1"

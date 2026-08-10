@@ -212,6 +212,7 @@ def _detect_product(payload: dict[str, Any], configured: str) -> str:
 def _resource_attributes(
     *,
     product: str,
+    service_namespace: str,
     version: str,
     profile: str,
     model: str,
@@ -221,7 +222,7 @@ def _resource_attributes(
 ) -> dict[str, Any]:
     values: dict[str, Any] = {
         "service.name": product,
-        "service.namespace": "ai-collaboration",
+        "service.namespace": service_namespace,
         "service.version": version,
         "deployment.environment.name": profile,
         "ai_observability.profile": profile,
@@ -489,6 +490,9 @@ def handle_hook(args: argparse.Namespace) -> int:
     state["model"] = model
     resource = _resource_attributes(
         product=product,
+        service_namespace=_safe_text(
+            args.service_namespace, fallback="ai-collaboration"
+        ),
         version=version,
         profile=args.profile,
         model=model,
@@ -774,6 +778,9 @@ def handle_statusline(args: argparse.Namespace) -> int:
     if should_emit:
         resource = _resource_attributes(
             product=product,
+            service_namespace=_safe_text(
+                args.service_namespace, fallback="ai-collaboration"
+            ),
             version=version,
             profile=args.profile,
             model=model,
@@ -942,6 +949,11 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--product",
         default=os.getenv("AI_OBSERVABILITY_PRODUCT", "auto"),
         help="Bounded product name. 'auto' uses the documented status-line product field; hooks fall back to antigravity.",
+    )
+    parser.add_argument(
+        "--service-namespace",
+        default=os.getenv("AI_OBSERVABILITY_SERVICE_NAMESPACE", "ai-collaboration"),
+        help="Bounded service namespace. Smoke fixtures use a dedicated namespace so dashboards can exclude them.",
     )
     parser.add_argument(
         "--timeout",

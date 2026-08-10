@@ -44,7 +44,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (token_type, model_family) (antigravity_session_tokens{tool=\"antigravity\"})",
+          "expr": "max by (token_type, model_family) (antigravity_session_tokens{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "{{model_family}} / {{token_type}}"
         }
       ]
@@ -84,7 +84,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (token_type, model_family) (antigravity_context_tokens{tool=\"antigravity\"})",
+          "expr": "max by (token_type, model_family) (antigravity_context_tokens{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "{{model_family}} / {{token_type}}"
         }
       ]
@@ -126,7 +126,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * max(antigravity_context_used_ratio{tool=\"antigravity\"})",
+          "expr": "100 * max(antigravity_context_used_ratio{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "已使用"
         }
       ]
@@ -168,7 +168,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * max by (type) (antigravity_quota_remaining_ratio{tool=\"antigravity\"})",
+          "expr": "100 * max by (type) (antigravity_quota_remaining_ratio{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "{{type}}"
         }
       ]
@@ -211,12 +211,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(antigravity_background_task_count{tool=\"antigravity\"})",
+          "expr": "max(antigravity_background_task_count{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "Tasks"
         },
         {
           "refId": "B",
-          "expr": "max(antigravity_artifact_count{tool=\"antigravity\"})",
+          "expr": "max(antigravity_artifact_count{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "Artifacts"
         }
       ]
@@ -268,7 +268,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(antigravity_context_exceeds_200k{tool=\"antigravity\"})",
+          "expr": "max(antigravity_context_exceeds_200k{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "超過 200k"
         }
       ]
@@ -305,7 +305,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{service_name=~\"antigravity(-cli|-2)?\"}",
+          "expr": "{service_name=~\"antigravity(-cli|-2)?\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}",
           "queryType": "range"
         }
       ]
@@ -352,7 +352,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max(antigravity_pending_input_count{tool=\"antigravity\"})",
+          "expr": "max(antigravity_pending_input_count{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "等待輸入",
           "range": true,
           "refId": "A"
@@ -406,10 +406,26 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(antigravity_tool_confirmation_pending{tool=\"antigravity\"})",
+          "expr": "max(antigravity_tool_confirmation_pending{tool=\"antigravity\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
           "legendFormat": "等待確認"
         }
       ]
+    },
+    {
+      "id": 10,
+      "title": "資料與費用邊界",
+      "description": "說明 Antigravity status-line gauges 不是逐回合 counter 或帳務資料，因此目前不估價。",
+      "type": "text",
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 7
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Extension-observed snapshots\n\n這些 token、context 與 quota 是 Antigravity status line 的**當下觀測 gauge**，不是逐回合 counter、Google credit ledger 或帳單，因此本 dashboard 不提供費用估算。等取得可驗證、版本固定的計價與 usage contract 後，才會新增獨立 rate card；目前不猜價。"
+      }
     }
   ],
   "refresh": "10s",
@@ -429,6 +445,6 @@
   "timezone": "browser",
   "title": "Antigravity 用量（觀測值，非帳務）",
   "uid": "ai-antigravity-usage",
-  "version": 1,
-  "description": "以 metadata 為主的 Antigravity lifecycle 與 CLI status payload 檢視；數值不是官方 credit。"
+  "version": 3,
+  "description": "以 metadata 為主的 Antigravity lifecycle 與 CLI status payload 檢視；token/context/quota 是 extension-observed gauges，不是逐回合 counter 或官方 credit；runtime fixture 命名空間預設排除。"
 }
