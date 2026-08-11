@@ -21,6 +21,13 @@ This repository provides a local, privacy-first OpenTelemetry observability tool
 - Privacy boundary: `docs/PRIVACY.md`.
 - Operations: `scripts/toolkit.py`; shell files are thin wrappers.
 
+## GitHub tool routing
+
+1. Use the GitHub connector first for GitHub-hosted semantic or API operations, including repository, Issue, pull request, comment, label, release, and workflow metadata when the connector exposes the required capability.
+2. Use `gh` only when the GitHub connector cannot perform the required operation. Run every `gh` command outside the sandbox from the first attempt because the sandbox has known permission and credential-boundary problems that can make GitHub CLI authentication unavailable.
+3. Never treat a sandboxed `gh auth` failure as evidence that host authentication is invalid. Verify through the GitHub connector or rerun the minimum required `gh` command outside the sandbox without reading or printing token values.
+4. Continue to use local `git` for local branch, commit, merge, fetch, and ordinary push operations; the connector-first rule applies to GitHub-hosted semantics and API workflows.
+
 ## Required validation after changes
 
 ```bash
