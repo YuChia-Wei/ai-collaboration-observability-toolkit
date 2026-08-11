@@ -30,6 +30,26 @@ inside the `otlp-http` trace exporter table.
 Codex does not apply `[otel]` from project-local `.codex/config.toml`, so this is a user-level setting;
 per-project routing requires a producer that can attach the header or legacy resource attribute.
 
+## Opt-in lifecycle Hooks experiment
+
+Codex CLI 0.146.1 exposes stable lifecycle Hooks. The toolkit's
+[`examples/codex-hooks`](../examples/codex-hooks/README.md) experiment uses
+`UserPromptSubmit`/`Stop` to create an OpenInference `AGENT` span and
+`PreToolUse`/`PostToolUse` to create bounded child `TOOL` spans. These traces go
+through the same loopback Collector; no second OTLP ingress is introduced.
+
+The exporter uses a strict input allowlist. It never reads or persists prompt,
+assistant message, tool input/response, cwd, or transcript fields. Raw session,
+turn, and tool IDs are used only to locate hashed local state; exported trace
+and span IDs are newly generated. Tool names become one of five fixed
+categories.
+
+Hooks do not expose a truthful per-model-call boundary or token/cost fields, so
+the experiment does not emit `LLM` spans and does not replace native Codex
+usage telemetry. Hosted tools and some specialized tool paths may bypass tool
+hooks. Treat the resulting Phoenix tree as partial lifecycle evidence, not a
+complete accounting or enforcement boundary.
+
 ## Privacy
 
 `log_user_prompt=false` is mandatory but insufficient. Client versions may add new tool or event

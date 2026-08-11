@@ -58,6 +58,9 @@ Collector on 4317/4318.
 - Codex CLI 0.146.1 / app-server 0.147.0-alpha.6.5: versioned fixture, native
   dashboard, ai_agent.* normalization, and a versioned public API estimate for
   exact mapped models.
+- Codex lifecycle Hooks: [`examples/codex-hooks`](examples/codex-hooks/README.en.md)
+  provides an opt-in metadata-only `AGENT`/`TOOL` Phoenix trace experiment. It
+  does not synthesize LLM, token/cost, or prompt-effectiveness data.
 - Google Antigravity: direct Hooks and CLI status-line extension; values are
   observed metadata, not billing.
 - Claude Code has upstream OpenTelemetry support and GitHub Copilot has upstream

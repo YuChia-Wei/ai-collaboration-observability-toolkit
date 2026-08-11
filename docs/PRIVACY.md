@@ -133,3 +133,18 @@ The exporter derives optional personal session pseudonyms with HMAC-SHA-256 usin
 local salt or an automatically generated user-local key. Corporate examples disable the session
 attribute. The selected Collector profile remains the authoritative second-layer minimization boundary.
 Export failure is best-effort and must not alter tool permissions, model flow, or normal termination.
+
+## Codex lifecycle Hook bridge
+
+The opt-in Codex Hooks example applies an allowlist before writing local state
+or building OTLP. It consumes only the event name, active model slug, tool name
+for fixed category mapping, and IDs needed for local turn/tool correlation. It
+does not inspect `prompt`, `last_assistant_message`, `tool_input`,
+`tool_response`, `cwd`, or `transcript_path`.
+
+Raw session, turn, and tool IDs are never serialized. Their SHA-256 values are
+used only as local state path components, while exported trace and span IDs are
+random. The state contains timestamps, random correlation IDs, model slug, and
+bounded tool category, then removes completed turn/tool files. The endpoint is
+restricted to loopback so the Collector remains the only host telemetry
+ingress and the authoritative second privacy boundary.

@@ -1,0 +1,53 @@
+{
+  "description": "Privacy-safe Codex lifecycle traces for the local observability Collector.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

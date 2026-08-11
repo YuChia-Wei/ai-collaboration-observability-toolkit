@@ -84,6 +84,9 @@ smoke orchestrator 與報告工具：
 - Codex CLI 0.146.1 / app-server 0.147.0-alpha.6.5：versioned fixture、
   native dashboard、ai_agent.* normalization，以及 exact mapped model 的
   版本化公開 API 牌價估算。
+- Codex lifecycle Hooks：[`examples/codex-hooks`](examples/codex-hooks/README.md)
+  提供 opt-in、metadata-only 的 `AGENT`／`TOOL` Phoenix trace 實驗；不產生
+  LLM/token/cost 或 prompt effectiveness 資料。
 - Google Antigravity：direct Hooks 與 CLI status-line extension；usage 為
   observed metadata，非帳務。
 - Claude Code 上游可輸出 OpenTelemetry，GitHub Copilot 上游提供組織／企業 usage metrics；本 repository 目前都只有文件，沒有 versioned fixture，因此不宣稱 normalized support。

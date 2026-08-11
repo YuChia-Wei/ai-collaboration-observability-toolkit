@@ -1,0 +1,10 @@
+{
+  "session_id": "thr_PRIVATE_4c296a99",
+  "transcript_path": "C:\\private\\codex\\rollout.jsonl",
+  "cwd": "C:\\private\\customer-secret-repository",
+  "hook_event_name": "UserPromptSubmit",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "default",
+  "turn_id": "turn_PRIVATE_b717195c",
+  "prompt": "CODEX_HOOK_PRIVATE_SENTINEL_72C9 developer@internal.example"
+}

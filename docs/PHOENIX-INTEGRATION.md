@@ -42,6 +42,12 @@ This distinction explains the prior Phoenix UI state: ingestion was healthy, but
 token, LLM, tool, input, and output panels had no compatible attributes. Selecting a Project only
 fixes the UI selection state; it cannot manufacture missing semantics.
 
+The opt-in Codex Hooks experiment is a deliberately narrow compatible producer.
+It emits content-free `AGENT` and `TOOL` lifecycle spans, so Phoenix can render
+a turn/tool waterfall. It does not convert the generic Codex app-server spans,
+does not emit `LLM` spans, and cannot populate token, cost, prompt, response, or
+quality panels. See [`examples/codex-hooks`](../examples/codex-hooks/README.md).
+
 The smoke fixture sends:
 
 - trace `2222…2222`: legacy resource true; expected in Tempo and Phoenix;
