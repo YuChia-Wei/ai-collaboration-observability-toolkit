@@ -132,7 +132,7 @@
     {
       "id": 4,
       "title": "所選範圍預估費用",
-      "description": "所選時間範圍內可依 exact rate card 估價的增量；未估價用量不會被偷偷補價。",
+      "description": "所選時間範圍內可依 exact rate card 估價的增量；以版本化公開 API 基礎牌價估算，不是帳單、訂閱或 credits，未估價用量不會被猜價。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -169,7 +169,8 @@
         {
           "refId": "A",
           "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range]))",
-          "legendFormat": "USD"
+          "legendFormat": "USD",
+          "instant": true
         }
       ]
     },
@@ -942,6 +943,6 @@
   "timezone": "browser",
   "title": "AI Agent 用量（AI Agent Usage）",
   "uid": "ai-agent-usage",
-  "version": 4,
+  "version": 5,
   "description": "以資料新鮮度與所選時間範圍用量為主畫面，提供 provider-neutral token accounting、版本化 rate card、預估費用與未估價 coverage；特定 extension 快照收進摺疊細節。"
 }

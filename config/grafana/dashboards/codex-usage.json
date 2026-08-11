@@ -30,15 +30,15 @@
     },
     {
       "id": 3,
-      "title": "最後觀測累積預估費用（USD）",
-      "description": "所選時間範圍內最後觀測 counter 的版本化公開 API 基礎牌價估算，不是實際帳單。",
+      "title": "所選範圍預估費用（USD）",
+      "description": "所選時間範圍內可依 exact rate card 估價的增量；以版本化公開 API 基礎牌價估算，不是帳單、訂閱或 credits，未估價用量不會被猜價。",
       "type": "stat",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 6, "y": 4, "w": 6, "h": 6},
       "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4}, "overrides": []},
       "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}, "orientation": "auto", "textMode": "auto", "colorMode": "value"},
       "targets": [
-        {"refId": "A", "expr": "sum(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})", "legendFormat": "Estimated cost"}
+        {"refId": "A", "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range]))", "legendFormat": "Estimated cost", "instant": true}
       ]
     },
     {
@@ -227,6 +227,6 @@
   "timezone": "browser",
   "title": "Codex 原生 Telemetry（Codex Native Telemetry）",
   "uid": "ai-codex-usage",
-  "version": 4,
+  "version": 5,
   "description": "經隱私過濾的 Codex 原生 telemetry，另以三個明確允許的 ai_agent recording metrics 提供不重複 token accounting、版本化牌價與估算費用；不查詢 AI Context 或 Antigravity。"
 }

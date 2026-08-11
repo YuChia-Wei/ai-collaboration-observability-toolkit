@@ -575,6 +575,38 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn('accounting_schema="v1"', provider_neutral_expressions)
         self.assertIn(fixture_exclusion, provider_neutral_expressions)
 
+        for filename, dashboard in (
+            ("codex-usage.json", codex),
+            ("ai-agent-usage.json", provider_neutral),
+        ):
+            cost_stat = next(
+                panel
+                for panel in dashboard["panels"]
+                if panel["type"] == "stat"
+                and any(
+                    "ai_agent_estimated_cost_usd_total" in target.get("expr", "")
+                    for target in panel.get("targets", [])
+                )
+            )
+            self.assertIn("所選範圍", cost_stat["title"], filename)
+            self.assertNotIn("最後觀測", cost_stat["title"], filename)
+            self.assertIn("公開 API", cost_stat["description"], filename)
+            self.assertIn("不是", cost_stat["description"], filename)
+            self.assertIn("未估價", cost_stat["description"], filename)
+            cost_target = cost_stat["targets"][0]
+            self.assertTrue(cost_target.get("instant"), filename)
+            self.assertIn(
+                "sum(increase(ai_agent_estimated_cost_usd_total",
+                cost_target["expr"],
+                filename,
+            )
+            self.assertIn("[$__range]))", cost_target["expr"], filename)
+            self.assertNotRegex(
+                cost_target["expr"],
+                r"sum\(ai_agent_estimated_cost_usd_total",
+                filename,
+            )
+
         antigravity = json.loads(
             (ROOT / "config/grafana/dashboards/antigravity-usage.json").read_text(
                 encoding="utf-8"
