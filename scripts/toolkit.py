@@ -51,7 +51,7 @@ EXACT_IMAGES = {
     "tempo": "grafana/tempo:3.0.2",
     "grafana": "grafana/grafana:13.1.3",
     "postgres": "postgres:18.4-alpine3.24",
-    "phoenix": "arizephoenix/phoenix:version-19.19.0-nonroot",
+    "phoenix": "arizephoenix/phoenix:version-20.0.0-nonroot",
 }
 IMAGE_ENV_VARS = {
     "otel-collector": "OTEL_COLLECTOR_IMAGE",
@@ -474,6 +474,15 @@ def static_validate() -> list[str]:
         errors.append("PostgreSQL 18 policy: persist the volume at /var/lib/postgresql")
     if "phoenix-postgres-data:/var/lib/postgresql/data" in postgres_volumes:
         errors.append("PostgreSQL 18 policy: legacy /var/lib/postgresql/data mount is forbidden")
+    phoenix_environment = (
+        evaluation_compose.get("services", {}).get("phoenix", {}).get("environment")
+        or {}
+    )
+    if phoenix_environment.get("PHOENIX_DISABLE_AGENT_ASSISTANT") != "true":
+        errors.append(
+            "Evaluation Compose policy: Phoenix Agent must stay disabled to preserve "
+            "the content-minimization default"
+        )
     evaluation_dependencies = (
         evaluation_compose.get("services", {})
         .get("otel-collector", {})

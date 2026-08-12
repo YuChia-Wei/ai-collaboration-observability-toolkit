@@ -80,6 +80,11 @@ class RepositoryTests(unittest.TestCase):
             },
         )
 
+    def test_evaluation_phoenix_keeps_the_persistent_agent_disabled(self) -> None:
+        evaluation = toolkit.yaml_load(ROOT / "compose.evaluation.yaml")
+        environment = evaluation["services"]["phoenix"]["environment"]
+        self.assertEqual(environment["PHOENIX_DISABLE_AGENT_ASSISTANT"], "true")
+
     def test_prometheus_is_not_an_otlp_or_remote_write_receiver(self) -> None:
         text = (ROOT / "compose.yaml").read_text(encoding="utf-8")
         self.assertNotIn("--web.enable-remote-write-receiver", text)
