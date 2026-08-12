@@ -56,8 +56,8 @@ Collector on 4317/4318.
 ## Verified provider surfaces
 
 - Codex CLI 0.146.1 / app-server 0.147.0-alpha.6.5: versioned fixture, native
-  dashboard, ai_agent.* normalization, and a versioned public API estimate for
-  exact mapped models.
+  dashboard, role-aware ai_agent.* normalization, and separate versioned public
+  API USD and Codex credits estimates for exact mapped models.
 - Codex lifecycle Hooks: [`examples/codex-hooks`](examples/codex-hooks/README.en.md)
   provides an opt-in metadata-only `AGENT`/`TOOL` Phoenix trace experiment. It
   does not synthesize LLM, token/cost, or prompt-effectiveness data.
@@ -75,6 +75,7 @@ See the [provider support matrix](docs/PROVIDER-SUPPORT.md),
 
 - Collector 健康狀態 (Collector Health)
 - Codex 原生 Telemetry (Codex Native Telemetry)
+- Codex Auto-review 用量 (Approval Reviewer)
 - AI Agent 用量 (AI Agent Usage)
 - AI Agent 活動 (Metadata and Trace)
 - Antigravity 用量 (observed, not billing)
@@ -89,10 +90,14 @@ production framework emitter exists. Prompts alone cannot independently prove
 that a rule was loaded, applied, or caused a better outcome. The contract remains
 available for a future explicit emitter.
 
-The estimate is not a Codex subscription, enterprise contract, credit, or
-invoice. Antigravity status-line token/context/quota values remain unpriced
-observed snapshots. Claude and Copilot remain unnormalized and unpriced until
-version-pinned fixtures are available.
+API USD and Codex public-credit equivalents are separate estimates; neither is
+the official remaining subscription allowance, enterprise contract, debit, or
+invoice. Cached input is discounted rather than free. Current Auto-review
+telemetry proves the approval-reviewer role but not the exact model, so those
+tokens remain unmapped and unpriced. Antigravity status-line
+token/context/quota values remain unpriced observed snapshots. Claude and
+Copilot remain unnormalized and unpriced until version-pinned fixtures are
+available.
 
 ## Validation
 

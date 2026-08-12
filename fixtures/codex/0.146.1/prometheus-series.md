@@ -19,8 +19,10 @@ Observed from the local Collector/Prometheus path on 2026-08-09:
 
 Observed bounded dimensions included model, token_type, status, source, outcome,
 and success. The canonical copy removes raw model, tool, tool_name, and skill
-dimensions after deriving bounded model_family, tool_category, operation, and
-evidence_class values.
+dimensions after deriving bounded model_id, model_family, agent_role,
+tool_category, operation, and evidence_class values. `codex-auto-review` proves
+the approval-reviewer role but does not prove an exact model, so its forward
+canonical mapping is `agent_role=approval_reviewer,model_id=unmapped`.
 
 This inventory contains names only. No local series values or identifying label
 values are committed.

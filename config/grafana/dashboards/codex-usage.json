@@ -1,5 +1,7 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -10,61 +12,186 @@
     {
       "id": 1,
       "title": "Codex Token 與費用估算的證據界線",
-      "description": "說明 Codex 原生診斷、canonical accounting 與公開 API 牌價估算之間的界線。",
+      "description": "保留 Codex 原生 token_type 作除錯，並以 accounting schema v2 顯示 exact model 的 API estimate；Auto-review 角色與 credits 請使用專用 dashboard。",
       "type": "text",
-      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
-      "options": {"mode": "markdown", "content": "### Codex 新資料檢查\n\n原生 `codex_*` panels 保留 provider 診斷；token accounting 與費用 panels 只讀取同一批 Codex telemetry 產生的三個 canonical recording metrics。費用為 **公開 API 基礎牌價估算**，不是 Codex 訂閱、credits、Enterprise contract 或帳單。只有 exact model/rate 可估價，`codex-auto-review` 與 `unmapped` 會保留在未估價表。因聚合 telemetry 無法判斷單次輸入是否超過 272K，目前未套用長 context 加價。畫面只讀取 `accounting_schema=v1`，並排除 toolkit runtime fixture 命名空間。"}
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### 原生訊號與 canonical accounting 分開閱讀\n\n原生 `codex_*` panels 保留 provider 的 `model` 與 `token_type`，適合核對 input、cached input、cache-write、output、reasoning 與 total。Canonical accounting 使用新資料 schema v2，將 `agent_role` 與 `model_id` 分離。Auto-review 的真實 model 未由 telemetry 提供時會成為 `approval_reviewer + unmapped`，因此不猜 API USD 或 Codex credits；請改看 **Codex Auto-review 用量** dashboard。Cached input 依 rate card 折價，**不是免費**。"
+      }
     },
     {
       "id": 2,
       "title": "最後觀測累積計價 Token",
-      "description": "所選時間範圍內最後一筆 Codex exporter counter 的不重複累積值；新 series 第一筆即可見。",
+      "description": "最後觀測的 canonical cumulative accounting token；僅供總量核對。Auto-review 的 role/model 分流請看專用 dashboard。",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 0, "y": 4, "w": 6, "h": 6},
-      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
-      "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}, "orientation": "auto", "textMode": "auto", "colorMode": "value"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value"
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})", "legendFormat": "Token"}
+        {
+          "refId": "A",
+          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "Token"
+        }
       ]
     },
     {
       "id": 3,
       "title": "所選範圍預估費用（USD）",
-      "description": "所選時間範圍內可依 exact rate card 估價的增量；以版本化公開 API 基礎牌價估算，不是帳單、訂閱或 credits，未估價用量不會被猜價。",
+      "description": "所選時間範圍內 exact model 可估價部分的公開 API USD estimate；不是帳單、訂閱或 Codex credits，unmapped 用量維持未估價。",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 6, "y": 4, "w": 6, "h": 6},
-      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4}, "overrides": []},
-      "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}, "orientation": "auto", "textMode": "auto", "colorMode": "value"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value"
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range]))", "legendFormat": "Estimated cost", "instant": true}
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "legendFormat": "Estimated cost",
+          "instant": true
+        }
       ]
     },
     {
       "id": 4,
       "title": "估價覆蓋率",
-      "description": "有 exact model/rate 對應的 accounting token 比例。",
+      "description": "所選模型在新資料 schema v2 中可對應 exact API rate 的 token 比例；unmapped reviewer usage 維持未估價。",
       "type": "gauge",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 12, "y": 4, "w": 6, "h": 6},
-      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
-      "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"} and on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million) / sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})", "legendFormat": "Coverage"}
+        {
+          "refId": "A",
+          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million) / sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "Coverage"
+        }
       ]
     },
     {
       "id": 5,
       "title": "Cached input 比例",
-      "description": "Cached input 占全部 input accounting classes 的比例。",
+      "description": "所選時間範圍 cached input 占 input 類別比例；cached 依適用 rate card 折價，不代表免費。",
       "type": "gauge",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 18, "y": 4, "w": 6, "h": 6},
-      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
-      "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=\"input_cached\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}) / sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=~\"input_.+\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})", "legendFormat": "Cache ratio"}
+        {
+          "refId": "A",
+          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=\"input_cached\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) / sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=~\"input_.+\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "Cache ratio"
+        }
       ]
     },
     {
@@ -72,12 +199,39 @@
       "title": "原生 Token 類型（除錯用）",
       "description": "Codex 原生 histogram sum；input、cached_input、reasoning_output、total 等類型不可直接全部相加。",
       "type": "barchart",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 0, "y": 10, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(increase(codex_turn_token_usage_sum{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (model, token_type)", "legendFormat": "{{model}} - {{token_type}}"}
+        {
+          "refId": "A",
+          "expr": "sum(increase(codex_turn_token_usage_sum{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model, token_type)",
+          "legendFormat": "{{model}} - {{token_type}}"
+        }
       ]
     },
     {
@@ -85,12 +239,40 @@
       "title": "所選時間範圍：按模型與分類統計預估費用",
       "description": "只顯示成功對應 rate card 的用量，legend 保留 rate-card 版本。",
       "type": "barchart",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 12, "y": 10, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4}, "overrides": []},
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (model_id, usage_class, rate_card_version)", "legendFormat": "{{model_id}} {{usage_class}} - {{rate_card_version}}"}
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model_id, usage_class, rate_card_version)",
+          "legendFormat": "{{model_id}} {{usage_class}} - {{rate_card_version}}"
+        }
       ]
     },
     {
@@ -98,12 +280,35 @@
       "title": "最後觀測未估價累積 Token",
       "description": "所選範圍內無 exact model/usage-class rate 的最後累積 token；不會被猜價或隱藏。",
       "type": "table",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 0, "y": 18, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
-      "options": {"showHeader": true, "cellHeight": "sm"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
       "targets": [
-        {"refId": "A", "expr": "sum by (model_id, usage_class) (last_over_time(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range]) unless on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million)", "legendFormat": "{{model_id}} {{usage_class}}", "format": "table", "instant": true}
+        {
+          "refId": "A",
+          "expr": "sum by (model_id, usage_class) (last_over_time(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]) unless on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million)",
+          "legendFormat": "{{model_id}} {{usage_class}}",
+          "format": "table",
+          "instant": true
+        }
       ]
     },
     {
@@ -111,12 +316,35 @@
       "title": "目前 Rate Card（USD / 1M tokens）",
       "description": "版本化公開 API 基礎牌價，pricing_scope=base_standard_context。",
       "type": "table",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 12, "y": 18, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 4}, "overrides": []},
-      "options": {"showHeader": true, "cellHeight": "sm"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
       "targets": [
-        {"refId": "A", "expr": "max by (model_id, usage_class, currency, rate_card_version, rate_card_source, pricing_scope) (ai_agent_token_price_usd_per_million{ai_agent_provider=\"openai\",model_id=~\"$model\"})", "legendFormat": "{{model_id}} {{usage_class}}", "format": "table", "instant": true}
+        {
+          "refId": "A",
+          "expr": "max by (model_id, usage_class, currency, rate_card_version, rate_card_source, pricing_scope) (ai_agent_token_price_usd_per_million{ai_agent_provider=\"openai\",model_id=~\"$model\"})",
+          "legendFormat": "{{model_id}} {{usage_class}}",
+          "format": "table",
+          "instant": true
+        }
       ]
     },
     {
@@ -124,12 +352,39 @@
       "title": "回合耗時 P95（Turn duration）",
       "description": "Codex 原生端到端回合耗時。",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 0, "y": 26, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_turn_e2e_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__rate_interval])) by (le, model))", "legendFormat": "{{model}}"}
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(codex_turn_e2e_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__rate_interval])) by (le, model))",
+          "legendFormat": "{{model}}"
+        }
       ]
     },
     {
@@ -137,12 +392,39 @@
       "title": "首個 Token 等待時間 P95（TTFT）",
       "description": "Codex 原生 Time to first token histogram。",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 12, "y": 26, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 26,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_turn_ttft_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__rate_interval])) by (le, model))", "legendFormat": "{{model}}"}
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(codex_turn_ttft_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__rate_interval])) by (le, model))",
+          "legendFormat": "{{model}}"
+        }
       ]
     },
     {
@@ -150,12 +432,37 @@
       "title": "工具呼叫（Tool calls）",
       "description": "Codex 原生單調遞增工具呼叫 counter。",
       "type": "barchart",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 0, "y": 34, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(increase(codex_tool_call{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (tool, success)", "legendFormat": "{{tool}} 成功={{success}}"}
+        {
+          "refId": "A",
+          "expr": "sum(increase(codex_tool_call{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (tool, success)",
+          "legendFormat": "{{tool}} 成功={{success}}"
+        }
       ]
     },
     {
@@ -163,13 +470,42 @@
       "title": "MCP 呼叫與錯誤（Calls and errors）",
       "description": "Codex 原生 MCP counters；分開顯示呼叫與錯誤。",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 12, "y": 34, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 34,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(increase(codex_mcp_call{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (status)", "legendFormat": "呼叫 {{status}}"},
-        {"refId": "B", "expr": "sum(increase(codex_mcp_error{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (status)", "legendFormat": "錯誤 {{status}}"}
+        {
+          "refId": "A",
+          "expr": "sum(increase(codex_mcp_call{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (status)",
+          "legendFormat": "呼叫 {{status}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(codex_mcp_error{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (status)",
+          "legendFormat": "錯誤 {{status}}"
+        }
       ]
     },
     {
@@ -177,13 +513,44 @@
       "title": "Responses API 耗時 P95",
       "description": "Codex 回報的推論時間與 client-side 額外開銷。",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 0, "y": 42, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {"unit": "ms"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_inference_time_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__rate_interval])) by (le, model))", "legendFormat": "推論 {{model}}"},
-        {"refId": "B", "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_overhead_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__rate_interval])) by (le, model))", "legendFormat": "額外開銷 {{model}}"}
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_inference_time_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__rate_interval])) by (le, model))",
+          "legendFormat": "推論 {{model}}"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(codex_responses_api_overhead_duration_ms_bucket{model=~\"$model\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__rate_interval])) by (le, model))",
+          "legendFormat": "額外開銷 {{model}}"
+        }
       ]
     },
     {
@@ -191,42 +558,99 @@
       "title": "內容壓縮、Skill 注入與 Thread",
       "description": "Codex 原生 lifecycle counters。",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "gridPos": {"x": 12, "y": 42, "w": 12, "h": 8},
-      "fieldConfig": {"defaults": {}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(increase(codex_task_compact{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (type, manual)", "legendFormat": "壓縮 {{type}} 人工={{manual}}"},
-        {"refId": "B", "expr": "sum(increase(codex_skill_injected{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (source)", "legendFormat": "Skill {{source}}"},
-        {"refId": "C", "expr": "sum(increase(codex_thread_started{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (source)", "legendFormat": "Thread {{source}}"}
+        {
+          "refId": "A",
+          "expr": "sum(increase(codex_task_compact{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (type, manual)",
+          "legendFormat": "壓縮 {{type}} 人工={{manual}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(codex_skill_injected{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (source)",
+          "legendFormat": "Skill {{source}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(increase(codex_thread_started{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (source)",
+          "legendFormat": "Thread {{source}}"
+        }
       ]
     }
   ],
   "refresh": "10s",
   "schemaVersion": 41,
-  "tags": ["ai-collaboration", "codex", "native", "token", "estimated-cost", "opentelemetry"],
+  "tags": [
+    "ai-collaboration",
+    "codex",
+    "native",
+    "token",
+    "estimated-cost",
+    "opentelemetry"
+  ],
   "templating": {
     "list": [
       {
         "name": "model",
         "label": "Model",
         "type": "query",
-        "datasource": {"type": "prometheus", "uid": "prometheus"},
-        "query": {"query": "label_values(codex_turn_token_usage_sum{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, model)", "refId": "model-variable"},
-        "definition": "label_values(codex_turn_token_usage_sum{service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, model)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(codex_turn_token_usage_sum{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, model)",
+          "refId": "model-variable"
+        },
+        "definition": "label_values(codex_turn_token_usage_sum{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, model)",
         "includeAll": true,
         "allValue": ".+",
         "multi": true,
         "refresh": 1,
         "sort": 1,
-        "current": {"selected": true, "text": ["All"], "value": ["$__all"]}
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
       }
     ]
   },
-  "time": {"from": "now-6h", "to": "now"},
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "browser",
   "title": "Codex 原生 Telemetry（Codex Native Telemetry）",
   "uid": "ai-codex-usage",
-  "version": 5,
-  "description": "經隱私過濾的 Codex 原生 telemetry，另以三個明確允許的 ai_agent recording metrics 提供不重複 token accounting、版本化牌價與估算費用；不查詢 AI Context 或 Antigravity。"
+  "version": 6,
+  "description": "Codex 原生 telemetry 與新資料 accounting schema v2 的診斷 dashboard；保留 raw token_type，API USD 與 Codex credits/Auto-review 角色則維持清楚邊界。"
 }
