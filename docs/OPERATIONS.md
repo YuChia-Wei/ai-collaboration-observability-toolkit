@@ -83,19 +83,22 @@ Compose mount. After changing the mapping or rate card:
 1. run `promtool check rules config/prometheus/rules/ai-agent-cost.yml` (the
    pinned Prometheus container is an acceptable validator);
 2. run `docker compose ... up -d` without `-v` so named volumes are retained;
-3. confirm the `ai-agent-token-accounting-and-cost` rule group is healthy;
+3. confirm the `ai-agent-token-accounting-and-estimates` rule group is healthy;
 4. query `ai_agent_token_usage_total`,
    `ai_agent_token_price_usd_per_million`, and
-   `ai_agent_estimated_cost_usd_total`;
-5. confirm new accounting/cost series carry `accounting_schema="v1"` and retain
-   their bounded `service_namespace`;
+   `ai_agent_estimated_cost_usd_total`, then separately query
+   `ai_agent_token_credit_per_million`,
+   `ai_agent_estimated_credit_usage_total`, and both `ai_agent_unpriced_*`
+   token metrics;
+5. confirm new accounting/estimate series carry `accounting_schema="v2"`, a
+   bounded `agent_role`, and their bounded `service_namespace`;
 6. confirm dashboard queries exclude
-   `^ai-collaboration(-cost)?-fixture$`, while unknown real models appear as
-   unpriced usage rather than disappearing.
+   `^ai-collaboration(-cost|-role)?-fixture$`, while unknown real models and
+   unpublished credits classes appear as unpriced usage rather than disappearing.
 
-The rate card applies only to newly mapped data and does not rewrite existing
-stored series. Its cost is a public API base-price estimate, not a subscription
-or invoice.
+The v2 rules apply only to newly mapped data and do not rewrite existing stored
+series. API USD and Codex credits are separate estimates. Neither is an official
+subscription allowance, debit, Enterprise contract, or invoice.
 
 ### 3. Runtime smoke and persistence
 
@@ -105,10 +108,12 @@ Runtime smoke:
 
 - sends legacy compatibility fixtures plus the versioned Codex metrics/logs/
   traces fixture;
-- sends a synthetic exact-model accounting fixture and proves the four
-  non-overlapping token classes, 12 versioned rate series, an estimated cost,
-  and the absence of a price for `codex-auto-review`; this fixture uses
-  `service_namespace=ai-collaboration-cost-fixture`;
+- sends synthetic exact-model and role-accounting data and proves the four
+  non-overlapping token classes, bounded `primary`/`approval_reviewer`/`subagent`
+  roles, 12 API rate series, 9 published Codex credits rate series, separate USD
+  and credits estimates, and explicit unpriced cache-write/reviewer boundaries;
+  the fixtures use `ai-collaboration-cost-fixture` and
+  `ai-collaboration-role-fixture`;
 - executes the Antigravity status-line exporter against its privacy fixture,
   under `service_namespace=ai-collaboration-fixture`,
   reconciles native/canonical observed gauges, and proves Google observations

@@ -1,0 +1,644 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Auto-review 的角色與估價邊界",
+      "description": "說明 approval reviewer、model、token 類型與兩種估價的可觀測邊界。",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Auto-review 是執行角色，不是實際模型\n\nCodex 目前以 `model=codex-auto-review` 回報 approval review；toolkit 將它正規化為 `agent_role=approval_reviewer`，但在 upstream 沒提供 exact model 時保留 `model_id=unmapped`。因此 token 與 cached ratio 可直接統計，API USD／Codex credits 則維持未估價，不能套用 primary model 猜價。Cached input 依公開 rate card 通常較便宜，**不是免費**；此 dashboard 的 Auto-review 指本機 approval requests review，不等同 GitHub PR Code Review。"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Reviewer Telemetry 距今",
+      "description": "最後一筆 approval-reviewer total-token telemetry 距離現在多久；用來辨識 exporter 或 Collector 是否停止更新。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 900
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - max(timestamp(ai_agent_turn_token_usage_sum{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",token_type=\"total\"}))",
+          "legendFormat": "距今秒數",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "所選範圍 Review 次數",
+      "description": "以 total-token histogram count 估計所選範圍 approval-reviewer turns；四捨五入 range extrapolation 小數。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "round(sum(increase(ai_agent_turn_token_usage_count{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",token_type=\"total\"}[$__range])))",
+          "legendFormat": "Reviews",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "所選範圍 Reviewer Token",
+      "description": "所選範圍 accounting schema v2 的不重複 approval-reviewer token；不把 raw input 與 cached/cache-write subsets 重複相加。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "legendFormat": "Token",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Reviewer 占 Codex Token 比例",
+      "description": "approval reviewer token 占同一所選範圍全部 Codex accounting token 的比例。",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])), 1)",
+          "legendFormat": "Reviewer share",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "所選範圍 API 預估費用",
+      "description": "只有 approval reviewer exact model 可對到版本化公開 API rate card 時才出現；目前 unmapped 預期為無資料，不是零成本。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "legendFormat": "USD",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "所選範圍 Codex 預估 Credits",
+      "description": "只有 exact model 且公開 Codex credits token class 有 rate 時才出現；不是官方剩餘額度或實際扣款。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: credits",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_estimated_credit_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "legendFormat": "Credits",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "平均每次 Review Token",
+      "description": "所選範圍 reviewer accounting token 除以 total-token histogram count；用於比較規則調整前後 context 重送量。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) / clamp_min(round(sum(increase(ai_agent_turn_token_usage_count{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",token_type=\"total\"}[$__range]))), 1)",
+          "legendFormat": "Token / review",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Reviewer Cached input 比例",
+      "description": "cached input 占 reviewer 全部 input 類別比例；cached 依適用 rate card 折價，不代表免費。",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",usage_class=\"input_cached\"}[$__range])) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",usage_class=~\"input_.+\"}[$__range])), 1)",
+          "legendFormat": "Cached",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Reviewer Exact model 覆蓋率",
+      "description": "approval reviewer token 中具 exact model_id 的比例；為零表示只能統計使用量、不能可靠估價。",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 6,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 0.98
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",model_id!=\"unmapped\"}[$__range])) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])), 1)",
+          "legendFormat": "Exact model",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Reviewer Token 分類",
+      "description": "所選範圍 reviewer token 依 model_id 與互不重疊 usage class 分組。",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 14,
+        "w": 9,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model_id, usage_class)",
+          "legendFormat": "{{model_id}} / {{usage_class}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Reviewer Token 速率",
+      "description": "approval reviewer token rate，依 usage class 分流；用於辨識 review burst 與 cached context 重送。",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 14,
+        "w": 9,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__rate_interval])) by (usage_class)",
+          "legendFormat": "{{usage_class}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "API 未估價 Reviewer Token",
+      "description": "沒有 exact API model／usage-class rate 的 reviewer 累積 token；unmapped model 預期出現在此處。",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model_id, usage_class) (ai_agent_unpriced_api_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "{{model_id}} / {{usage_class}}",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Codex Credits 未估價 Reviewer Token",
+      "description": "公開 Codex credits rate card 未涵蓋的 reviewer 累積 token；包含 unmapped model 與未公布 credits rate 的 cache-write。",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model_id, usage_class) (ai_agent_unpriced_credit_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "{{model_id}} / {{usage_class}}",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "ai-collaboration",
+    "codex",
+    "auto-review",
+    "approval-reviewer",
+    "token",
+    "credits"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-12h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Codex Auto-review 用量（Approval Reviewer）",
+  "uid": "ai-codex-auto-review",
+  "version": 1,
+  "description": "專門檢查 Codex approval Auto-review 的次數、角色、token 類型、cached ratio、占比與 API／Codex credits 未估價邊界。"
+}

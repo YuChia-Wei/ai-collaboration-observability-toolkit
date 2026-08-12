@@ -305,21 +305,34 @@ class RepositoryTests(unittest.TestCase):
                 "UnderscoreEscapingWithoutSuffixes",
             )
 
-    def test_exact_model_id_is_mapped_before_raw_model_is_removed(self) -> None:
+    def test_agent_role_and_exact_model_are_mapped_before_raw_model_is_removed(self) -> None:
         expected = {
             "gpt-5.6-sol": "gpt-5.6-sol",
             "gpt-5.6-terra": "gpt-5.6-terra",
             "gpt-5.6-luna": "gpt-5.6-luna",
-            "codex-auto-review": "codex-auto-review",
         }
         for path in sorted((ROOT / "config/otel-collector").glob("*.yaml")):
             text = path.read_text(encoding="utf-8")
             self.assertIn('set(attributes["model_id"], "unmapped")', text)
+            self.assertIn('set(attributes["agent_role"], "unknown")', text)
             delete_index = text.index('delete_key(attributes, "model")')
             for source, model_id in expected.items():
                 statement = f'set(attributes["model_id"], "{model_id}")'
                 self.assertIn(statement, text, (path.name, source))
                 self.assertLess(text.index(statement), delete_index, (path.name, source))
+            reviewer = 'set(attributes["agent_role"], "approval_reviewer")'
+            primary = 'set(attributes["agent_role"], "primary")'
+            self.assertIn(reviewer, text, path.name)
+            self.assertIn(primary, text, path.name)
+            self.assertLess(text.index(reviewer), delete_index, path.name)
+            self.assertLess(text.index(primary), delete_index, path.name)
+            self.assertNotIn(
+                'set(attributes["model_id"], "codex-auto-review")', text, path.name
+            )
+            self.assertNotIn(
+                'set(attributes["model_family"], "codex-auto-review")', text, path.name
+            )
+            self.assertIn('"agent_role"', text, path.name)
 
     def test_prometheus_rate_card_is_versioned_and_exact_model_only(self) -> None:
         prometheus = toolkit.yaml_load(ROOT / "config/prometheus/prometheus.yml")
@@ -353,12 +366,43 @@ class RepositoryTests(unittest.TestCase):
             labels = rule["labels"]
             self.assertEqual(labels["ai_agent_provider"], "openai")
             self.assertEqual(labels["currency"], "USD")
-            self.assertEqual(labels["rate_card_version"], "openai-api-2026-08-10")
+            self.assertEqual(labels["rate_card_version"], "openai-api-2026-08-12")
+            self.assertEqual(labels["rate_card_source"], "official_openai_model_pages")
             self.assertEqual(labels["pricing_scope"], "base_standard_context")
             value = float(rule["expr"].removeprefix("vector(").removesuffix(")"))
             observed[(labels["model_id"], labels["usage_class"])] = value
         self.assertEqual(observed, expected)
         self.assertFalse(any("codex-auto-review" in str(rule) for rule in prices))
+
+        credit_rates = [
+            rule for rule in rules if rule["record"] == "ai_agent_token_credit_per_million"
+        ]
+        expected_credits = {
+            ("gpt-5.6-sol", "input_uncached"): 125.0,
+            ("gpt-5.6-sol", "input_cached"): 12.5,
+            ("gpt-5.6-sol", "output"): 750.0,
+            ("gpt-5.6-terra", "input_uncached"): 50.0,
+            ("gpt-5.6-terra", "input_cached"): 5.0,
+            ("gpt-5.6-terra", "output"): 300.0,
+            ("gpt-5.6-luna", "input_uncached"): 5.0,
+            ("gpt-5.6-luna", "input_cached"): 0.5,
+            ("gpt-5.6-luna", "output"): 30.0,
+        }
+        observed_credits = {}
+        for rule in credit_rates:
+            labels = rule["labels"]
+            self.assertEqual(labels["credit_unit"], "credits")
+            self.assertEqual(
+                labels["rate_card_version"], "openai-codex-credits-2026-08-12"
+            )
+            self.assertEqual(labels["rate_card_source"], "official_codex_pricing")
+            self.assertEqual(labels["pricing_scope"], "published_token_classes")
+            value = float(rule["expr"].removeprefix("vector(").removesuffix(")"))
+            observed_credits[(labels["model_id"], labels["usage_class"])] = value
+        self.assertEqual(observed_credits, expected_credits)
+        self.assertFalse(
+            any(rule["labels"]["usage_class"] == "input_cache_write" for rule in credit_rates)
+        )
 
         accounting = [rule for rule in rules if rule["record"] == "ai_agent_token_usage_total"]
         self.assertEqual(
@@ -367,13 +411,34 @@ class RepositoryTests(unittest.TestCase):
         )
         for rule in accounting:
             self.assertIn('model_id!=""', rule["expr"])
+            self.assertIn('agent_role!=""', rule["expr"])
+            self.assertIn("agent_role", rule["expr"])
             self.assertIn("service_namespace", rule["expr"])
-            self.assertEqual(rule["labels"]["accounting_schema"], "v1")
+            self.assertEqual(rule["labels"]["accounting_schema"], "v2")
         cost = next(rule for rule in rules if rule["record"] == "ai_agent_estimated_cost_usd_total")
         self.assertIn("group_left", cost["expr"])
         self.assertIn("rate_card_version", cost["expr"])
         self.assertIn('model_id!=""', cost["expr"])
-        self.assertIn('accounting_schema="v1"', cost["expr"])
+        self.assertIn('agent_role!=""', cost["expr"])
+        self.assertIn('accounting_schema="v2"', cost["expr"])
+        credits = next(
+            rule for rule in rules if rule["record"] == "ai_agent_estimated_credit_usage_total"
+        )
+        self.assertIn('ai_agent_product="codex"', credits["expr"])
+        self.assertIn("ai_agent_token_credit_per_million", credits["expr"])
+        self.assertIn('accounting_schema="v2"', credits["expr"])
+        unpriced = {
+            rule["record"]
+            for rule in rules
+            if rule["record"].startswith("ai_agent_unpriced_")
+        }
+        self.assertEqual(
+            unpriced,
+            {
+                "ai_agent_unpriced_api_token_usage_total",
+                "ai_agent_unpriced_credit_token_usage_total",
+            },
+        )
 
         fixture = json.loads(
             toolkit.render_fixture(
@@ -413,6 +478,36 @@ class RepositoryTests(unittest.TestCase):
             for usage_class, value in accounting_values.items()
         )
         self.assertAlmostEqual(estimated, 0.08425)
+        estimated_credits = sum(
+            value * expected_credits[("gpt-5.6-sol", usage_class)] / 1_000_000
+            for usage_class, value in accounting_values.items()
+            if ("gpt-5.6-sol", usage_class) in expected_credits
+        )
+        self.assertAlmostEqual(estimated_credits, 1.95)
+
+        role_points = fixture["resourceMetrics"][1]["scopeMetrics"][0]["metrics"][0][
+            "histogram"
+        ]["dataPoints"]
+        auto_review_points = [
+            point
+            for point in role_points
+            if any(
+                attribute["key"] == "model"
+                and attribute["value"]["stringValue"] == "codex-auto-review"
+                for attribute in point["attributes"]
+            )
+        ]
+        self.assertEqual(len(auto_review_points), 4)
+        subagent_points = [
+            point
+            for point in role_points
+            if any(
+                attribute["key"] == "agent_role"
+                and attribute["value"]["stringValue"] == "subagent"
+                for attribute in point["attributes"]
+            )
+        ]
+        self.assertEqual(len(subagent_points), 4)
 
     def test_loki_only_indexes_approved_low_cardinality_attributes(self) -> None:
         loki = toolkit.yaml_load(ROOT / "config/loki/loki.yml")
@@ -472,6 +567,7 @@ class RepositoryTests(unittest.TestCase):
             "ai-agent-activity.json": "ai-agent-activity",
             "ai-agent-usage.json": "ai-agent-usage",
             "antigravity-usage.json": "ai-antigravity-usage",
+            "codex-auto-review.json": "ai-codex-auto-review",
             "codex-usage.json": "ai-codex-usage",
             "collector-health.json": "ai-collector-health",
         }
@@ -502,6 +598,10 @@ class RepositoryTests(unittest.TestCase):
         rules = {
             "ai-agent-usage.json": ("ai_agent_", {"codex_", "ai_context_", "antigravity_"}),
             "ai-agent-activity.json": ("event_name", {"ai_context_", "antigravity_"}),
+            "codex-auto-review.json": (
+                "approval_reviewer",
+                {"codex_", "ai_context_", "antigravity_"},
+            ),
             "antigravity-usage.json": (
                 "antigravity_",
                 {"codex_", "ai_agent_", "ai_context_"},
@@ -562,9 +662,9 @@ class RepositoryTests(unittest.TestCase):
             allowed_canonical,
         )
         fixture_exclusion = (
-            'service_namespace!~"^ai-collaboration(-cost)?-fixture$"'
+            'service_namespace!~"^ai-collaboration(-cost|-role)?-fixture$"'
         )
-        self.assertIn('accounting_schema="v1"', codex_expressions)
+        self.assertIn('accounting_schema="v2"', codex_expressions)
         self.assertIn(fixture_exclusion, codex_expressions)
 
         provider_neutral = json.loads(
@@ -577,7 +677,10 @@ class RepositoryTests(unittest.TestCase):
             for panel in provider_neutral["panels"]
             for target in panel.get("targets", [])
         )
-        self.assertIn('accounting_schema="v1"', provider_neutral_expressions)
+        self.assertIn('accounting_schema="v2"', provider_neutral_expressions)
+        self.assertIn('agent_role=~"$agent_role"', provider_neutral_expressions)
+        self.assertIn("ai_agent_estimated_credit_usage_total", provider_neutral_expressions)
+        self.assertIn("ai_agent_unpriced_credit_token_usage_total", provider_neutral_expressions)
         self.assertIn(fixture_exclusion, provider_neutral_expressions)
 
         for filename, dashboard in (
@@ -640,11 +743,63 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(variable["allValue"], ".+", filename)
             self.assertIn(fixture_exclusion, variable["definition"], filename)
             if filename == "ai-agent-usage.json":
-                self.assertIn('accounting_schema="v1"', variable["definition"])
+                self.assertIn('accounting_schema="v2"', variable["definition"])
 
-        for filename in ("codex-usage.json", "ai-agent-usage.json"):
+        role_variable = next(
+            item
+            for item in provider_neutral["templating"]["list"]
+            if item["name"] == "agent_role"
+        )
+        self.assertEqual(role_variable["allValue"], ".+")
+        self.assertIn('accounting_schema="v2"', role_variable["definition"])
+        self.assertIn(fixture_exclusion, role_variable["definition"])
+
+        credit_stat = next(
+            panel
+            for panel in provider_neutral["panels"]
+            if panel["type"] == "stat"
+            and any(
+                "ai_agent_estimated_credit_usage_total" in target.get("expr", "")
+                for target in panel.get("targets", [])
+            )
+        )
+        self.assertIn("所選範圍", credit_stat["title"])
+        self.assertIn("不是", credit_stat["description"])
+        self.assertIn("未估價", credit_stat["description"])
+        self.assertTrue(credit_stat["targets"][0].get("instant"))
+        self.assertIn(
+            "sum(increase(ai_agent_estimated_credit_usage_total",
+            credit_stat["targets"][0]["expr"],
+        )
+
+        reviewer = json.loads(
+            (ROOT / "config/grafana/dashboards/codex-auto-review.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        reviewer_expressions = "\n".join(
+            target.get("expr", "")
+            for panel in reviewer["panels"]
+            for target in panel.get("targets", [])
+        )
+        self.assertIn('agent_role="approval_reviewer"', reviewer_expressions)
+        self.assertIn('accounting_schema="v2"', reviewer_expressions)
+        self.assertIn("ai_agent_unpriced_api_token_usage_total", reviewer_expressions)
+        self.assertIn("ai_agent_unpriced_credit_token_usage_total", reviewer_expressions)
+        self.assertIn(fixture_exclusion, reviewer_expressions)
+        reviewer_text = (ROOT / "config/grafana/dashboards/codex-auto-review.json").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("不是免費", reviewer_text)
+        self.assertIn("unmapped", reviewer_text)
+
+        for filename in (
+            "codex-usage.json",
+            "ai-agent-usage.json",
+            "codex-auto-review.json",
+        ):
             text = (ROOT / "config/grafana/dashboards" / filename).read_text(encoding="utf-8")
-            self.assertIn("Estimated cost", text)
+            self.assertTrue("Estimated cost" in text or "API 預估費用" in text)
             self.assertIn("公開 API", text)
             self.assertIn("不是", text)
         antigravity_text = (

@@ -82,8 +82,8 @@ smoke orchestrator 與報告工具：
 ## 已驗證的 provider surfaces
 
 - Codex CLI 0.146.1 / app-server 0.147.0-alpha.6.5：versioned fixture、
-  native dashboard、ai_agent.* normalization，以及 exact mapped model 的
-  版本化公開 API 牌價估算。
+  native dashboard、role-aware ai_agent.* normalization，以及 exact mapped
+  model 的版本化公開 API USD 與 Codex credits 分離估算。
 - Codex lifecycle Hooks：[`examples/codex-hooks`](examples/codex-hooks/README.md)
   提供 opt-in、metadata-only 的 `AGENT`／`TOOL` Phoenix trace 實驗；不產生
   LLM/token/cost 或 prompt effectiveness 資料。
@@ -104,16 +104,20 @@ Codex 設定只合併 examples/codex/config.toml.example 的 [otel] 區段，
 
 - Collector 健康狀態（Collector Health）
 - Codex 原生 Telemetry（Codex Native Telemetry）
+- Codex Auto-review 用量（Approval Reviewer）
 - AI Agent 用量（AI Agent Usage）
 - AI Agent 活動（Metadata 與 Trace）
 - Antigravity 用量（觀測值，非帳務）
 
-Codex Native 保留既有 UID ai-codex-usage，並只對同一批 Codex telemetry
-使用三個明確的 canonical accounting/rate/cost recording metrics。AI Agent
-Usage 僅查詢 ai_agent_*；Activity 從 Loki 查 metadata-only events，並以
-trace_id 關聯 Tempo；Antigravity dashboard 維持 provider-native observed
-gauges。因目前沒有真實 AI Context emitter，原先兩張 ai_context_* dashboards
-已移除，避免把設計中的 contract 呈現成已可觀測能力。
+Codex Native 保留既有 UID ai-codex-usage；Auto-review 以獨立 UID
+ai-codex-auto-review 呈現 `approval_reviewer` 的次數、token 類型、cached
+比例與未估價邊界。AI Agent Usage 依 provider／product／role／model 查詢
+ai_agent_*，並把公開 API USD 與 Codex credits estimate 分開。Cached token
+依適用 rate card 折價，並非免費；Auto-review exact model 不可得時維持
+unmapped/unpriced。Activity 從 Loki 查 metadata-only events，並以 trace_id
+關聯 Tempo；Antigravity dashboard 維持 provider-native observed gauges。因
+目前沒有真實 AI Context emitter，原先兩張 ai_context_* dashboards 已移除，
+避免把設計中的 contract 呈現成已可觀測能力。
 
 ## 閱讀 Phoenix
 

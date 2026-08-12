@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented here.
 
+## [Unreleased]
+
+### v0.2.0 candidate
+
+- Added provider-neutral `agent_role` attribution (`primary`,
+  `approval_reviewer`, `subagent`, `unknown`) without conflating roles with
+  exact models; current Codex Auto-review remains `model_id=unmapped`.
+- Added accounting schema v2 for new data only, with API-unpriced and
+  Codex-credits-unpriced token series.
+- Separated OpenAI API USD estimates from public Codex token-based credits
+  estimates. Cached input is discounted rather than free; cache-write remains
+  credits-unpriced because the public Codex table has no dedicated rate.
+- Added the `ai-codex-auto-review` dashboard and role/model filters plus credits
+  panels to the provider-neutral AI Agent Usage dashboard.
+- Added exact-model, approval-reviewer, and producer-supplied subagent runtime
+  fixture coverage. Existing data is not backfilled or rewritten.
+
+This is implementation evidence for Issue #22 and does not publish, tag, or
+freeze v0.2.0.
+
 ## [0.1.5] - 2026-08-09
 
 ### Added

@@ -10,7 +10,7 @@
     {
       "id": 1,
       "title": "使用量與現況的證據界線",
-      "description": "先呈現目前是否仍有資料、所選時間範圍的 token／費用／回合與估價品質，再把 provider 特有欄位放到細節區。",
+      "description": "先呈現資料新鮮度、role／model／token 類型、API USD 與 Codex credits estimate，再把 provider 特有快照放到細節區。",
       "type": "text",
       "gridPos": {
         "x": 0,
@@ -20,13 +20,13 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### 先確認資料新鮮度，再閱讀所選範圍用量\n\n上排全部以目前篩選器與 dashboard 時間範圍計算。**Provider-reported accounting** 目前可把 Codex token 整理成不重複分類；Estimated cost 只在 exact `model_id` 對到版本化 rate card 時估算。它採公開 API 基礎牌價，**不是**訂閱、Enterprise contract、credits 或實際帳單。Extension-observed snapshots 只在支援的產品出現，已收進下方摺疊區。"
+        "content": "### 先確認資料新鮮度，再閱讀角色與 token 成本驅動\n\n`agent_role` 與 `model_id` 已分離；unknown model／rate 維持未估價。**API USD estimate** 與 **Codex credits estimate** 使用不同 rate card，兩者都不是實際帳單、訂閱剩餘額度或 Enterprise contract。Cached input 依公開 rate card 折價，**不是免費**；Codex 未公布 cache-write 專屬 credits rate，因此該類型在 credits 視角維持未估價。"
       }
     },
     {
       "id": 2,
       "title": "Telemetry 距今",
-      "description": "最後一筆符合目前 provider／product／model 篩選的 token telemetry 距離現在多久；超過 5 分鐘轉黃、15 分鐘轉紅。",
+      "description": "最後一筆符合目前 provider／product／role／model 篩選的 token telemetry 距離現在多久；超過 5 分鐘轉黃、15 分鐘轉紅。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -35,7 +35,7 @@
       "gridPos": {
         "x": 0,
         "y": 3,
-        "w": 8,
+        "w": 6,
         "h": 4
       },
       "fieldConfig": {
@@ -79,7 +79,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time() - max(timestamp(ai_agent_turn_token_usage_sum{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}))",
+          "expr": "time() - max(timestamp(ai_agent_turn_token_usage_sum{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}))",
           "legendFormat": "距今秒數",
           "instant": true
         }
@@ -88,16 +88,16 @@
     {
       "id": 3,
       "title": "所選範圍 Token",
-      "description": "所選時間範圍內 canonical accounting token 增量；cached 與 cache-write 不會和 input 重複。",
+      "description": "所選時間範圍內 accounting schema v2 token 增量；依 role 分流，cached 與 cache-write 不會和 input 重複。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 6,
         "y": 3,
-        "w": 8,
+        "w": 6,
         "h": 4
       },
       "fieldConfig": {
@@ -124,24 +124,24 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range]))",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
           "legendFormat": "Token"
         }
       ]
     },
     {
       "id": 4,
-      "title": "所選範圍預估費用",
-      "description": "所選時間範圍內可依 exact rate card 估價的增量；以版本化公開 API 基礎牌價估算，不是帳單、訂閱或 credits，未估價用量不會被猜價。",
+      "title": "所選範圍 API 預估費用",
+      "description": "所選時間範圍內可依 exact 公開 API rate card 估價的增量；不是帳單、訂閱或 credits，未估價用量不會被猜價。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
+        "x": 12,
         "y": 3,
-        "w": 8,
+        "w": 6,
         "h": 4
       },
       "fieldConfig": {
@@ -168,8 +168,53 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range]))",
+          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
           "legendFormat": "USD",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "所選範圍 Codex 預估 Credits",
+      "description": "依公開 Codex token-based credits rate card 估算的等值用量；不是官方剩餘額度或實際扣款。Unmapped model 與 cache-write 維持未估價。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: credits",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_estimated_credit_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "legendFormat": "Credits",
           "instant": true
         }
       ]
@@ -177,7 +222,7 @@
     {
       "id": 5,
       "title": "所選範圍回合數",
-      "description": "所選時間範圍內 provider 回報的完成回合數；四捨五入去除 Prometheus range extrapolation 的小數。",
+      "description": "所選時間範圍內符合 role／model 篩選的 provider 回報回合數；四捨五入去除 range extrapolation 小數。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -213,15 +258,15 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "round(sum(increase(ai_agent_turn_duration_ms_count{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])))",
+          "expr": "round(sum(increase(ai_agent_turn_duration_ms_count{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])))",
           "legendFormat": "回合"
         }
       ]
     },
     {
       "id": 6,
-      "title": "估價覆蓋率",
-      "description": "所選時間範圍內可與 exact provider／model／usage-class rate 對應的 token 比例。",
+      "title": "API 估價覆蓋率",
+      "description": "所選時間範圍內可與 exact provider／model／usage-class API rate 對應的 token 比例。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -272,7 +317,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range]) and on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])), 1)",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]) and on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])), 1)",
           "legendFormat": "Coverage"
         }
       ]
@@ -280,7 +325,7 @@
     {
       "id": 7,
       "title": "Cached input 比例",
-      "description": "所選時間範圍內 cached input 占全部 input 類別的比例。",
+      "description": "所選時間範圍內 cached input 占全部 input 類別的比例；cached 依 rate card 折價，不代表免費。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -314,15 +359,15 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",usage_class=\"input_cached\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",usage_class=~\"input_.+\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])), 1)",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",usage_class=\"input_cached\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",usage_class=~\"input_.+\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])), 1)",
           "legendFormat": "Cached"
         }
       ]
     },
     {
       "id": 8,
-      "title": "模型與計價分類 Token",
-      "description": "所選時間範圍的 token 增量，依 product／model／usage class 分組，方便核對實際使用分布。",
+      "title": "角色、模型與分類 Token",
+      "description": "所選時間範圍 token 增量，依 product／role／model／usage class 分組。",
       "type": "bargauge",
       "datasource": {
         "type": "prometheus",
@@ -331,7 +376,7 @@
       "gridPos": {
         "x": 0,
         "y": 11,
-        "w": 12,
+        "w": 8,
         "h": 9
       },
       "fieldConfig": {
@@ -361,25 +406,25 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (ai_agent_product, model_id, usage_class)",
-          "legendFormat": "{{ai_agent_product}} / {{model_id}} / {{usage_class}}",
+          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (ai_agent_product, agent_role, model_id, usage_class)",
+          "legendFormat": "{{ai_agent_product}} / {{agent_role}} / {{model_id}} / {{usage_class}}",
           "instant": true
         }
       ]
     },
     {
       "id": 9,
-      "title": "模型與分類預估費用",
-      "description": "所選時間範圍的 Estimated cost，依 product／model／usage class 與 rate card 版本分組。",
+      "title": "角色與分類 API 預估費用",
+      "description": "所選時間範圍 API Estimated cost，依 product／role／model／usage class 與 rate card 分組。",
       "type": "bargauge",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 8,
         "y": 11,
-        "w": 12,
+        "w": 8,
         "h": 9
       },
       "fieldConfig": {
@@ -409,15 +454,63 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (ai_agent_product, model_id, usage_class, rate_card_version)",
-          "legendFormat": "{{ai_agent_product}} / {{model_id}} / {{usage_class}}",
+          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (ai_agent_product, agent_role, model_id, usage_class, rate_card_version)",
+          "legendFormat": "{{ai_agent_product}} / {{agent_role}} / {{model_id}} / {{usage_class}}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "角色與分類 Codex 預估 Credits",
+      "description": "所選時間範圍 Codex credits estimate，依 role／model／usage class 分組；只涵蓋公開 credits rate card 的 token 類型。",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 11,
+        "w": 8,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: credits",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_estimated_credit_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (ai_agent_product, agent_role, model_id, usage_class, rate_card_version)",
+          "legendFormat": "{{ai_agent_product}} / {{agent_role}} / {{model_id}} / {{usage_class}}",
           "instant": true
         }
       ]
     },
     {
       "id": 10,
-      "title": "目前累積 Token（模型／分類）",
+      "title": "目前累積 Token（角色／模型／分類）",
       "description": "目前最後觀測的 canonical cumulative counter，供總量核對；時間範圍比較請以上方增量為準。",
       "type": "table",
       "datasource": {
@@ -427,7 +520,7 @@
       "gridPos": {
         "x": 0,
         "y": 20,
-        "w": 12,
+        "w": 8,
         "h": 8
       },
       "fieldConfig": {
@@ -444,8 +537,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (ai_agent_provider, ai_agent_product, model_id, usage_class) (ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
-          "legendFormat": "{{model_id}} / {{usage_class}}",
+          "expr": "sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, usage_class) (ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "{{agent_role}} / {{model_id}} / {{usage_class}}",
           "format": "table",
           "instant": true
         }
@@ -453,17 +546,17 @@
     },
     {
       "id": 11,
-      "title": "目前未估價累積 Token",
-      "description": "沒有 exact provider／model／usage-class rate 的累積 token；保留可見，不猜價也不隱藏。",
+      "title": "目前 API 未估價累積 Token",
+      "description": "沒有 exact API provider／model／usage-class rate 的累積 token；保留可見，不猜價。",
       "type": "table",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 8,
         "y": 20,
-        "w": 12,
+        "w": 8,
         "h": 8
       },
       "fieldConfig": {
@@ -480,8 +573,44 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (ai_agent_provider, ai_agent_product, model_id, usage_class) (ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"} unless on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million)",
-          "legendFormat": "{{model_id}} / {{usage_class}}",
+          "expr": "sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, usage_class) (ai_agent_unpriced_api_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "{{agent_role}} / {{model_id}} / {{usage_class}}",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "目前 Codex Credits 未估價 Token",
+      "description": "Codex credits rate card 未涵蓋的累積 token；包含 unmapped reviewer model 與公開表未列的 cache-write 類型。",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 20,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (agent_role, model_id, usage_class) (ai_agent_unpriced_credit_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "legendFormat": "{{agent_role}} / {{model_id}} / {{usage_class}}",
           "format": "table",
           "instant": true
         }
@@ -539,7 +668,7 @@
         {
           "id": 14,
           "title": "Provider 原始 Token 類型",
-          "description": "保留 provider 原始 token_type 的所選範圍增量，供 canonical accounting 對帳。",
+          "description": "保留 provider 原始 token_type 的所選範圍增量，依 role 分組供 canonical accounting 對帳。",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
@@ -571,15 +700,15 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "sum(increase(ai_agent_turn_token_usage_sum{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (ai_agent_product, model_id, token_type)",
-              "legendFormat": "{{ai_agent_product}} / {{model_id}} / {{token_type}}"
+              "expr": "sum(increase(ai_agent_turn_token_usage_sum{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (ai_agent_product, agent_role, model_id, token_type)",
+              "legendFormat": "{{ai_agent_product}} / {{agent_role}} / {{model_id}} / {{token_type}}"
             }
           ]
         },
         {
           "id": 15,
           "title": "AI Agent 回合耗時 P95",
-          "description": "依 provider／product／model 分組的所選範圍回合延遲 P95。",
+          "description": "依 provider／product／role／model 分組的所選範圍回合延遲 P95。",
           "type": "timeseries",
           "datasource": {
             "type": "prometheus",
@@ -611,8 +740,8 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "histogram_quantile(0.95, sum(rate(ai_agent_turn_duration_ms_bucket{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__rate_interval])) by (le, ai_agent_product, model_id))",
-              "legendFormat": "{{ai_agent_product}} / {{model_id}}"
+              "expr": "histogram_quantile(0.95, sum(rate(ai_agent_turn_duration_ms_bucket{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",model_id=~\"$model_id\",agent_role=~\"$agent_role\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__rate_interval])) by (le, ai_agent_product, agent_role, model_id))",
+              "legendFormat": "{{ai_agent_product}} / {{agent_role}} / {{model_id}}"
             }
           ]
         },
@@ -652,7 +781,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "sum(increase(ai_agent_tool_call{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}[$__range])) by (ai_agent_product, tool_category, success)",
+              "expr": "sum(increase(ai_agent_tool_call{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (ai_agent_product, tool_category, success)",
               "legendFormat": "{{ai_agent_product}} / {{tool_category}} / {{success}}"
             }
           ]
@@ -709,7 +838,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "max by (ai_agent_provider, ai_agent_product) (ai_agent_observed_context_used_ratio{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
+              "expr": "max by (ai_agent_provider, ai_agent_product) (ai_agent_observed_context_used_ratio{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
               "legendFormat": "{{ai_agent_product}}"
             }
           ]
@@ -751,7 +880,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "max by (ai_agent_product, type) (ai_agent_observed_quota_remaining_ratio{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
+              "expr": "max by (ai_agent_product, type) (ai_agent_observed_quota_remaining_ratio{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
               "legendFormat": "{{ai_agent_product}} / {{type}}"
             }
           ]
@@ -791,7 +920,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "max by (ai_agent_product, model_family, token_type) (ai_agent_observed_session_tokens{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
+              "expr": "max by (ai_agent_product, model_family, token_type) (ai_agent_observed_session_tokens{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
               "legendFormat": "{{ai_agent_product}} / {{model_family}} / {{token_type}}"
             }
           ]
@@ -831,7 +960,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "max by (ai_agent_product, model_family, token_type) (ai_agent_observed_context_tokens{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"})",
+              "expr": "max by (ai_agent_product, model_family, token_type) (ai_agent_observed_context_tokens{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
               "legendFormat": "{{ai_agent_product}} / {{model_family}} / {{token_type}}"
             }
           ]
@@ -858,10 +987,10 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, ai_agent_provider)",
+          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_provider)",
           "refId": "provider-variable"
         },
-        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, ai_agent_provider)",
+        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_provider)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -886,12 +1015,40 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, ai_agent_product)",
+          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_product)",
           "refId": "product-variable"
         },
-        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, ai_agent_product)",
+        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_product)",
         "includeAll": true,
         "allValue": ".*",
+        "multi": true,
+        "refresh": 1,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "agent_role",
+        "label": "Role",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, agent_role)",
+          "refId": "role-variable"
+        },
+        "definition": "label_values(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, agent_role)",
+        "includeAll": true,
+        "allValue": ".+",
         "multi": true,
         "refresh": 1,
         "sort": 1,
@@ -914,10 +1071,10 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, model_id)",
+          "query": "label_values(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, model_id)",
           "refId": "model-variable"
         },
-        "definition": "label_values(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",accounting_schema=\"v1\",service_namespace!~\"^ai-collaboration(-cost)?-fixture$\"}, model_id)",
+        "definition": "label_values(ai_agent_token_usage_total{ai_agent_provider=~\"$provider\",ai_agent_product=~\"$product\",agent_role=~\"$agent_role\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, model_id)",
         "includeAll": true,
         "allValue": ".+",
         "multi": true,
@@ -943,6 +1100,6 @@
   "timezone": "browser",
   "title": "AI Agent 用量（AI Agent Usage）",
   "uid": "ai-agent-usage",
-  "version": 5,
-  "description": "以資料新鮮度與所選時間範圍用量為主畫面，提供 provider-neutral token accounting、版本化 rate card、預估費用與未估價 coverage；特定 extension 快照收進摺疊細節。"
+  "version": 6,
+  "description": "以 provider／product／role／model 與新資料 accounting schema v2 檢視 token，分開呈現 API USD 與 Codex credits estimate、cached 比例及兩種未估價 coverage。"
 }

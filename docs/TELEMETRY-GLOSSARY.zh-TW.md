@@ -46,14 +46,20 @@ query 中把它們翻譯成中文。
 | --- | --- |
 | `ai_agent.provider` | Provider 類別，例如 OpenAI；必須是 bounded value |
 | `ai_agent.product` | 工具產品，例如 Codex；不是 project 名稱 |
+| `agent_role` | 執行角色：primary、approval_reviewer、subagent 或 unknown；不是模型名稱 |
+| `model_id` | 可供 rate-card join 的 exact model；不可得時為 unmapped |
 | `model_family` | 受限模型家族，不應包含 request/session ID |
 | `token_type` | input、output、cached 等 token 類型 |
+| `usage_class` | Accounting 使用的互不重疊 token 類別；不可和 raw input 重複相加 |
 | `tool_category` | 去除原始工具名稱後的 bounded category |
 | `evidence_class` | 說明資料是 provider-reported、observed extension 或其他核准證據類別 |
 | `ai_agent_turn_duration_ms` | Canonical 回合 duration histogram；不是 task 完成時間 |
 | `ai_agent_tool_call` | Canonical 工具呼叫 counter；不含原始參數或結果 |
 | `ai_agent_observed_context_used_ratio` | Extension 觀測到的 context 使用率；不是 provider 帳單 |
 | `ai_agent_observed_quota_remaining_ratio` | Extension 觀測到的 quota；不是權威餘額 |
+| `ai_agent_estimated_cost_usd_total` | 公開 API USD 牌價估算；不是帳單或訂閱扣款 |
+| `ai_agent_estimated_credit_usage_total` | 公開 Codex credits rate-card 等值估算；不是官方剩餘額度 |
+| `ai_agent_unpriced_credit_token_usage_total` | 沒有公開 Codex credits rate 的 token；未知不等於免費 |
 
 ## AI Context identifiers
 
@@ -88,4 +94,3 @@ query 中把它們翻譯成中文。
 
 完整判讀步驟請參閱
 [Phoenix Trace 閱讀指南](PHOENIX-READING-GUIDE.zh-TW.md)。
-

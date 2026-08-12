@@ -1093,6 +1093,17 @@ def static_validate() -> list[str]:
                 "Telemetry 距今",
                 "所選範圍 Token",
                 "所選範圍回合數",
+                "Codex 預估 Credits",
+                "agent_role",
+            ),
+            "forbidden": ("codex_", "ai_context_", "antigravity_"),
+        },
+        "codex-auto-review.json": {
+            "required": (
+                "ai_agent_",
+                "approval_reviewer",
+                "Codex Credits 未估價",
+                "不是免費",
             ),
             "forbidden": ("codex_", "ai_context_", "antigravity_"),
         },
@@ -1956,8 +1967,9 @@ def _check_backend_data(
                     "ai_agent_token_usage_total{"
                     'ai_agent_provider="openai",ai_agent_product="codex",'
                     'model_id="gpt-5.6-sol",'
+                    'agent_role="primary",'
                     'service_namespace="ai-collaboration-cost-fixture",'
-                    'accounting_schema="v1",'
+                    'accounting_schema="v2",'
                     f'usage_class="{usage_class}"}}'
                 )
                 + ")"
@@ -1976,25 +1988,97 @@ def _check_backend_data(
             + current_or_recent(
                 'ai_agent_estimated_cost_usd_total{ai_agent_provider="openai",'
                 'ai_agent_product="codex",model_id="gpt-5.6-sol",'
+                'agent_role="primary",'
                 'service_namespace="ai-collaboration-cost-fixture",'
-                'accounting_schema="v1"}'
+                'accounting_schema="v2"}'
             )
             + ")"
         ),
         lambda value: abs(value - 0.08425) < 0.000000001,
     )
+    estimated_credits = retry(
+        "Codex estimated public credits",
+        lambda: prometheus_scalar(
+            "sum("
+            + current_or_recent(
+                'ai_agent_estimated_credit_usage_total{ai_agent_provider="openai",'
+                'ai_agent_product="codex",model_id="gpt-5.6-sol",'
+                'agent_role="primary",'
+                'service_namespace="ai-collaboration-cost-fixture",'
+                'accounting_schema="v2"}'
+            )
+            + ")"
+        ),
+        lambda value: abs(value - 1.95) < 0.000000001,
+    )
+    reviewer_accounting = retry(
+        "Codex approval-reviewer token accounting",
+        lambda: {
+            usage_class: prometheus_scalar(
+                "sum("
+                + current_or_recent(
+                    "ai_agent_token_usage_total{"
+                    'ai_agent_provider="openai",ai_agent_product="codex",'
+                    'agent_role="approval_reviewer",model_id="unmapped",'
+                    'service_namespace="ai-collaboration-role-fixture",'
+                    'accounting_schema="v2",'
+                    f'usage_class="{usage_class}"}}'
+                )
+                + ")"
+            )
+            for usage_class in ("input_uncached", "input_cached", "output")
+        },
+        lambda value: value
+        == {"input_uncached": 2000.0, "input_cached": 6000.0, "output": 1000.0},
+    )
+    subagent_series = retry(
+        "Codex producer-supplied subagent role",
+        lambda: prometheus_query(
+            'ai_agent_turn_token_usage_sum{service_namespace="ai-collaboration-role-fixture",'
+            'agent_role="subagent",model_id="gpt-5.6-terra"}'
+        ),
+        lambda value: bool(value),
+    )
     if prometheus_query(
-        'ai_agent_estimated_cost_usd_total{model_id="codex-auto-review"}'
+        'ai_agent_estimated_cost_usd_total{agent_role="approval_reviewer",'
+        'service_namespace="ai-collaboration-role-fixture"}'
     ):
         raise RuntimeError("unmapped Codex auto-review usage was unexpectedly priced")
+    if prometheus_query(
+        'ai_agent_estimated_credit_usage_total{agent_role="approval_reviewer",'
+        'service_namespace="ai-collaboration-role-fixture"}'
+    ):
+        raise RuntimeError("unmapped Codex auto-review usage unexpectedly consumed credits")
+    unpriced_cache_write = retry(
+        "Codex credits unpriced cache-write boundary",
+        lambda: prometheus_scalar(
+            "sum("
+            + current_or_recent(
+                'ai_agent_unpriced_credit_token_usage_total{model_id="gpt-5.6-sol",'
+                'agent_role="primary",usage_class="input_cache_write",'
+                'service_namespace="ai-collaboration-cost-fixture",'
+                'accounting_schema="v2"}'
+            )
+            + ")"
+        ),
+        lambda value: abs(value - 1000.0) < 0.000001,
+    )
     price_series = prometheus_query("ai_agent_token_price_usd_per_million")
     if len(price_series) != 12:
         raise RuntimeError(
             f"expected 12 exact rate-card series, found {len(price_series)}"
         )
+    credit_series = prometheus_query("ai_agent_token_credit_per_million")
+    if len(credit_series) != 9:
+        raise RuntimeError(
+            f"expected 9 published Codex credit-rate series, found {len(credit_series)}"
+        )
     report.pass_(
-        prefix + "codex token accounting and estimated cost",
-        f"classes={accounting_values}, estimated_usd={estimated_cost:g}",
+        prefix + "codex role/token accounting and estimates",
+        f"classes={accounting_values}, estimated_usd={estimated_cost:g}, "
+        f"estimated_credits={estimated_credits:g}, reviewer={reviewer_accounting}, "
+        f"subagent_series={len(subagent_series)}, "
+        f"unpriced_cache_write={unpriced_cache_write:g}",
     )
 
     raw_antigravity, canonical_antigravity = retry(
@@ -2141,6 +2225,7 @@ def _check_grafana(report: SmokeReport, prefix: str = "") -> None:
     for uid, title in (
         ("ai-collector-health", "Collector 健康狀態（Collector Health）"),
         ("ai-codex-usage", "Codex 原生 Telemetry（Codex Native Telemetry）"),
+        ("ai-codex-auto-review", "Codex Auto-review 用量（Approval Reviewer）"),
         ("ai-agent-usage", "AI Agent 用量（AI Agent Usage）"),
         ("ai-agent-activity", "AI Agent 活動（Metadata 與 Trace）"),
         ("ai-antigravity-usage", "Antigravity 用量（觀測值，非帳務）"),

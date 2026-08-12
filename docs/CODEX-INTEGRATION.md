@@ -99,19 +99,29 @@ temporality; Prometheus exposes histogram bucket/count/sum series.
 
 The Collector retains privacy-filtered codex.* telemetry and creates a separate
 ai_agent.* copy. Codex 原生 Telemetry keeps native `codex_*` diagnostics and
-uses only three narrowly scoped canonical recording metrics for token
-accounting, rate-card facts, and estimated cost. AI Agent 用量 queries only
-`ai_agent_*`; AI Agent 活動 reads metadata-only Loki events and links them to
-Tempo. The AI Context dashboards are retired until a real framework emitter
-exists. No dashboard substitutes provider activity for framework evidence.
+uses narrowly scoped canonical recording metrics for token accounting, API USD,
+Codex credits, and unpriced coverage. AI Agent 用量 queries only `ai_agent_*`;
+Codex Auto-review 用量 isolates `agent_role=approval_reviewer`; AI Agent 活動
+reads metadata-only Loki events and links them to Tempo. The AI Context
+dashboards are retired until a real framework emitter exists. No dashboard
+substitutes provider activity for framework evidence.
 
 Exact Codex models are mapped to bounded `model_id` before the raw model label
 is removed from the canonical copy. Unknown models become `unmapped` and remain
-visible without a price. The estimate uses versioned public API base rates; it
-is not Codex subscription/credit/invoice data and does not apply the
-greater-than-272K premium because aggregated telemetry cannot identify the
-affected requests. Raw `token_type` panels remain available to reconcile the
-non-overlapping accounting classes.
+visible without a price. `agent_role` is a separate bounded dimension:
+`primary`, `approval_reviewer`, `subagent`, or `unknown`. A producer-supplied
+subagent role is retained. The current `codex-auto-review` pseudo-model maps to
+`approval_reviewer`, but because it does not reveal the actual model, its
+canonical `model_id` remains `unmapped` and both estimates remain absent.
+
+API USD uses a versioned public API card. Codex credits use a separate public
+token-based rate card and are an estimate, not the official remaining plan
+allowance or actual debit. Cached input is discounted rather than free. The
+public credits table does not list a cache-write-specific rate, so cache-write
+tokens remain visible as credits-unpriced. Raw `token_type` panels remain
+available to reconcile the non-overlapping accounting classes. The API estimate
+does not apply the greater-than-272K premium because aggregated telemetry cannot
+identify affected requests.
 
 Before changing a live Codex configuration, create a same-directory backup.
 For this toolkit, change only the [otel] block, keep all three endpoints on the

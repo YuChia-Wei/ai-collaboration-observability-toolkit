@@ -189,7 +189,7 @@ processors:
       - set(description, "")
     - context: datapoint
       statements:
-      - keep_keys(attributes, ["event.name", "tool", "tool_name", "tool_category", "model", "model_id", "model_family", "operation", "success", "status", "type", "token_type", "task_type", "workflow_type", "stage",
+      - keep_keys(attributes, ["event.name", "tool", "tool_name", "tool_category", "model", "model_id", "model_family", "agent_role", "operation", "success", "status", "type", "token_type", "task_type", "workflow_type", "stage",
         "skill", "skill_id", "rule", "rule_id", "state", "outcome", "error_category", "evidence_class", "source", "unit", "tier", "reused", "reason", "framework_version", "validation_type", "validation_tier",
         "wait_reason", "cost_unit", "cost_source", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "ai_context.environment.profile",
         "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage", "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state",
@@ -246,12 +246,13 @@ processors:
       statements:
       - set(attributes["model_family"], "unmapped") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
       - set(attributes["model_id"], "unmapped") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
+      - set(attributes["agent_role"], "unknown") where IsMatch(metric.name, "^ai_agent\\.") and attributes["agent_role"] != "primary" and attributes["agent_role"] != "approval_reviewer" and attributes["agent_role"] != "subagent" and attributes["agent_role"] != "unknown"
       - set(attributes["model_family"], "gpt-5.6") where IsMatch(metric.name, "^ai_agent\\.") and (attributes["model"] == "gpt-5.6" or IsMatch(attributes["model"], "^gpt-5\\.6-"))
-      - set(attributes["model_family"], "codex-auto-review") where IsMatch(metric.name, "^ai_agent\\.") and attributes["model"] == "codex-auto-review"
       - set(attributes["model_id"], "gpt-5.6-sol") where IsMatch(metric.name, "^ai_agent\\.") and attributes["model"] == "gpt-5.6-sol"
       - set(attributes["model_id"], "gpt-5.6-terra") where IsMatch(metric.name, "^ai_agent\\.") and attributes["model"] == "gpt-5.6-terra"
       - set(attributes["model_id"], "gpt-5.6-luna") where IsMatch(metric.name, "^ai_agent\\.") and attributes["model"] == "gpt-5.6-luna"
-      - set(attributes["model_id"], "codex-auto-review") where IsMatch(metric.name, "^ai_agent\\.") and attributes["model"] == "codex-auto-review"
+      - set(attributes["agent_role"], "approval_reviewer") where IsMatch(metric.name, "^ai_agent\\.") and attributes["model"] == "codex-auto-review"
+      - set(attributes["agent_role"], "primary") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server" and attributes["agent_role"] == "unknown" and (attributes["model"] == "gpt-5.6" or IsMatch(attributes["model"], "^gpt-5\\.6-"))
       - set(attributes["operation"], "turn") where IsMatch(metric.name, "^ai_agent\\.turn\\.")
       - set(attributes["operation"], "tool") where IsMatch(metric.name, "^ai_agent\\.tool\\.")
       - set(attributes["operation"], "mcp") where IsMatch(metric.name, "^ai_agent\\.mcp\\.")

@@ -5,7 +5,7 @@ dashboard contract. Documentation alone is not normalization support.
 
 | Provider/product | Verified surface | Fixture | Native view | \`ai_agent.*\` | Cost estimate | Status |
 |---|---|---|---|---|---|---|
-| OpenAI Codex CLI 0.146.1 | app-server OTLP logs/metrics/traces; app-server 0.147.0-alpha.6.5 | \`fixtures/codex/0.146.1\` | Yes | Yes | Exact mapped models, public API base rates | Supported in 0.1.3 |
+| OpenAI Codex CLI 0.146.1 | app-server OTLP logs/metrics/traces; app-server 0.147.0-alpha.6.5 | \`fixtures/codex/0.146.1\` plus role/accounting runtime fixture | Yes | Yes, role-aware v2 accounting | Exact mapped models: separate public API USD and Codex credits estimates | Supported baseline; v0.2 role/credits candidate |
 | OpenAI Codex lifecycle Hooks | `UserPromptSubmit`/`Stop` and local `PreToolUse`/`PostToolUse` | `examples/codex-hooks` privacy fixtures | Phoenix/Tempo trace only | Bounded lifecycle attributes; no usage metrics | No | Experimental, metadata-only |
 | Google Antigravity | documented Hooks and CLI status-line extension | repository examples and privacy fixtures | Yes | Yes, observed gauges/lifecycle metadata | No; observations are not counters/billing | Supported, extension-observed |
 | Anthropic Claude Code | upstream OpenTelemetry metrics/events and optional traces; repository documentation only | None | No | No | No | Upstream capable; repository integration required |
@@ -17,6 +17,13 @@ or billing ledger, and are therefore not priced. Claude Code and Copilot have
 upstream telemetry surfaces, but they must not be shown as normalized or priced
 by this toolkit until a real, version-pinned privacy-safe fixture and defensible
 usage contract are available.
+
+Codex `agent_role` and `model_id` are independent. The current
+`codex-auto-review` source value proves `approval_reviewer`, but not the exact
+model, so reviewer tokens remain `model_id=unmapped` and unpriced. Cached input
+is discounted according to the matching public rate card, not free. The public
+Codex credits table has no cache-write-specific rate; that class remains visible
+as credits-unpriced.
 
 Provider telemetry can establish usage, timing, tool activity, and trace events.
 It cannot independently establish that a prompt-framework rule was loaded,

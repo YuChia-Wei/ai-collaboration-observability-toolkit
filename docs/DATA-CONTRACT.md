@@ -2,12 +2,12 @@
 
 ## Contract boundaries
 
-Version 0.1.3 defines three deliberately separate contracts:
+The v0.2.0 forward contract keeps four deliberately separate contracts:
 
 | Contract | Purpose | Producer/normalizer | Dashboard |
 |---|---|---|---|
 | Native provider telemetry | Preserve a privacy-filtered provider view for troubleshooting | Provider, then Collector privacy transforms | Codex 原生 Telemetry / Antigravity 用量 |
-| \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent 用量 |
+| \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent 用量 / Codex Auto-review 用量 |
 | metadata events + trace IDs | Inspect prompt submission, tool/API/sandbox events, and correlate to Tempo | Provider logs after Collector privacy transforms | AI Agent 活動 |
 | \`ai_context.*\` | Reserve framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | Future explicit AI Context framework instrumentation | None until a real emitter exists |
 
@@ -44,6 +44,10 @@ Canonical metric datapoints may use only reviewed bounded dimensions:
   accounting/rate-card joins. Unknown or non-exact values become \`unmapped\`;
   raw provider values are never promoted automatically.
 - \`model_family\`: normalized family, not a request/session identifier.
+- \`agent_role\`: execution role independent of model: \`primary\`,
+  \`approval_reviewer\`, \`subagent\`, or \`unknown\`. A producer-supplied bounded
+  role is retained. Codex \`model=codex-auto-review\` maps to
+  \`approval_reviewer\`, while its actual \`model_id\` remains \`unmapped\`.
 - \`tool_category\`: bounded category such as \`execution\`, \`editor\`, or
   \`connector\`; raw tool names are removed from canonical copies.
 - \`token_type\`: provider-reported bounded token class.
@@ -85,22 +89,26 @@ Prometheus renders dotted OTLP names with underscores and renders histograms as
 operations; a histogram sum must not be treated as a counter instrument in the
 contract.
 
-Prometheus adds three provider-neutral recording metrics for the new ingestion
-window:
+Prometheus adds provider-neutral accounting and estimate recording metrics for
+the new ingestion window:
 
 | Recording metric | Semantics |
 |---|---|
 | \`ai_agent_token_usage_total\` | Non-overlapping accounting classes: \`input_uncached\`, \`input_cached\`, \`input_cache_write\`, and \`output\` |
 | \`ai_agent_token_price_usd_per_million\` | Versioned rate-card fact for an exact provider/model/class tuple |
 | \`ai_agent_estimated_cost_usd_total\` | Accounting token total multiplied by the matching rate; absent when no exact rate exists |
+| \`ai_agent_token_credit_per_million\` | Versioned public Codex credits rate for a published model/class tuple |
+| \`ai_agent_estimated_credit_usage_total\` | Codex accounting token total multiplied by the matching public credits rate |
+| \`ai_agent_unpriced_api_token_usage_total\` | Accounting token without an exact API rate |
+| \`ai_agent_unpriced_credit_token_usage_total\` | Codex accounting token without a published credits rate |
 
-Every new accounting and estimated-cost series carries
-\`accounting_schema=v1\`. The recording rules also retain the bounded
+Every new accounting and estimate series carries \`accounting_schema=v2\` and
+the bounded \`agent_role\`. The recording rules also retain the bounded
 \`service_namespace\`, so owner telemetry and runtime fixtures cannot collapse
-into the same Prometheus series. The supplied dashboards require schema v1 and
-exclude \`ai-collaboration-fixture\` and \`ai-collaboration-cost-fixture\` by
-default. Older unversioned series remain stored and queryable but are not
-rewritten or included in the new usage totals.
+into the same Prometheus series. The supplied dashboards require schema v2 and
+exclude \`ai-collaboration-fixture\`, \`ai-collaboration-cost-fixture\`, and
+\`ai-collaboration-role-fixture\` by default. Older v1 or unversioned series
+remain stored and queryable but are not rewritten or included in v2 totals.
 
 For the verified Codex contract, \`cached_input\`, \`cache_write_input\`, and
 \`reasoning_output\` are diagnostic subsets. The accounting series prefers an
@@ -109,11 +117,11 @@ explicit \`non_cached_input\`; otherwise it derives uncached input as
 once and does not add \`reasoning_output\` again. Raw provider token classes stay
 queryable for reconciliation.
 
-Dashboard cumulative stats reduce to the last observed recording value in the
-selected range, and the unpriced table uses \`last_over_time\`. Range charts use
-\`increase()\`; because a first-ever counter sample has no preceding baseline,
-operators should use the cumulative stat for the initial read-back and the
-range chart for subsequent changes.
+Selected-range token, API USD, and Codex credits panels use
+\`increase(...[$__range])\`; a cumulative last value must not be presented as a
+selected-range estimate. Because a first-ever counter sample has no preceding
+baseline, wait for a subsequent sample before treating an interval increase as
+complete.
 
 Antigravity status-line token/context/quota metrics remain instantaneous
 \`evidence_class=observed\` gauges. They are not transformed into
@@ -157,22 +165,29 @@ queryable only as bounded 0.1.x compatibility data. They are not copied into
 \`ai_agent.*\`. New provider integrations must use \`ai_agent.*\`; new framework
 instrumentation must not emit provider usage under \`ai_context.*\`.
 
-## Cost
+## API USD and Codex credits estimates
 
-Cost is an explicitly versioned estimate, not provider billing. The initial
-rate card is \`openai-api-2026-08-10\`, denominated in USD per one million tokens,
+API cost is an explicitly versioned estimate, not provider billing. The active
+rate card is \`openai-api-2026-08-12\`, denominated in USD per one million tokens,
 and covers only exact \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, and \`gpt-5.6-luna\`
 accounting classes. Each output series retains \`currency\`,
 \`rate_card_version\`, \`rate_card_source\`, \`pricing_scope\`, and
 \`cost_source=estimated_api_list_price\`.
 
-No price is guessed for \`codex-auto-review\`, \`unmapped\`, Antigravity, Claude,
-or Copilot. Those usage/observation series remain visible without a cost
-series. The initial rate card represents public API base pricing only; it does
-not represent Codex subscriptions, credits, enterprise contracts, invoices,
-or internal showback. Aggregated telemetry cannot determine which individual
-requests exceeded the long-context threshold, so the initial estimate does
-not apply the greater-than-272K premium. See
+Codex credits use the separate \`openai-codex-credits-2026-08-12\` public rate
+card. It publishes input, cached input, and output rates. Cached input is
+discounted, not free. Because the public table does not publish a distinct
+cache-write credits rate, \`input_cache_write\` stays in the credits-unpriced
+metric instead of borrowing the API 1.25x multiplier.
+
+No estimate is guessed for an \`unmapped\` model, including current
+\`approval_reviewer\` telemetry, or for Antigravity, Claude, or Copilot. The API
+estimate does not represent Codex subscriptions, credits, Enterprise contracts,
+invoices, or internal showback. The credits estimate is a public rate-card
+equivalent, not the official remaining plan allowance or actual debit.
+Aggregated telemetry cannot determine which individual requests exceeded the
+long-context threshold, so the API estimate does not apply the greater-than-272K
+premium. See
 [Cost attribution](COST-ATTRIBUTION.md).
 
 ## Privacy and routing
@@ -199,10 +214,14 @@ See [Privacy](PRIVACY.md) and the versioned
 
 - The Codex 原生 Telemetry dashboard keeps UID \`ai-codex-usage\`; human-facing text changes in
   place while the PromQL contract remains stable, avoiding a duplicate dashboard.
+- The dedicated Codex Auto-review dashboard uses UID \`ai-codex-auto-review\`
+  and treats approval review as a role, not a model.
 - Raw privacy-filtered \`codex.*\` and \`antigravity_*\` series remain available.
-- \`ai_agent.*\` is additive in 0.1.3.
-- Existing stored series are not rewritten. Exact \`model_id\`, accounting, and
-  cost recording metrics apply to newly ingested/mapped data.
+- \`ai_agent.*\` remains provider-neutral; accounting schema v2 adds bounded
+  role attribution without rewriting v1 history.
+- Existing stored series are not rewritten. \`agent_role\`, exact \`model_id\`,
+  accounting, API USD, and Codex credits recording metrics apply to newly
+  ingested/mapped data.
 - Legacy canonical token series without \`model_id\` remain queryable in the raw
   canonical metric but are excluded from accounting and cost recording rules.
 - Dashboard model variables use the non-empty all-pattern \`.+\`, preventing
