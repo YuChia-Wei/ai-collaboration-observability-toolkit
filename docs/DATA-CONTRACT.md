@@ -6,10 +6,10 @@ The v0.2.0 forward contract keeps four deliberately separate contracts:
 
 | Contract | Purpose | Producer/normalizer | Dashboard |
 |---|---|---|---|
-| Native provider telemetry | Preserve a privacy-filtered provider view for troubleshooting | Provider, then Collector privacy transforms | Codex 原生 Telemetry / Antigravity 用量 |
+| Native provider telemetry | Preserve a privacy-filtered provider view for troubleshooting | Provider, then Collector privacy transforms | Codex 原生 Telemetry / Claude Context 歸因 / Antigravity 用量 |
 | \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent 用量 / Codex Auto-review 用量 |
 | metadata events + trace IDs | Inspect prompt submission, tool/API/sandbox events, and correlate to Tempo | Provider logs after Collector privacy transforms | AI Agent 活動 |
-| \`ai_context.*\` | Reserve framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | Future explicit AI Context framework instrumentation | None until a real emitter exists |
+| \`ai_context.*\` | Reserve framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | Future runtime/orchestrator instrumentation at a real execution boundary | None until a real producer exists |
 
 Native provider telemetry is not framework evidence. A Codex turn or tool call
 must never be presented as proof that an AI Context skill, rule, or validation
@@ -28,9 +28,9 @@ privacy-reviewed attributes.
 | \`service.version\` | string | \`0.147.0-alpha.6.5\` | Producer version |
 | \`deployment.environment.name\` | string | \`personal-local\` | Mode-controlled |
 | \`ai_observability.profile\` | string | \`core\`, \`evaluation\`, \`corporate-redacted\` | Canonical toolkit profile |
-| \`ai_agent.provider\` | string | \`openai\`, \`google\` | Bounded provider |
-| \`ai_agent.product\` | string | \`codex\`, \`antigravity\` | Bounded product |
-| \`ai_agent.surface\` | string | \`app-server\`, \`hooks\`, \`status-line\` | Verified telemetry surface |
+| \`ai_agent.provider\` | string | \`openai\`, \`anthropic\`, \`google\` | Bounded provider |
+| \`ai_agent.product\` | string | \`codex\`, \`claude-code\`, \`antigravity\` | Bounded product |
+| \`ai_agent.surface\` | string | \`app-server\`, \`cli\`, \`desktop\`, \`hooks\`, \`status-line\` | Verified telemetry surface |
 
 \`ai_context.environment.profile\` remains as a deprecated compatibility alias
 for 0.1.x producers. New integrations should use \`ai_observability.profile\`.
@@ -55,14 +55,20 @@ Canonical metric datapoints may use only reviewed bounded dimensions:
   exposes a bounded value.
 - \`evidence_class\`: \`provider-reported\` for native SDK metrics or
   \`observed\` for local extension gauges.
+- \`skill_id\`, \`mcp_server_name\`, and \`mcp_tool_name\`: only for a verified
+  provider-native attribution contract. Claude Code emits request-level skill
+  and MCP attribution with documented redaction behavior; these fields are
+  retained only in Core/Evaluation. Corporate removes them.
+- \`mcp_tool_id\`: a user-configured safe logical ID emitted only after a Codex
+  Hook exact-tool allowlist match. It never contains the raw hook tool name.
 - \`content_scope\` and \`measurement_method\`: only fixed reviewed values for an
-  explicitly documented local measurement. The Codex Hook size-only metric uses
-  \`user_prompt\` and \`utf8_bytes\`; neither field carries content, an identifier,
-  or a token estimate.
+  explicitly documented local measurement. Codex Hook size-only metrics use
+  \`user_prompt\` or \`hook_tool_response\` plus \`utf8_bytes\`; neither field
+  carries content, a request identifier, or a token estimate.
 
 Never use session, prompt, conversation, task UUID, validation fingerprint,
 commit SHA, branch, path, user identity, account ID, call ID, trace ID, span
-ID, or raw tool/skill name as a Prometheus or Loki index label.
+ID, or unrestricted raw tool name as a Prometheus or Loki index label.
 
 ## Canonical AI-agent metrics
 
@@ -74,6 +80,7 @@ canonical namespace because it has no provider-native counterpart.
 
 | Native input | Canonical metric | Semantics |
 |---|---|---|
+| \`claude_code.token.usage\` | \`ai_agent.request.token_usage.total\` | Provider-reported request token counter with token type and request attribution |
 | \`codex.turn.token_usage\` | \`ai_agent.turn.token_usage\` | Delta histogram, token count distribution |
 | \`codex.turn.e2e_duration_ms\` | \`ai_agent.turn.duration_ms\` | Delta histogram |
 | \`codex.turn.ttft.duration_ms\` | \`ai_agent.turn.ttft.duration_ms\` | Delta histogram |
@@ -90,6 +97,7 @@ canonical namespace because it has no provider-native counterpart.
 | \`antigravity_context_tokens\` | \`ai_agent.observed.context_tokens\` | Instantaneous observed gauge |
 | Other \`antigravity_*\` status gauges | \`ai_agent.observed.*\` | Instantaneous observed gauge |
 | Codex Hook \`--capture-mode size-only\` | \`ai_agent.observed.user_prompt.bytes\` | Opt-in Delta histogram of locally measured user-prompt UTF-8 bytes; no content or token claim |
+| Codex Hook exact MCP allowlist plus size-only | \`ai_agent.observed.mcp_tool_response.bytes\` | Opt-in Delta histogram of serialized PostToolUse response UTF-8 bytes under a safe logical tool ID |
 
 Prometheus renders dotted OTLP names with underscores and renders histograms as
 \`_bucket\`, \`_count\`, and \`_sum\` series. Queries must use histogram
@@ -103,6 +111,21 @@ user message before any provider-side expansion: it is not total context,
 system/developer instructions, skills, tool results, framework load size,
 provider token accounting, or billing. It must not be used to infer a per-turn
 token ratio. Corporate mode drops it even if a source is misconfigured.
+
+\`ai_agent.observed.mcp_tool_response.bytes\` is emitted only when all three
+conditions hold: \`size-only\`, the \`mcp-tool-response\` scope, and an exact raw
+Hook tool-name mapping to a safe logical \`mcp_tool_id\`. The exporter reads the
+response only after that match and emits only its deterministic serialized
+UTF-8 byte count. It measures the Hook payload, not the exact text ultimately
+placed in an LLM context and not provider tokens. Corporate mode drops it.
+
+Claude Code's native token counter is incremented after each API request. The
+Collector maps \`input\`, \`cacheRead\`, \`cacheCreation\`, and \`output\` to the
+four canonical accounting classes and maps \`query_source=main/subagent\` to
+bounded roles. \`skill.name\` identifies the active skill; MCP fields identify a
+result consumed by that request. User-configured MCP names are normally
+provider-redacted to \`custom\`. These labels make controlled attribution
+possible but do not prove causality or identify an individual governance file.
 
 Prometheus adds provider-neutral accounting and estimate recording metrics for
 the new ingestion window:
@@ -147,10 +170,12 @@ participate in cost estimation. Runtime smoke exports them under the dedicated
 ## AI Context framework evidence
 
 \`ai_context.*\` is reserved for independently emitted framework/workflow
-evidence. The repository currently has schema and synthetic fixtures only. A
+evidence. The repository currently has schema and synthetic fixtures only.
+\`ai-collaboration-framework\` is a portable prompts/skills/workflow source and
+governed packaging harness, not a runtime that observes model requests. A
 prompt cannot independently prove that its own rule was loaded, applied, or
-caused an outcome, so no AI Context effectiveness/workflow dashboard is
-provisioned until a deterministic framework-owned emitter or hook exists.
+caused an outcome, so this change does not add a framework emitter or per-unit
+load-decision schema.
 Typical bounded attributes include:
 
 - framework and workflow version/type/stage;

@@ -229,6 +229,8 @@ groups:
       # service_namespace keeps synthetic fixtures isolated from owner usage.
       # Prefer an explicit non_cached_input series. If it is absent, derive it
       # from input because cached/cache-write tokens are reported as subsets.
+      # Claude request counters already report non-overlapping token classes;
+      # their request attribution labels remain on the same accounting output.
       - record: ai_agent_token_usage_total
         expr: |
           sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace) (
@@ -265,6 +267,10 @@ groups:
               ai_agent_turn_token_usage_sum{token_type="non_cached_input",model_id!="",agent_role!=""}
             )
           )
+          or
+          sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace, skill_id, mcp_server_name, mcp_tool_name) (
+            ai_agent_request_token_usage_total{token_type="input",model_id!="",agent_role!=""}
+          )
         labels:
           accounting_schema: v2
           usage_class: input_uncached
@@ -272,6 +278,10 @@ groups:
         expr: |
           sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace) (
             ai_agent_turn_token_usage_sum{token_type="cached_input",model_id!="",agent_role!=""}
+          )
+          or
+          sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace, skill_id, mcp_server_name, mcp_tool_name) (
+            ai_agent_request_token_usage_total{token_type="cached_input",model_id!="",agent_role!=""}
           )
         labels:
           accounting_schema: v2
@@ -281,6 +291,10 @@ groups:
           sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace) (
             ai_agent_turn_token_usage_sum{token_type="cache_write_input",model_id!="",agent_role!=""}
           )
+          or
+          sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace, skill_id, mcp_server_name, mcp_tool_name) (
+            ai_agent_request_token_usage_total{token_type="cache_write_input",model_id!="",agent_role!=""}
+          )
         labels:
           accounting_schema: v2
           usage_class: input_cache_write
@@ -288,6 +302,10 @@ groups:
         expr: |
           sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace) (
             ai_agent_turn_token_usage_sum{token_type="output",model_id!="",agent_role!=""}
+          )
+          or
+          sum by (ai_agent_provider, ai_agent_product, agent_role, model_id, model_family, evidence_class, service_namespace, skill_id, mcp_server_name, mcp_tool_name) (
+            ai_agent_request_token_usage_total{token_type="output",model_id!="",agent_role!=""}
           )
         labels:
           accounting_schema: v2

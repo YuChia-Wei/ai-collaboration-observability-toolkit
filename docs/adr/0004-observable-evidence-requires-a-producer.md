@@ -9,8 +9,9 @@ Accepted by Issue #18.
 The toolkit provisions dashboards only when a supported runtime produces the
 queried evidence. The two AI Context effectiveness/workflow dashboards are
 retired while `ai_context.*` remains a reserved schema and fixture contract.
-They may return only after a deterministic framework-owned emitter or hook is
-implemented and validated against a real workflow.
+They may return only after a deterministic runtime-owned emitter, orchestrator,
+or client hook is implemented and validated against a real workflow. The
+portable framework harness is not expected to observe model execution.
 
 Provider-native telemetry may establish usage, timing, tool activity, and trace
 events. It must not be used to infer that a prompt rule was loaded, followed, or

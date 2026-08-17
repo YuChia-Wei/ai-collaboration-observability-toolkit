@@ -47,7 +47,7 @@
 
 ## 1.1 上游管理專案
 
-`ai-collaboration-prompts-dotnet-backend` 是一套可攜式 AI 協作框架來源庫，管理：
+`ai-collaboration-framework` 是一套可攜式 AI 協作框架來源庫，管理：
 
 - Agent-facing context。
 - skills 與 sub-agent prompts。
@@ -58,8 +58,11 @@
 
 參考：
 
-- <https://github.com/YuChia-Wei/ai-collaboration-prompts-dotnet-backend>
-- <https://github.com/YuChia-Wei/ai-collaboration-prompts-dotnet-backend/blob/main/README.md>
+- <https://github.com/YuChia-Wei/ai-collaboration-framework>
+- <https://github.com/YuChia-Wei/ai-collaboration-framework/blob/main/README.md>
+
+`ai-collaboration-prompts-dotnet-backend` 是 v0.12 以前的歷史 slug，不是目前
+operational identity。
 
 本 Toolkit 是一個**獨立支援專案**，不得成為上游可攜式 payload 的隱性依賴，也不得將上游來源庫的 repo-only governance 直接打包到下游專案。
 
@@ -77,7 +80,7 @@
 
 參考：
 
-- <https://github.com/YuChia-Wei/ai-collaboration-prompts-dotnet-backend/blob/main/.dev/assessments/ASM-20260803-003/report.md>
+- <https://github.com/YuChia-Wei/ai-collaboration-framework/blob/main/.dev/assessments/ASM-20260803-003/report.md>
 
 本 Toolkit 的目的不是單純顯示漂亮圖表，而是讓這些問題能被**持續量測、標記、比較、回歸驗證與改善**。
 
@@ -1479,8 +1482,9 @@ corporate
 
 ## 22.1 Phase 2：AI Context instrumentation
 
-此 phase 必須先交付 deterministic framework-owned emitter 或 hooks，並以
-至少一個真實 workflow 驗證。完成前不得恢復 AI Context dashboards。
+此 phase 必須先在真正的執行邊界交付 deterministic runtime-owned emitter、
+orchestrator 或 client hooks，並以至少一個真實 workflow 驗證。可攜式
+framework harness 本身不負責觀察模型執行；完成前不得恢復 AI Context dashboards。
 
 - workflow root span。
 - stage spans。

@@ -1,7 +1,8 @@
 # Codex Hooks lifecycle trace 實驗
 
 這個 opt-in 範例預設把 Codex lifecycle Hooks 轉成 metadata-only OTLP traces，送到既有
-`127.0.0.1:4318` OpenTelemetry Collector。也可明確選擇 `size-only`，只輸出使用者提交 prompt 的 UTF-8 byte 數值；不輸出內容。Evaluation mode 會將其中具
+`127.0.0.1:4318` OpenTelemetry Collector。也可明確選擇 `size-only` 與個別 scope，
+只輸出使用者 prompt 或 exact-allowlisted MCP response 的 UTF-8 byte 數值；不輸出內容。Evaluation mode 會將其中具
 `openinference.span.kind` 的 spans 同時保留於 Tempo 與 Phoenix。
 
 ## 能觀察什麼
@@ -11,6 +12,7 @@
 | `UserPromptSubmit` → `Stop` | `AGENT` | turn 期間、模型 slug、完成事件 |
 | `PreToolUse` → `PostToolUse` | `TOOL` | 固定工具類別、期間、parent turn |
 | `UserPromptSubmit`（僅 `size-only`） | Delta histogram | 使用者 prompt UTF-8 byte 長度、筆數與分布 |
+| `PostToolUse`（`size-only` + MCP scope + exact allowlist） | Delta histogram | 指定 MCP response payload 的 UTF-8 byte 長度、筆數與分布 |
 
 Exporter 不產生 `LLM` span，不輸出 token/cost，也不判斷 prompt effectiveness 或回答正確性。`size-only` 的 byte 長度不是 token、完整模型 context、載入檔案大小或帳務用量。
 Codex Hooks 沒有提供足以支持這些宣稱的 model-call 邊界與 usage 欄位。
@@ -18,8 +20,8 @@ Codex Hooks 沒有提供足以支持這些宣稱的 model-call 邊界與 usage �
 ## 隱私邊界
 
 預設 `metadata-only` 不讀取或儲存 `prompt`、`last_assistant_message`、`tool_input`、
-`tool_response`、`cwd` 或 `transcript_path`。明確選擇 `size-only` 時，只有 `UserPromptSubmit.prompt`
-會在記憶體中被讀取一次以計算 UTF-8 byte 長度；prompt 不會寫入 state、trace、metric attribute、capture
+`tool_response`、`cwd` 或 `transcript_path`。明確選擇 `size-only` 時，只有選取的 scope
+會在記憶體中被讀取一次以計算 UTF-8 byte 長度；內容不會寫入 state、trace、metric attribute、capture
 artifact、log 或 debug output，也不會雜湊後輸出。原始 session、turn 與 tool IDs 只用於計算本機 state
 路徑的 SHA-256，不會寫入 state 或 OTLP。輸出的 trace/span IDs 是新產生的隨機值。
 
@@ -27,6 +29,11 @@ artifact、log 或 debug output，也不會雜湊後輸出。原始 session、tu
 `ai_agent_observed_user_prompt_bytes_sum` 與 `_count`。它只有固定維度：`operation=turn`、
 `evidence_class=observed`、`content_scope=user_prompt`、`measurement_method=utf8_bytes`，以及既有受限 resource 維度。
 Corporate mode 會在 hook 與 Collector 兩層停用並丟棄此 metric。
+
+MCP response 的 scope 還需要 `--mcp-size-tool EXACT_MCP_TOOL_NAME=SAFE_LOGICAL_ID`。
+Exporter 先做 exact match，匹配後才讀取 `tool_response`；metric 只輸出 safe logical ID，
+不輸出 raw tool name。未匹配的 tool response 完全不讀取也不計量。Corporate mode 會丟棄
+user-prompt 與 MCP-response 兩種 content-derived metrics。
 
 工具名稱只被分類為 `execution`、`editor`、`connector`、`agent-collaboration` 或 `other`；
 raw tool name 不會輸出。`PostToolUse` 沒有獨立的成功旗標，因此 span 僅標示
@@ -67,11 +74,26 @@ Installer 預設會把 `--capture-mode metadata-only` 寫進 hook command；這�
 python examples\codex-hooks\install_hooks.py --capture-mode size-only --print
 ```
 
+若只想量 Codebase Memory MCP 的特定工具回傳大小：
+
+```powershell
+python examples\codex-hooks\install_hooks.py `
+  --capture-mode size-only `
+  --size-scope mcp-tool-response `
+  --mcp-size-tool mcp__codebase_memory_mcp__search_graph=codebase-memory.search `
+  --print
+```
+
+可重複 `--size-scope` 同時選取 prompt 與 MCP response，也可重複
+`--mcp-size-tool` 建立多個 exact allowlist entry。這個值只代表 Hook payload 的序列化
+UTF-8 bytes，不是 provider token 或模型實際載入的 context。
+
 把審閱後的 command 合併到你的 `.codex/hooks.json`，重新開啟 Codex 並在 `/hooks` 重新信任 exact definition。
 要回到隱私預設，將 command 改回 `--capture-mode metadata-only`。不需要也不會修改 user-level
 `%USERPROFILE%\.codex\config.toml`。Exporter 未收到 CLI mode 時，才會採用 `AI_OBSERVABILITY_CAPTURE_MODE`；無效值一律 fail-safe 回到 `metadata-only`。
 
-Grafana 的「AI Agent 用量」>「Extension 觀測快照」會顯示所選範圍的 byte 總量、提交筆數與平均值。使用
+Grafana 的「AI Agent 用量」>「Extension 觀測快照」會顯示 prompt byte 指標；
+「Claude / Codex Context 歸因」會顯示 allowlisted MCP response 的 byte 總量與筆數。使用
 `sum(increase(ai_agent_observed_user_prompt_bytes_sum{ai_agent_product="codex"}[$__range]))` 做選定時間範圍查詢；不要把它與 provider-reported token 逐筆相除或當作 billing。
 
 ## 乾跑

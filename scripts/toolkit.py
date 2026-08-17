@@ -282,7 +282,8 @@ def _tracked_env_error() -> str | None:
 
 
 def _iter_source_files() -> Iterable[Path]:
-    excluded_parts = {".git", "__pycache__", ".pytest_cache", "artifacts"}
+    # `pours/` contains ignored local integration copies, not repository source.
+    excluded_parts = {".git", "__pycache__", ".pytest_cache", "artifacts", "pours"}
     binary_suffixes = {
         ".png",
         ".jpg",
@@ -306,7 +307,7 @@ def _markdown_link_errors() -> list[str]:
     pattern = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
     root_resolved = ROOT.resolve()
     for path in sorted(ROOT.rglob("*.md")):
-        if {".git", "artifacts", "__pycache__"}.intersection(path.parts):
+        if {".git", "artifacts", "__pycache__", "pours"}.intersection(path.parts):
             continue
         for raw_target in pattern.findall(path.read_text(encoding="utf-8")):
             target = raw_target.strip().split(maxsplit=1)[0].strip("<>")
@@ -347,20 +348,22 @@ def static_validate() -> list[str]:
     json_files = sorted(ROOT.rglob("*.json"))
     toml_files = sorted(ROOT.rglob("*.toml"))
     for path in yaml_files:
-        if ".git" in path.parts or "artifacts" in path.parts:
+        if {".git", "artifacts", "pours"}.intersection(path.parts):
             continue
         try:
             yaml_load(path)
         except Exception as exc:  # noqa: BLE001
             errors.append(f"YAML {path.relative_to(ROOT)}: {exc}")
     for path in json_files:
-        if ".git" in path.parts or "artifacts" in path.parts:
+        if {".git", "artifacts", "pours"}.intersection(path.parts):
             continue
         try:
             json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:  # noqa: BLE001
             errors.append(f"JSON {path.relative_to(ROOT)}: {exc}")
     for path in toml_files:
+        if {".git", "artifacts", "pours"}.intersection(path.parts):
+            continue
         try:
             tomllib.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:  # noqa: BLE001
@@ -373,7 +376,7 @@ def static_validate() -> list[str]:
 
     markdown_link = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
     for path in sorted(ROOT.rglob("*.md")):
-        if ".git" in path.parts or "artifacts" in path.parts:
+        if {".git", "artifacts", "pours"}.intersection(path.parts):
             continue
         text = path.read_text(encoding="utf-8")
         for match in markdown_link.finditer(text):
@@ -638,17 +641,18 @@ def static_validate() -> list[str]:
                 batch_name,
             ]
             if profile_name == "corporate.yaml" and signal == "metrics":
-                filter_name = "filter/corporate_drop_opt_in_prompt_size"
+                filter_name = "filter/corporate_drop_opt_in_content_size"
                 filter_config = processors.get(filter_name, {})
                 if filter_config.get("error_mode") != "propagate":
                     errors.append(
-                        "corporate.yaml opt-in prompt-size filter must fail closed"
+                        "corporate.yaml opt-in content-size filter must fail closed"
                     )
                 if filter_config.get("metric_conditions") != [
-                    'metric.name == "ai_agent.observed.user_prompt.bytes"'
+                    'metric.name == "ai_agent.observed.user_prompt.bytes"',
+                    'metric.name == "ai_agent.observed.mcp_tool_response.bytes"',
                 ]:
                     errors.append(
-                        "corporate.yaml opt-in prompt-size filter must drop only the documented metric"
+                        "corporate.yaml opt-in content-size filter must drop the documented metrics"
                     )
                 expected_order.insert(-1, filter_name)
             found = (pipelines.get(signal) or {}).get("processors") or []
@@ -660,6 +664,7 @@ def static_validate() -> list[str]:
 
         profile_text = (collector_dir / profile_name).read_text(encoding="utf-8")
         for raw_name, canonical_name in (
+            ("claude_code.token.usage", "ai_agent.request.token_usage.total"),
             ("codex.turn.token_usage", "ai_agent.turn.token_usage"),
             ("codex.turn.e2e_duration_ms", "ai_agent.turn.duration_ms"),
             ("codex.turn.ttft.duration_ms", "ai_agent.turn.ttft.duration_ms"),
@@ -1128,6 +1133,15 @@ def static_validate() -> list[str]:
         "antigravity-usage.json": {
             "required": ("antigravity_", "目前不猜價"),
             "forbidden": ("codex_", "ai_agent_", "ai_context_"),
+        },
+        "context-attribution.json": {
+            "required": (
+                "ai_agent_request_token_usage_total",
+                "ai_agent_observed_mcp_tool_response_bytes_sum",
+                "ai_agent_compaction",
+                "不能判斷",
+            ),
+            "forbidden": ("ai_context_", "prompt.content", "tool.result"),
         },
     }
     for filename, rules in dashboard_contract.items():
@@ -2095,6 +2109,70 @@ def _check_backend_data(
         f"unpriced_cache_write={unpriced_cache_write:g}",
     )
 
+    claude_raw, claude_canonical = retry(
+        "Claude raw/canonical request token reconciliation",
+        lambda: (
+            prometheus_scalar(
+                "sum("
+                + current_or_recent(
+                    'claude_code_token_usage{ai_agent_provider="anthropic",'
+                    'ai_agent_product="claude-code",'
+                    'service_namespace="ai-collaboration-fixture"}'
+                )
+                + ")"
+            ),
+            prometheus_scalar(
+                "sum("
+                + current_or_recent(
+                    'ai_agent_request_token_usage_total{ai_agent_provider="anthropic",'
+                    'ai_agent_product="claude-code",'
+                    'service_namespace="ai-collaboration-fixture"}'
+                )
+                + ")"
+            ),
+        ),
+        lambda value: value[0] > 0 and abs(value[0] - value[1]) < 0.000001,
+    )
+    claude_series = prometheus_series(
+        'ai_agent_request_token_usage_total{ai_agent_provider="anthropic",'
+        'ai_agent_product="claude-code",'
+        'service_namespace="ai-collaboration-fixture"}'
+    )
+    if {item.get("token_type") for item in claude_series} != {
+        "input",
+        "cached_input",
+        "cache_write_input",
+        "output",
+    }:
+        raise RuntimeError("Claude canonical token types are incomplete")
+    for item in claude_series:
+        expected = {
+            "agent_role": "primary",
+            "model_family": "claude-sonnet",
+            "model_id": "unmapped",
+            "evidence_class": "provider-reported",
+        }
+        if any(item.get(key) != value for key, value in expected.items()):
+            raise RuntimeError(f"Claude canonical labels are incomplete: {item}")
+        if mode == "corporate":
+            if any(key in item for key in ("skill_id", "mcp_server_name", "mcp_tool_name")):
+                raise RuntimeError("Corporate Claude attribution labels were not removed")
+        elif (
+            item.get("skill_id") != "code-reviewer"
+            or item.get("mcp_server_name") != "custom"
+            or item.get("mcp_tool_name") != "custom"
+        ):
+            raise RuntimeError(f"Claude request attribution was not retained: {item}")
+    if prometheus_query(
+        'ai_agent_estimated_cost_usd_total{ai_agent_provider="anthropic"}'
+    ):
+        raise RuntimeError("unmapped Claude request usage was unexpectedly priced")
+    report.pass_(
+        prefix + "claude request token attribution",
+        f"raw={claude_raw:g}, canonical={claude_canonical:g}, "
+        f"series={len(claude_series)}, estimated_cost=absent",
+    )
+
     raw_antigravity, canonical_antigravity = retry(
         "Antigravity raw/canonical observed session tokens",
         lambda: (
@@ -2243,6 +2321,7 @@ def _check_grafana(report: SmokeReport, prefix: str = "") -> None:
         ("ai-agent-usage", "AI Agent 用量（AI Agent Usage）"),
         ("ai-agent-activity", "AI Agent 活動（Metadata 與 Trace）"),
         ("ai-antigravity-usage", "Antigravity 用量（觀測值，非帳務）"),
+        ("ai-context-attribution", "Claude / Codex Context 歸因"),
     ):
         payload = retry(
             f"Grafana dashboard {uid}",
@@ -2377,6 +2456,7 @@ def smoke(
         send_fixture("logs.json", "logs")
         send_fixture("metrics.json", "metrics")
         send_fixture("codex-cost-accounting-metrics.json", "metrics")
+        send_fixture("claude-code-token-metrics.json", "metrics")
         send_antigravity_status_fixture(mode)
         send_fixture("traces.json", "traces")
         codex_fixture = ROOT / "fixtures/codex/0.146.1"

@@ -165,7 +165,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertNotIn('"ai_agent.user.id"', text)
         self.assertIn('"model_id"', text)
 
-    def test_opt_in_prompt_size_metric_is_allowlisted_only_outside_corporate(self) -> None:
+    def test_opt_in_content_size_metrics_are_allowlisted_only_outside_corporate(self) -> None:
         for name in ("core.yaml", "evaluation.yaml"):
             config = toolkit.yaml_load(ROOT / "config/otel-collector" / name)
             groups = config["processors"]["transform/privacy"]["metric_statements"]
@@ -185,6 +185,11 @@ class RepositoryTests(unittest.TestCase):
                 'set(attributes["content_scope"], "user_prompt")', canonical, name
             )
             self.assertIn(
+                'set(attributes["content_scope"], "hook_tool_response")',
+                canonical,
+                name,
+            )
+            self.assertIn(
                 'set(attributes["measurement_method"], "utf8_bytes")', canonical, name
             )
             self.assertIn(
@@ -196,21 +201,79 @@ class RepositoryTests(unittest.TestCase):
 
         corporate = toolkit.yaml_load(ROOT / "config/otel-collector/corporate.yaml")
         filter_config = corporate["processors"][
-            "filter/corporate_drop_opt_in_prompt_size"
+            "filter/corporate_drop_opt_in_content_size"
         ]
         self.assertEqual(filter_config["error_mode"], "propagate")
         self.assertEqual(
             filter_config["metric_conditions"],
-            ['metric.name == "ai_agent.observed.user_prompt.bytes"'],
+            [
+                'metric.name == "ai_agent.observed.user_prompt.bytes"',
+                'metric.name == "ai_agent.observed.mcp_tool_response.bytes"',
+            ],
         )
         processors = corporate["service"]["pipelines"]["metrics"]["processors"]
         self.assertLess(
             processors.index("transform/corporate_allowlist"),
-            processors.index("filter/corporate_drop_opt_in_prompt_size"),
+            processors.index("filter/corporate_drop_opt_in_content_size"),
         )
         self.assertLess(
-            processors.index("filter/corporate_drop_opt_in_prompt_size"),
+            processors.index("filter/corporate_drop_opt_in_content_size"),
             processors.index("batch/metrics"),
+        )
+
+    def test_claude_native_token_usage_mapping_is_provider_owned(self) -> None:
+        for name in ("core.yaml", "evaluation.yaml", "corporate.yaml"):
+            config = toolkit.yaml_load(ROOT / "config/otel-collector" / name)
+            transform = config["processors"]["transform/ai_agent"]
+            resource_statements = "\n".join(
+                statement
+                for signal in ("trace_statements", "log_statements", "metric_statements")
+                for group in transform[signal]
+                if group["context"] == "resource"
+                for statement in group["statements"]
+            )
+            metric_statements = "\n".join(
+                statement
+                for group in transform["metric_statements"]
+                for statement in group["statements"]
+            )
+            self.assertIn('"claude-code"', resource_statements, name)
+            self.assertIn('"claude-code-desktop"', resource_statements, name)
+            self.assertIn('"anthropic"', resource_statements, name)
+            self.assertIn(
+                'copy_metric(name="ai_agent.request.token_usage.total") where name == "claude_code.token.usage"',
+                metric_statements,
+                name,
+            )
+            for source, canonical in (
+                ("input", "input"),
+                ("output", "output"),
+                ("cacheRead", "cached_input"),
+                ("cacheCreation", "cache_write_input"),
+            ):
+                self.assertIn(
+                    f'set(attributes["token_type"], "{canonical}") '
+                    f'where metric.name == "ai_agent.request.token_usage.total" '
+                    f'and attributes["type"] == "{source}"',
+                    metric_statements,
+                    name,
+                )
+            self.assertIn('attributes["skill.name"]', metric_statements, name)
+            self.assertIn('attributes["mcp_server.name"]', metric_statements, name)
+            self.assertIn('attributes["mcp_tool.name"]', metric_statements, name)
+
+        corporate = toolkit.yaml_load(ROOT / "config/otel-collector/corporate.yaml")
+        corporate_statements = "\n".join(
+            statement
+            for group in corporate["processors"]["transform/ai_agent"][
+                "metric_statements"
+            ]
+            for statement in group["statements"]
+        )
+        self.assertIn(
+            'delete_key(attributes, "skill_id") where metric.name == '
+            '"ai_agent.request.token_usage.total"',
+            corporate_statements,
         )
 
     def test_phoenix_hybrid_routing_and_exporter_are_explicit(self) -> None:
@@ -453,6 +516,7 @@ class RepositoryTests(unittest.TestCase):
         )
 
         accounting = [rule for rule in rules if rule["record"] == "ai_agent_token_usage_total"]
+        self.assertEqual(len(accounting), 4)
         self.assertEqual(
             {rule["labels"]["usage_class"] for rule in accounting},
             {"input_uncached", "input_cached", "input_cache_write", "output"},
@@ -462,6 +526,10 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn('agent_role!=""', rule["expr"])
             self.assertIn("agent_role", rule["expr"])
             self.assertIn("service_namespace", rule["expr"])
+            self.assertIn("ai_agent_request_token_usage_total", rule["expr"])
+            self.assertIn("skill_id", rule["expr"])
+            self.assertIn("mcp_server_name", rule["expr"])
+            self.assertIn("mcp_tool_name", rule["expr"])
             self.assertEqual(rule["labels"]["accounting_schema"], "v2")
         cost = next(rule for rule in rules if rule["record"] == "ai_agent_estimated_cost_usd_total")
         self.assertIn("group_left", cost["expr"])
@@ -586,6 +654,59 @@ class RepositoryTests(unittest.TestCase):
             json.loads(rendered)
             self.assertNotIn(b"{{", rendered)
 
+    def test_claude_fixture_and_example_are_metrics_only_and_privacy_safe(self) -> None:
+        fixture = json.loads(
+            toolkit.render_fixture(
+                ROOT / "examples/otlp/claude-code-token-metrics.json"
+            ).decode("utf-8")
+        )
+        resource_metric = fixture["resourceMetrics"][0]
+        resource_attributes = {
+            item["key"]: next(iter(item["value"].values()))
+            for item in resource_metric["resource"]["attributes"]
+        }
+        self.assertEqual(resource_attributes["service.name"], "claude-code")
+        self.assertIn(toolkit.SENTINEL, json.dumps(fixture))
+
+        metric = resource_metric["scopeMetrics"][0]["metrics"][0]
+        self.assertEqual(metric["name"], "claude_code.token.usage")
+        self.assertEqual(metric["sum"]["aggregationTemporality"], 1)
+        self.assertTrue(metric["sum"]["isMonotonic"])
+        points = metric["sum"]["dataPoints"]
+        attribute_sets = [
+            {
+                item["key"]: next(iter(item["value"].values()))
+                for item in point["attributes"]
+            }
+            for point in points
+        ]
+        self.assertEqual(
+            {attributes["type"] for attributes in attribute_sets},
+            {"input", "output", "cacheRead", "cacheCreation"},
+        )
+        for attributes in attribute_sets:
+            self.assertEqual(attributes["query_source"], "main")
+            self.assertEqual(attributes["skill.name"], "code-reviewer")
+            self.assertEqual(attributes["mcp_server.name"], "custom")
+            self.assertEqual(attributes["mcp_tool.name"], "custom")
+
+        settings = json.loads(
+            (ROOT / "examples/claude-code/settings.local.json.example").read_text(
+                encoding="utf-8"
+            )
+        )["env"]
+        self.assertEqual(settings["OTEL_METRICS_EXPORTER"], "otlp")
+        self.assertNotIn("OTEL_LOGS_EXPORTER", settings)
+        self.assertNotIn("OTEL_TRACES_EXPORTER", settings)
+        self.assertEqual(settings["OTEL_METRICS_INCLUDE_SESSION_ID"], "false")
+        self.assertEqual(settings["OTEL_METRICS_INCLUDE_ACCOUNT_UUID"], "false")
+        for key in (
+            "OTEL_LOG_USER_PROMPTS",
+            "OTEL_LOG_TOOL_DETAILS",
+            "OTEL_LOG_TOOL_CONTENT",
+        ):
+            self.assertEqual(settings[key], "0")
+
     def test_dashboards_and_provisioning_are_parseable(self) -> None:
         uids: set[str] = set()
         for path in sorted((ROOT / "config/grafana/dashboards").glob("*.json")):
@@ -618,6 +739,7 @@ class RepositoryTests(unittest.TestCase):
             "codex-auto-review.json": "ai-codex-auto-review",
             "codex-usage.json": "ai-codex-usage",
             "collector-health.json": "ai-collector-health",
+            "context-attribution.json": "ai-context-attribution",
         }
         dashboard_dir = ROOT / "config/grafana/dashboards"
         self.assertEqual({path.name for path in dashboard_dir.glob("*.json")}, set(expected))
@@ -669,6 +791,34 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn(required, expressions, filename)
             for prefix in forbidden:
                 self.assertNotIn(prefix, expressions, (filename, prefix))
+
+        attribution = json.loads(
+            (ROOT / "config/grafana/dashboards/context-attribution.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        attribution_expressions = "\n".join(
+            target.get("expr", "")
+            for panel in attribution["panels"]
+            for target in panel.get("targets", [])
+        )
+        attribution_text = json.dumps(attribution, ensure_ascii=False)
+        for required in (
+            "ai_agent_request_token_usage_total",
+            "skill_id",
+            "mcp_server_name",
+            "ai_agent_observed_mcp_tool_response_bytes_sum",
+            "ai_agent_observed_mcp_tool_response_bytes_count",
+            "ai_agent_compaction",
+            'content_scope="hook_tool_response"',
+            'measurement_method="utf8_bytes"',
+        ):
+            self.assertIn(required, attribution_expressions)
+        self.assertIn("不能判斷", attribution_text)
+        self.assertIn("不宣稱", attribution_text)
+        self.assertNotIn("ai_context_", attribution_expressions)
+        self.assertNotIn("prompt.content", attribution_text)
+        self.assertNotIn("tool.result", attribution_text)
 
         activity = json.loads(
             (ROOT / "config/grafana/dashboards/ai-agent-activity.json").read_text(

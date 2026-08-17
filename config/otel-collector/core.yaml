@@ -190,7 +190,7 @@ processors:
     - context: datapoint
       statements:
       - keep_keys(attributes, ["event.name", "tool", "tool_name", "tool_category", "model", "model_id", "model_family", "agent_role", "operation", "success", "status", "type", "token_type", "task_type", "workflow_type", "stage",
-        "skill", "skill_id", "rule", "rule_id", "state", "outcome", "error_category", "evidence_class", "content_scope", "measurement_method", "source", "unit", "tier", "reused", "reason", "framework_version", "validation_type", "validation_tier",
+        "skill", "skill_id", "mcp_server_name", "mcp_tool_name", "mcp_tool_id", "rule", "rule_id", "state", "outcome", "error_category", "evidence_class", "content_scope", "measurement_method", "source", "unit", "tier", "reused", "reason", "framework_version", "validation_type", "validation_tier",
         "wait_reason", "cost_unit", "cost_source", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "ai_context.environment.profile",
         "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage", "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state",
         "ai_context.validation.type", "ai_context.validation.tier", "ai_context.validation.reused", "ai_context.retry.reason", "ai_context.wait.reason", "ai_context.outcome", "ai_context.evidence.class",
@@ -206,20 +206,33 @@ processors:
       - set(attributes["ai_agent.provider"], "openai") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.product"], "codex") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.surface"], "app-server") where attributes["service.name"] == "codex-app-server"
+      - set(attributes["ai_agent.provider"], "anthropic") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.product"], "claude-code") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.surface"], "cli") where attributes["service.name"] == "claude-code"
+      - set(attributes["ai_agent.surface"], "desktop") where attributes["service.name"] == "claude-code-desktop"
     log_statements:
     - context: resource
       statements:
       - set(attributes["ai_agent.provider"], "openai") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.product"], "codex") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.surface"], "app-server") where attributes["service.name"] == "codex-app-server"
+      - set(attributes["ai_agent.provider"], "anthropic") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.product"], "claude-code") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.surface"], "cli") where attributes["service.name"] == "claude-code"
+      - set(attributes["ai_agent.surface"], "desktop") where attributes["service.name"] == "claude-code-desktop"
     metric_statements:
     - context: resource
       statements:
       - set(attributes["ai_agent.provider"], "openai") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.product"], "codex") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.surface"], "app-server") where attributes["service.name"] == "codex-app-server"
+      - set(attributes["ai_agent.provider"], "anthropic") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.product"], "claude-code") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.surface"], "cli") where attributes["service.name"] == "claude-code"
+      - set(attributes["ai_agent.surface"], "desktop") where attributes["service.name"] == "claude-code-desktop"
     - context: metric
       statements:
+      - copy_metric(name="ai_agent.request.token_usage.total") where name == "claude_code.token.usage"
       - copy_metric(name="ai_agent.turn.token_usage") where name == "codex.turn.token_usage"
       - copy_metric(name="ai_agent.turn.duration_ms") where name == "codex.turn.e2e_duration_ms"
       - copy_metric(name="ai_agent.turn.ttft.duration_ms") where name == "codex.turn.ttft.duration_ms"
@@ -244,6 +257,26 @@ processors:
       - copy_metric(name="ai_agent.observed.tool_confirmation_pending") where name == "antigravity_tool_confirmation_pending"
     - context: datapoint
       statements:
+      - set(attributes["model_family"], "claude") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["model_family"], "claude-opus") where metric.name == "ai_agent.request.token_usage.total" and IsMatch(attributes["model"], "^claude-opus-")
+      - set(attributes["model_family"], "claude-sonnet") where metric.name == "ai_agent.request.token_usage.total" and IsMatch(attributes["model"], "^claude-sonnet-")
+      - set(attributes["model_family"], "claude-haiku") where metric.name == "ai_agent.request.token_usage.total" and IsMatch(attributes["model"], "^claude-haiku-")
+      - set(attributes["model_id"], "unmapped") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["agent_role"], "unknown") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["agent_role"], "primary") where metric.name == "ai_agent.request.token_usage.total" and attributes["query_source"] == "main"
+      - set(attributes["agent_role"], "subagent") where metric.name == "ai_agent.request.token_usage.total" and attributes["query_source"] == "subagent"
+      - set(attributes["operation"], "request") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["evidence_class"], "provider-reported") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["token_type"], "input") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "input"
+      - set(attributes["token_type"], "output") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "output"
+      - set(attributes["token_type"], "cached_input") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "cacheRead"
+      - set(attributes["token_type"], "cache_write_input") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "cacheCreation"
+      - set(attributes["skill_id"], "none") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["skill_id"], attributes["skill.name"]) where metric.name == "ai_agent.request.token_usage.total" and attributes["skill.name"] != nil
+      - set(attributes["mcp_server_name"], "none") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["mcp_server_name"], attributes["mcp_server.name"]) where metric.name == "ai_agent.request.token_usage.total" and attributes["mcp_server.name"] != nil
+      - set(attributes["mcp_tool_name"], "none") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["mcp_tool_name"], attributes["mcp_tool.name"]) where metric.name == "ai_agent.request.token_usage.total" and attributes["mcp_tool.name"] != nil
       - set(attributes["model_family"], "unmapped") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
       - set(attributes["model_id"], "unmapped") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
       - set(attributes["agent_role"], "unknown") where IsMatch(metric.name, "^ai_agent\\.") and attributes["agent_role"] != "primary" and attributes["agent_role"] != "approval_reviewer" and attributes["agent_role"] != "subagent" and attributes["agent_role"] != "unknown"
@@ -260,9 +293,10 @@ processors:
       - set(attributes["evidence_class"], "provider-reported") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
       - set(attributes["evidence_class"], "observed") where IsMatch(metric.name, "^ai_agent\\.observed\\.")
       - set(attributes["content_scope"], "user_prompt") where metric.name == "ai_agent.observed.user_prompt.bytes"
-      - set(attributes["measurement_method"], "utf8_bytes") where metric.name == "ai_agent.observed.user_prompt.bytes"
-      - delete_key(attributes, "content_scope") where metric.name != "ai_agent.observed.user_prompt.bytes"
-      - delete_key(attributes, "measurement_method") where metric.name != "ai_agent.observed.user_prompt.bytes"
+      - set(attributes["content_scope"], "hook_tool_response") where metric.name == "ai_agent.observed.mcp_tool_response.bytes"
+      - set(attributes["measurement_method"], "utf8_bytes") where metric.name == "ai_agent.observed.user_prompt.bytes" or metric.name == "ai_agent.observed.mcp_tool_response.bytes"
+      - delete_key(attributes, "content_scope") where metric.name != "ai_agent.observed.user_prompt.bytes" and metric.name != "ai_agent.observed.mcp_tool_response.bytes"
+      - delete_key(attributes, "measurement_method") where metric.name != "ai_agent.observed.user_prompt.bytes" and metric.name != "ai_agent.observed.mcp_tool_response.bytes"
       - set(attributes["tool_category"], "execution") where IsMatch(metric.name, "^ai_agent\\.tool\\.") and attributes["tool"] == "exec"
       - set(attributes["tool_category"], "execution") where IsMatch(metric.name, "^ai_agent\\.tool\\.") and attributes["tool"] == "exec_command"
       - set(attributes["tool_category"], "editor") where IsMatch(metric.name, "^ai_agent\\.tool\\.") and attributes["tool"] == "apply_patch"
@@ -271,6 +305,10 @@ processors:
       - delete_key(attributes, "tool") where IsMatch(metric.name, "^ai_agent\\.")
       - delete_key(attributes, "tool_name") where IsMatch(metric.name, "^ai_agent\\.")
       - delete_key(attributes, "skill") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "skill.name") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "mcp_server.name") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "mcp_tool.name") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "query_source") where IsMatch(metric.name, "^ai_agent\\.")
   batch/logs:
     timeout: 2s
     send_batch_size: 512

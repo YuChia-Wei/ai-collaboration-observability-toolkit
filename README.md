@@ -85,15 +85,19 @@ smoke orchestrator 與報告工具：
   native dashboard、role-aware ai_agent.* normalization，以及 exact mapped
   model 的版本化公開 API USD 與 Codex credits 分離估算。
 - Codex lifecycle Hooks：[`examples/codex-hooks`](examples/codex-hooks/README.md)
-  提供 opt-in、metadata-only 的 `AGENT`／`TOOL` Phoenix trace 實驗；不產生
+  提供 opt-in、metadata-only 的 `AGENT`／`TOOL` Phoenix trace，以及另外明確
+  開啟的 user-prompt／exact-allowlisted MCP-response byte proxy；不產生
   LLM/token/cost 或 prompt effectiveness 資料。
 - Google Antigravity：direct Hooks 與 CLI status-line extension；usage 為
   observed metadata，非帳務。
-- Claude Code 上游可輸出 OpenTelemetry，GitHub Copilot 上游提供組織／企業 usage metrics；本 repository 目前都只有文件，沒有 versioned fixture，因此不宣稱 normalized support。
+- Claude Code：原生 OpenTelemetry token metric、privacy-reviewed canonical
+  mapping、synthetic fixture 與 context attribution dashboard。GitHub Copilot
+  目前仍只有上游組織／企業 usage 文件，不宣稱 normalized support。
 
 詳見 [Provider support matrix](docs/PROVIDER-SUPPORT.md)、
 [Codex integration](docs/CODEX-INTEGRATION.md) 與
-[Antigravity integration](docs/ANTIGRAVITY-INTEGRATION.md)。
+[Antigravity integration](docs/ANTIGRAVITY-INTEGRATION.md)。Claude 的 metrics-only
+設定見 [`examples/claude-code`](examples/claude-code/README.md)。
 
 Codex 設定只合併 examples/codex/config.toml.example 的 [otel] 區段，
 保留既有 model、sandbox、MCP、skills 與 project 設定；三個 endpoint
@@ -108,6 +112,7 @@ Codex 設定只合併 examples/codex/config.toml.example 的 [otel] 區段，
 - AI Agent 用量（AI Agent Usage）
 - AI Agent 活動（Metadata 與 Trace）
 - Antigravity 用量（觀測值，非帳務）
+- Claude / Codex Context 歸因
 
 Codex Native 保留既有 UID ai-codex-usage；Auto-review 以獨立 UID
 ai-codex-auto-review 呈現 `approval_reviewer` 的次數、token 類型、cached
@@ -160,6 +165,7 @@ Synthetic smoke traces 固定使用 `ai-collaboration-observability-fixture` Pro
 - [Phoenix Trace 閱讀指南（zh-TW）](docs/PHOENIX-READING-GUIDE.zh-TW.md)
 - [Telemetry 詞彙表（zh-TW）](docs/TELEMETRY-GLOSSARY.zh-TW.md)
 - [Provider support matrix](docs/PROVIDER-SUPPORT.md)
+- [Context attribution design](docs/CONTEXT-ATTRIBUTION.md)
 - [Dependencies](docs/DEPENDENCIES.md)
 - [Validation report](docs/VALIDATION-REPORT.md)
 - [Roadmap](docs/ROADMAP.md)

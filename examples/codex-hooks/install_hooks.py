@@ -21,6 +21,10 @@ DEFAULT_TARGET = REPOSITORY_ROOT / ".codex" / "hooks.json"
 EVENTS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop")
 SAFE_PROFILE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$", re.ASCII)
 CAPTURE_MODES = ("metadata-only", "size-only")
+SIZE_SCOPES = ("user-prompt", "mcp-tool-response")
+SAFE_MCP_SIZE_TOOL = re.compile(
+    r"^mcp__[A-Za-z0-9_.:-]+=[a-z0-9][a-z0-9_.-]{0,63}$", re.ASCII
+)
 
 
 def _command(arguments: list[str]) -> str:
@@ -30,22 +34,37 @@ def _command(arguments: list[str]) -> str:
 
 
 def build_config(
-    *, python_executable: Path, exporter: Path, profile: str, capture_mode: str
+    *,
+    python_executable: Path,
+    exporter: Path,
+    profile: str,
+    capture_mode: str,
+    size_scopes: tuple[str, ...] = ("user-prompt",),
+    mcp_size_tools: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     if not SAFE_PROFILE.fullmatch(profile):
         raise ValueError("profile must be a bounded identifier")
     if capture_mode not in CAPTURE_MODES:
         raise ValueError("capture_mode must be metadata-only or size-only")
-    command = _command(
-        [
-            str(python_executable),
-            str(exporter),
-            "--profile",
-            profile,
-            "--capture-mode",
-            capture_mode,
-        ]
-    )
+    if not size_scopes or any(scope not in SIZE_SCOPES for scope in size_scopes):
+        raise ValueError("size_scopes must contain only supported explicit scopes")
+    if any(not SAFE_MCP_SIZE_TOOL.fullmatch(value) for value in mcp_size_tools):
+        raise ValueError(
+            "mcp_size_tools must use EXACT_MCP_TOOL_NAME=SAFE_LOGICAL_ID"
+        )
+    arguments = [
+        str(python_executable),
+        str(exporter),
+        "--profile",
+        profile,
+        "--capture-mode",
+        capture_mode,
+    ]
+    for scope in size_scopes:
+        arguments.extend(("--size-scope", scope))
+    for tool in mcp_size_tools:
+        arguments.extend(("--mcp-size-tool", tool))
+    command = _command(arguments)
     hooks: dict[str, Any] = {}
     for event in EVENTS:
         handler: dict[str, Any] = {
@@ -97,6 +116,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Prompt-content handling: metadata-only (default) or opt-in size-only.",
     )
     parser.add_argument(
+        "--size-scope",
+        action="append",
+        choices=SIZE_SCOPES,
+        default=None,
+        help=(
+            "Repeat to select size-only sources. Defaults to user-prompt for "
+            "backward compatibility."
+        ),
+    )
+    parser.add_argument(
+        "--mcp-size-tool",
+        action="append",
+        default=None,
+        metavar="EXACT_MCP_TOOL_NAME=SAFE_LOGICAL_ID",
+        help=(
+            "Repeat to allow one MCP tool response to be measured under a safe "
+            "logical label."
+        ),
+    )
+    parser.add_argument(
         "--print",
         dest="print_only",
         action="store_true",
@@ -118,6 +157,8 @@ def main(argv: list[str] | None = None) -> int:
         exporter=exporter,
         profile=args.profile,
         capture_mode=args.capture_mode,
+        size_scopes=tuple(args.size_scope or ("user-prompt",)),
+        mcp_size_tools=tuple(args.mcp_size_tool or ()),
     )
     if args.print_only:
         print(json.dumps(config, ensure_ascii=False, indent=2))

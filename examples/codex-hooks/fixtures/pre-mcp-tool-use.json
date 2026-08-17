@@ -1,0 +1,14 @@
+{
+  "session_id": "thr_PRIVATE_4c296a99",
+  "transcript_path": "C:\\private\\codex\\rollout.jsonl",
+  "cwd": "C:\\private\\customer-secret-repository",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "default",
+  "turn_id": "turn_PRIVATE_b717195c",
+  "tool_name": "mcp__codebase_memory_mcp__search_graph",
+  "tool_use_id": "tool_PRIVATE_f2dfef51",
+  "tool_input": {
+    "query": "CODEX_HOOK_PRIVATE_SENTINEL_72C9"
+  }
+}

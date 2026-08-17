@@ -72,20 +72,33 @@ processors:
       - set(attributes["ai_agent.provider"], "openai") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.product"], "codex") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.surface"], "app-server") where attributes["service.name"] == "codex-app-server"
+      - set(attributes["ai_agent.provider"], "anthropic") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.product"], "claude-code") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.surface"], "cli") where attributes["service.name"] == "claude-code"
+      - set(attributes["ai_agent.surface"], "desktop") where attributes["service.name"] == "claude-code-desktop"
     log_statements:
     - context: resource
       statements:
       - set(attributes["ai_agent.provider"], "openai") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.product"], "codex") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.surface"], "app-server") where attributes["service.name"] == "codex-app-server"
+      - set(attributes["ai_agent.provider"], "anthropic") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.product"], "claude-code") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.surface"], "cli") where attributes["service.name"] == "claude-code"
+      - set(attributes["ai_agent.surface"], "desktop") where attributes["service.name"] == "claude-code-desktop"
     metric_statements:
     - context: resource
       statements:
       - set(attributes["ai_agent.provider"], "openai") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.product"], "codex") where attributes["service.name"] == "codex-app-server"
       - set(attributes["ai_agent.surface"], "app-server") where attributes["service.name"] == "codex-app-server"
+      - set(attributes["ai_agent.provider"], "anthropic") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.product"], "claude-code") where attributes["service.name"] == "claude-code" or attributes["service.name"] == "claude-code-desktop"
+      - set(attributes["ai_agent.surface"], "cli") where attributes["service.name"] == "claude-code"
+      - set(attributes["ai_agent.surface"], "desktop") where attributes["service.name"] == "claude-code-desktop"
     - context: metric
       statements:
+      - copy_metric(name="ai_agent.request.token_usage.total") where name == "claude_code.token.usage"
       - copy_metric(name="ai_agent.turn.token_usage") where name == "codex.turn.token_usage"
       - copy_metric(name="ai_agent.turn.duration_ms") where name == "codex.turn.e2e_duration_ms"
       - copy_metric(name="ai_agent.turn.ttft.duration_ms") where name == "codex.turn.ttft.duration_ms"
@@ -110,6 +123,26 @@ processors:
       - copy_metric(name="ai_agent.observed.tool_confirmation_pending") where name == "antigravity_tool_confirmation_pending"
     - context: datapoint
       statements:
+      - set(attributes["model_family"], "claude") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["model_family"], "claude-opus") where metric.name == "ai_agent.request.token_usage.total" and IsMatch(attributes["model"], "^claude-opus-")
+      - set(attributes["model_family"], "claude-sonnet") where metric.name == "ai_agent.request.token_usage.total" and IsMatch(attributes["model"], "^claude-sonnet-")
+      - set(attributes["model_family"], "claude-haiku") where metric.name == "ai_agent.request.token_usage.total" and IsMatch(attributes["model"], "^claude-haiku-")
+      - set(attributes["model_id"], "unmapped") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["agent_role"], "unknown") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["agent_role"], "primary") where metric.name == "ai_agent.request.token_usage.total" and attributes["query_source"] == "main"
+      - set(attributes["agent_role"], "subagent") where metric.name == "ai_agent.request.token_usage.total" and attributes["query_source"] == "subagent"
+      - set(attributes["operation"], "request") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["evidence_class"], "provider-reported") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["token_type"], "input") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "input"
+      - set(attributes["token_type"], "output") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "output"
+      - set(attributes["token_type"], "cached_input") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "cacheRead"
+      - set(attributes["token_type"], "cache_write_input") where metric.name == "ai_agent.request.token_usage.total" and attributes["type"] == "cacheCreation"
+      - set(attributes["skill_id"], "none") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["skill_id"], attributes["skill.name"]) where metric.name == "ai_agent.request.token_usage.total" and attributes["skill.name"] != nil
+      - set(attributes["mcp_server_name"], "none") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["mcp_server_name"], attributes["mcp_server.name"]) where metric.name == "ai_agent.request.token_usage.total" and attributes["mcp_server.name"] != nil
+      - set(attributes["mcp_tool_name"], "none") where metric.name == "ai_agent.request.token_usage.total"
+      - set(attributes["mcp_tool_name"], attributes["mcp_tool.name"]) where metric.name == "ai_agent.request.token_usage.total" and attributes["mcp_tool.name"] != nil
       - set(attributes["model_family"], "unmapped") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
       - set(attributes["model_id"], "unmapped") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
       - set(attributes["agent_role"], "unknown") where IsMatch(metric.name, "^ai_agent\\.") and attributes["agent_role"] != "primary" and attributes["agent_role"] != "approval_reviewer" and attributes["agent_role"] != "subagent" and attributes["agent_role"] != "unknown"
@@ -133,6 +166,11 @@ processors:
       - delete_key(attributes, "tool") where IsMatch(metric.name, "^ai_agent\\.")
       - delete_key(attributes, "tool_name") where IsMatch(metric.name, "^ai_agent\\.")
       - delete_key(attributes, "skill") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "skill.name") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "mcp_server.name") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "mcp_tool.name") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "query_source") where IsMatch(metric.name, "^ai_agent\\.")
+      - delete_key(attributes, "skill_id") where metric.name == "ai_agent.request.token_usage.total"
   batch/logs:
     timeout: 2s
     send_batch_size: 512
@@ -222,12 +260,13 @@ processors:
     - context: exemplar
       statements:
       - keep_keys(filtered_attributes, ["ai_context.safe_exemplar_attribute"])
-  filter/corporate_drop_opt_in_prompt_size:
-    # Prompt length is deliberately unavailable in Corporate mode, even when a
-    # local Hook command was configured with --capture-mode size-only.
+  filter/corporate_drop_opt_in_content_size:
+    # Content-derived lengths are deliberately unavailable in Corporate mode,
+    # even when a local Hook command was configured with size-only scopes.
     error_mode: propagate
     metric_conditions:
     - metric.name == "ai_agent.observed.user_prompt.bytes"
+    - metric.name == "ai_agent.observed.mcp_tool_response.bytes"
 exporters:
   otlphttp/loki:
     endpoint: http://loki:3100/otlp
@@ -293,7 +332,7 @@ service:
       - transform/privacy_initial
       - transform/ai_agent
       - transform/corporate_allowlist
-      - filter/corporate_drop_opt_in_prompt_size
+      - filter/corporate_drop_opt_in_content_size
       - batch/metrics
       exporters:
       - prometheus

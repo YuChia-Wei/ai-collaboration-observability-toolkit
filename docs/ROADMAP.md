@@ -25,8 +25,9 @@
 
 ## v0.2.0 — AI Collaboration Improvement Loop
 
-- Issue #4 requires re-scoping around a deterministic framework-owned emitter
-  or hook. Provider-native telemetry and prompt self-reports do not satisfy the
+- Issue #4 requires re-scoping around a deterministic runtime-owned emitter,
+  orchestrator, or client hook. The framework harness itself is not expected to
+  observe model execution. Provider-native telemetry and prompt self-reports do not satisfy the
   effectiveness evidence contract; no AI Context dashboard is provisioned until
   a real emitter is available.
 - Issue #5 remains downstream of compatible application/framework traces and
@@ -48,7 +49,8 @@
 
 - Issue #6 remains unassigned until an Owner allocates it.
 - Issue #7 remains a deferred proposal.
-- Claude Code and GitHub Copilot normalization require separate version-pinned
-  fixtures and follow-up Issues; documentation does not count as support.
+- Claude Code has a privacy-reviewed native metrics baseline. GitHub Copilot
+  normalization still requires a separate version-pinned fixture and follow-up
+  Issue; documentation does not count as support.
 - Company showback, billing reconciliation, and task-level cost attribution
   remain later horizons and require authoritative inputs.

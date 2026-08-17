@@ -3,9 +3,10 @@
 
 The default ``metadata-only`` mode reads only the documented lifecycle metadata
 needed to correlate a turn and its tool calls. The explicit ``size-only`` mode
-may read a submitted user prompt in memory solely to calculate its UTF-8 byte
-length. It never stores prompt text, assistant messages, tool input/output,
-transcripts, or working-directory paths.
+may read an explicitly selected source in memory solely to calculate its UTF-8
+byte length. MCP tool responses additionally require an exact tool-name to safe
+logical-ID allowlist. The exporter never stores prompt text, assistant messages,
+tool input/output, transcripts, or working-directory paths.
 
 Only OpenInference AGENT and TOOL spans are produced. Codex Hooks do not expose
 the model-call boundary or token accounting needed for a truthful LLM span.
@@ -35,7 +36,9 @@ DEFAULT_CAPTURE_MODE = "metadata-only"
 SCOPE_NAME = "ai-collaboration-observability.codex-hooks-example"
 SCOPE_VERSION = "0.1.0"
 CAPTURE_MODES = ("metadata-only", "size-only")
+SIZE_SCOPES = ("user-prompt", "mcp-tool-response")
 PROMPT_SIZE_BUCKETS = (256, 1024, 4096, 16384, 65536, 262144)
+SAFE_LOGICAL_ID = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,63}$", re.ASCII)
 SUPPORTED_EVENTS = {
     "UserPromptSubmit",
     "PreToolUse",
@@ -304,6 +307,62 @@ def _prompt_size_metric_payload(
     }
 
 
+def _mcp_response_size_metric_payload(
+    *,
+    profile: str,
+    timestamp_ns: int,
+    byte_count: int,
+    tool_id: str,
+) -> dict[str, Any]:
+    """Build an opt-in hook-payload byte proxy without retaining the response."""
+    return {
+        "resourceMetrics": [
+            {
+                "resource": {"attributes": _otlp_attributes(_resource_attributes(profile))},
+                "scopeMetrics": [
+                    {
+                        "scope": {"name": SCOPE_NAME, "version": SCOPE_VERSION},
+                        "metrics": [
+                            {
+                                "name": "ai_agent.observed.mcp_tool_response.bytes",
+                                "description": (
+                                    "Opt-in UTF-8 byte length of an allowlisted Codex "
+                                    "PostToolUse response payload."
+                                ),
+                                "unit": "By",
+                                "histogram": {
+                                    "aggregationTemporality": 1,
+                                    "dataPoints": [
+                                        {
+                                            "startTimeUnixNano": str(timestamp_ns),
+                                            "timeUnixNano": str(timestamp_ns),
+                                            "attributes": _otlp_attributes(
+                                                {
+                                                    "operation": "mcp",
+                                                    "evidence_class": "observed",
+                                                    "content_scope": "hook_tool_response",
+                                                    "measurement_method": "utf8_bytes",
+                                                    "mcp_tool_id": tool_id,
+                                                }
+                                            ),
+                                            "count": "1",
+                                            "sum": byte_count,
+                                            "bucketCounts": _prompt_size_bucket_counts(
+                                                byte_count
+                                            ),
+                                            "explicitBounds": list(PROMPT_SIZE_BUCKETS),
+                                        }
+                                    ],
+                                },
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+
 def _base_endpoint(endpoint: str) -> str:
     parsed = urllib.parse.urlsplit(endpoint.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -422,17 +481,55 @@ def _turn_state(payload: dict[str, Any], state_root: Path) -> tuple[Path, Path]:
     return session, _state_path(session, "turn", turn_id)
 
 
-def _size_only_enabled(args: argparse.Namespace) -> bool:
+def _size_scopes(args: argparse.Namespace) -> set[str]:
+    configured = getattr(args, "size_scope", None)
+    return set(configured or ("user-prompt",))
+
+
+def _size_only_enabled(args: argparse.Namespace, scope: str) -> bool:
     # Corporate mode stays fail-closed even when a hook command is misconfigured.
     profile = _safe_text(getattr(args, "profile", DEFAULT_PROFILE), fallback=DEFAULT_PROFILE)
     return (
         getattr(args, "capture_mode", DEFAULT_CAPTURE_MODE) == "size-only"
         and not profile.lower().startswith("corporate")
+        and scope in _size_scopes(args)
     )
 
 
 def _utf8_byte_count(value: str) -> int:
     return len(value.encode("utf-8", errors="surrogatepass"))
+
+
+def _parse_mcp_size_tool(value: str) -> tuple[str, str]:
+    tool_name, separator, logical_id = value.partition("=")
+    if not separator or not tool_name.startswith("mcp__"):
+        raise argparse.ArgumentTypeError(
+            "MCP size tool must be EXACT_MCP_TOOL_NAME=SAFE_LOGICAL_ID"
+        )
+    if not SAFE_LOGICAL_ID.fullmatch(logical_id):
+        raise argparse.ArgumentTypeError(
+            "MCP size tool logical ID must match [a-z0-9][a-z0-9_.-]{0,63}"
+        )
+    return tool_name, logical_id
+
+
+def _mcp_size_tool_map(args: argparse.Namespace) -> dict[str, str]:
+    return dict(getattr(args, "mcp_size_tool", None) or ())
+
+
+def _serialized_response_byte_count(value: Any) -> int | None:
+    if isinstance(value, str):
+        return _utf8_byte_count(value)
+    try:
+        serialized = json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    except (TypeError, ValueError):
+        return None
+    return _utf8_byte_count(serialized)
 
 
 def _handle_event(payload: dict[str, Any], args: argparse.Namespace) -> None:
@@ -454,7 +551,7 @@ def _handle_event(payload: dict[str, Any], args: argparse.Namespace) -> None:
                 "model": _model(payload),
             },
         )
-        if _size_only_enabled(args):
+        if _size_only_enabled(args, "user-prompt"):
             # Do not access this field unless the user explicitly selected the
             # limited measurement mode. The string remains local and ephemeral.
             prompt = payload.get("prompt")
@@ -535,6 +632,27 @@ def _handle_event(payload: dict[str, Any], args: argparse.Namespace) -> None:
             capture_dir=args.capture_dir,
             debug=args.debug,
         )
+        if _size_only_enabled(args, "mcp-tool-response"):
+            # Access the response only after an exact tool-name allowlist match.
+            # The configured logical ID, never the raw tool name, becomes a label.
+            tool_id = _mcp_size_tool_map(args).get(str(payload.get("tool_name") or ""))
+            if tool_id is not None and "tool_response" in payload:
+                byte_count = _serialized_response_byte_count(payload.get("tool_response"))
+                if byte_count is not None:
+                    _emit_metric(
+                        label="mcp-tool-response-bytes",
+                        payload=_mcp_response_size_metric_payload(
+                            profile=args.profile,
+                            timestamp_ns=now_ns,
+                            byte_count=byte_count,
+                            tool_id=tool_id,
+                        ),
+                        endpoint=args.endpoint,
+                        timeout=args.timeout,
+                        dry_run=args.dry_run,
+                        capture_dir=args.capture_dir,
+                        debug=args.debug,
+                    )
         _delete_state(tool_path)
         return
 
@@ -597,6 +715,27 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "metadata-only never reads prompt content; size-only exports only its "
             "UTF-8 byte count outside Corporate profiles."
+        ),
+    )
+    parser.add_argument(
+        "--size-scope",
+        action="append",
+        choices=SIZE_SCOPES,
+        default=None,
+        help=(
+            "Repeat to select sources eligible for size-only measurement. "
+            "The compatibility default is user-prompt."
+        ),
+    )
+    parser.add_argument(
+        "--mcp-size-tool",
+        action="append",
+        type=_parse_mcp_size_tool,
+        default=None,
+        metavar="EXACT_MCP_TOOL_NAME=SAFE_LOGICAL_ID",
+        help=(
+            "Exact allowlist entry required before an MCP PostToolUse response "
+            "may be read for mcp-tool-response size measurement."
         ),
     )
     parser.add_argument(

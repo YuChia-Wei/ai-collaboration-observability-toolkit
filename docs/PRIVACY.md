@@ -134,6 +134,20 @@ local salt or an automatically generated user-local key. Corporate examples disa
 attribute. The selected Collector profile remains the authoritative second-layer minimization boundary.
 Export failure is best-effort and must not alter tool permissions, model flow, or normal termination.
 
+## Claude Code native metrics
+
+The Claude example enables only native metrics. It explicitly disables session
+and account UUID metric dimensions and leaves prompt, tool-detail, tool-content,
+raw API body, log, and trace export disabled. Claude Code can still attach
+identity fields such as user e-mail to standard telemetry, so the Collector's
+initial denylist remains mandatory and removes them before normalization.
+
+Core and Evaluation retain only the documented request-level `skill.name`,
+`mcp_server.name`, and `mcp_tool.name` attribution after mapping them to the
+canonical label keys. User-configured MCP names are provider-redacted to
+`custom` unless sensitive tool-detail logging is enabled; this repository tells
+users not to enable it. Corporate drops skill and MCP attribution entirely.
+
 ## Codex lifecycle Hook bridge
 
 The opt-in Codex Hooks example applies an allowlist before writing local state
@@ -143,14 +157,17 @@ local turn/tool correlation. It does not inspect `prompt`,
 `last_assistant_message`, `tool_input`, `tool_response`, `cwd`, or
 `transcript_path`.
 
-An explicit `--capture-mode size-only` is the sole exception: for
-`UserPromptSubmit` it reads `prompt` in memory to compute a UTF-8 byte count.
-Only that number is emitted in `ai_agent.observed.user_prompt.bytes`, with
-fixed reviewed dimensions. Prompt text, hashes, source paths, IDs, and
-per-turn linkage remain absent from local state, OTLP attributes, capture
-artifacts, logs, and debug output. Invalid or missing mode configuration falls
-back to `metadata-only`. Corporate profiles reject the mode and the Corporate
-Collector also drops this metric as a defense in depth.
+An explicit `--capture-mode size-only` is the sole exception. The default
+`user-prompt` scope reads `UserPromptSubmit.prompt` in memory to compute a UTF-8
+byte count. The separate `mcp-tool-response` scope reads
+`PostToolUse.tool_response` only after the exact raw Hook tool name matches a
+user-provided allowlist entry; the emitted label is the configured safe logical
+ID, never that raw tool name. Only the byte number is emitted in the relevant
+histogram. Content, hashes, source paths, IDs, and per-turn linkage remain absent
+from local state, OTLP attributes, capture artifacts, logs, and debug output.
+Invalid or missing mode configuration falls back to `metadata-only`. Corporate
+profiles reject the mode and the Corporate Collector drops both content-derived
+metrics as defense in depth.
 
 Raw session, turn, and tool IDs are never serialized. Their SHA-256 values are
 used only as local state path components, while exported trace and span IDs are

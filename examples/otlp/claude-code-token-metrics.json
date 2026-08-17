@@ -1,0 +1,84 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "claude-code"}},
+          {"key": "service.namespace", "value": {"stringValue": "ai-collaboration-fixture"}},
+          {"key": "service.version", "value": {"stringValue": "synthetic-claude-v1"}},
+          {"key": "user.email", "value": {"stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D@example.invalid"}},
+          {"key": "session.id", "value": {"stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"}}
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {"name": "com.anthropic.claude_code", "version": "synthetic"},
+          "metrics": [
+            {
+              "name": "claude_code.token.usage",
+              "unit": "tokens",
+              "sum": {
+                "aggregationTemporality": 1,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "2400",
+                    "attributes": [
+                      {"key": "type", "value": {"stringValue": "input"}},
+                      {"key": "model", "value": {"stringValue": "claude-sonnet-5"}},
+                      {"key": "query_source", "value": {"stringValue": "main"}},
+                      {"key": "skill.name", "value": {"stringValue": "code-reviewer"}},
+                      {"key": "mcp_server.name", "value": {"stringValue": "custom"}},
+                      {"key": "mcp_tool.name", "value": {"stringValue": "custom"}}
+                    ]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "1600",
+                    "attributes": [
+                      {"key": "type", "value": {"stringValue": "cacheRead"}},
+                      {"key": "model", "value": {"stringValue": "claude-sonnet-5"}},
+                      {"key": "query_source", "value": {"stringValue": "main"}},
+                      {"key": "skill.name", "value": {"stringValue": "code-reviewer"}},
+                      {"key": "mcp_server.name", "value": {"stringValue": "custom"}},
+                      {"key": "mcp_tool.name", "value": {"stringValue": "custom"}}
+                    ]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "400",
+                    "attributes": [
+                      {"key": "type", "value": {"stringValue": "cacheCreation"}},
+                      {"key": "model", "value": {"stringValue": "claude-sonnet-5"}},
+                      {"key": "query_source", "value": {"stringValue": "main"}},
+                      {"key": "skill.name", "value": {"stringValue": "code-reviewer"}},
+                      {"key": "mcp_server.name", "value": {"stringValue": "custom"}},
+                      {"key": "mcp_tool.name", "value": {"stringValue": "custom"}}
+                    ]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "asInt": "320",
+                    "attributes": [
+                      {"key": "type", "value": {"stringValue": "output"}},
+                      {"key": "model", "value": {"stringValue": "claude-sonnet-5"}},
+                      {"key": "query_source", "value": {"stringValue": "main"}},
+                      {"key": "skill.name", "value": {"stringValue": "code-reviewer"}},
+                      {"key": "mcp_server.name", "value": {"stringValue": "custom"}},
+                      {"key": "mcp_tool.name", "value": {"stringValue": "custom"}}
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

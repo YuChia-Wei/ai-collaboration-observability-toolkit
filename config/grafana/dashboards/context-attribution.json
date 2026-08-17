@@ -1,0 +1,152 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "判讀邊界",
+      "description": "本報表呈現 provider-native token attribution、allowlisted byte proxy 與 compaction；不宣稱 prompt 或文件造成結果。",
+      "type": "text",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
+      "options": {
+        "mode": "markdown",
+        "content": "### 這份報表能回答什麼\nClaude 的 skill/MCP 欄位可支援受控的 before/after 比較；Codex MCP 指標只量 exact-allowlisted Hook response bytes。請固定任務、模型、工具版本與樣本數，再比較 token、cache、byte proxy 與 compaction。它不能證明某份治理文件被載入，也不能把相關性當成節省 token 的因果證據。"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Claude 所選範圍 Request Tokens",
+      "description": "Claude Code 原生 token counter 的區間增量；依 provider 回報計數，不是帳單。",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 4, "w": 8, "h": 5},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_request_token_usage_total{ai_agent_provider=\"anthropic\",ai_agent_product=\"claude-code\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "request tokens"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Claude Skill Token 歸因",
+      "description": "原生 request token 依 active skill 與 token type 分組；只適合受控比較，不代表 skill 單獨造成差異。",
+      "type": "bargauge",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 8, "y": 4, "w": 8, "h": 5},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"displayMode": "gradient", "minVizHeight": 10, "minVizWidth": 0, "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true, "valueMode": "color"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (skill_id, token_type) (increase(ai_agent_request_token_usage_total{ai_agent_provider=\"anthropic\",ai_agent_product=\"claude-code\",skill_id!=\"none\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "{{skill_id}} / {{token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Claude MCP 消費 Token 歸因",
+      "description": "只統計 provider 標記為該 request 消費了 MCP result 的 token；user-configured MCP 通常顯示 custom。",
+      "type": "bargauge",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 16, "y": 4, "w": 8, "h": 5},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"displayMode": "gradient", "minVizHeight": 10, "minVizWidth": 0, "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true, "valueMode": "color"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (mcp_server_name, mcp_tool_name, token_type) (increase(ai_agent_request_token_usage_total{ai_agent_provider=\"anthropic\",ai_agent_product=\"claude-code\",mcp_server_name!=\"none\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "{{mcp_server_name}} / {{mcp_tool_name}} / {{token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Codex Allowlisted MCP 回傳 Bytes",
+      "description": "所選範圍 exact-allowlisted PostToolUse response 的序列化 UTF-8 bytes；不是模型 context tokens。",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 9, "w": 8, "h": 5},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_observed_mcp_tool_response_bytes_sum{ai_agent_product=\"codex\",content_scope=\"hook_tool_response\",measurement_method=\"utf8_bytes\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "bytes"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Codex Allowlisted MCP 計量次數",
+      "description": "MCP response byte proxy 的觀測筆數；不等於 MCP 所有呼叫數，也不代表每筆都進入模型 context。",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 8, "y": 9, "w": 8, "h": 5},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(ai_agent_observed_mcp_tool_response_bytes_count{ai_agent_product=\"codex\",content_scope=\"hook_tool_response\",measurement_method=\"utf8_bytes\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "instant": true,
+          "legendFormat": "observations"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Context Compaction 趨勢",
+      "description": "Codex provider-native compaction 區間增量；可作為 context 壓力訊號，但不是完整 context 大小。",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 16, "y": 9, "w": 8, "h": 5},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (ai_agent_product) (increase(ai_agent_compaction{service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__rate_interval]))",
+          "legendFormat": "{{ai_agent_product}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "治理文件載入判斷",
+      "description": "明確顯示目前 provider/runtime 資料對單一治理文件載入問題的缺口。",
+      "type": "text",
+      "gridPos": {"x": 0, "y": 14, "w": 24, "h": 4},
+      "options": {
+        "mode": "markdown",
+        "content": "### 目前仍不可直接回答\n一般 Claude/Codex token telemetry 不帶治理文件 identity；MCP response byte proxy 也只帶安全 logical tool ID。因此目前不能判斷「某份治理文件是不是每次都被載入」。要回答它，需要 runtime 擁有載入邊界，或由使用者明確開啟 exact-file allowlist hook，將已知檔案映射為安全 logical document ID；這不應由 prompt 自我回報。"
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["ai", "context", "claude", "codex", "privacy"],
+  "templating": {"list": []},
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Claude / Codex Context 歸因",
+  "description": "以 Claude 原生 request token、Codex allowlisted MCP byte proxy 與 compaction 支援受控比較；不宣稱文件載入或因果。",
+  "uid": "ai-context-attribution",
+  "version": 1,
+  "weekStart": ""
+}

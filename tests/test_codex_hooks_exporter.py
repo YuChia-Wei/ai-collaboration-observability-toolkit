@@ -275,6 +275,97 @@ class CodexHooksExporterTests(unittest.TestCase):
             )
             self.assertEqual(self.captured_payloads(root / "capture"), [])
 
+    def test_allowlisted_mcp_size_scope_exports_only_proxy_bytes(self) -> None:
+        with workspace_test_directory() as root:
+            state = root / "state"
+            capture = root / "capture"
+            extra = [
+                "--capture-mode",
+                "size-only",
+                "--size-scope",
+                "mcp-tool-response",
+                "--mcp-size-tool",
+                "mcp__codebase_memory_mcp__search_graph=codebase-memory.search",
+            ]
+            self.run_fixture(
+                "user-prompt-submit.json",
+                state_dir=state,
+                capture_dir=capture,
+                extra=extra,
+            )
+            self.run_fixture(
+                "pre-mcp-tool-use.json",
+                state_dir=state,
+                capture_dir=capture,
+                extra=extra,
+            )
+            self.run_fixture(
+                "post-mcp-tool-use.json",
+                state_dir=state,
+                capture_dir=capture,
+                extra=extra,
+            )
+
+            payloads = self.captured_payloads(capture)
+            rendered = json.dumps(payloads, sort_keys=True)
+            for forbidden in FORBIDDEN_TEXT:
+                self.assertNotIn(forbidden, rendered)
+            self.assertNotIn("mcp__codebase_memory_mcp__search_graph", rendered)
+
+            metrics = self.metrics(payloads)
+            self.assertEqual(len(metrics), 1)
+            metric = metrics[0]
+            self.assertEqual(
+                metric["name"], "ai_agent.observed.mcp_tool_response.bytes"
+            )
+            point = metric["histogram"]["dataPoints"][0]
+            response = json.loads(
+                (FIXTURES / "post-mcp-tool-use.json").read_text(encoding="utf-8")
+            )["tool_response"]
+            expected = len(
+                json.dumps(
+                    response,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            )
+            self.assertEqual(point["sum"], expected)
+            self.assertEqual(
+                self.attributes(point),
+                {
+                    "operation": "mcp",
+                    "evidence_class": "observed",
+                    "content_scope": "hook_tool_response",
+                    "measurement_method": "utf8_bytes",
+                    "mcp_tool_id": "codebase-memory.search",
+                },
+            )
+
+    def test_mcp_response_is_not_measured_without_exact_allowlist(self) -> None:
+        with workspace_test_directory() as root:
+            state = root / "state"
+            capture = root / "capture"
+            extra = [
+                "--capture-mode",
+                "size-only",
+                "--size-scope",
+                "mcp-tool-response",
+            ]
+            self.run_fixture(
+                "pre-mcp-tool-use.json",
+                state_dir=state,
+                capture_dir=capture,
+                extra=extra,
+            )
+            self.run_fixture(
+                "post-mcp-tool-use.json",
+                state_dir=state,
+                capture_dir=capture,
+                extra=extra,
+            )
+            self.assertEqual(self.metrics(self.captured_payloads(capture)), [])
+
     def test_live_otlp_export_uses_collector_path_and_explicit_opt_out_header(self) -> None:
         received: list[tuple[str, str | None, bytes]] = []
 
@@ -494,6 +585,10 @@ class CodexHooksExporterTests(unittest.TestCase):
                 "--print",
                 "--capture-mode",
                 "size-only",
+                "--size-scope",
+                "mcp-tool-response",
+                "--mcp-size-tool",
+                "mcp__codebase_memory_mcp__search_graph=codebase-memory.search",
             ],
             text=True,
             capture_output=True,
@@ -504,6 +599,12 @@ class CodexHooksExporterTests(unittest.TestCase):
         for group in config["hooks"].values():
             command = group[0]["hooks"][0]["command"]
             self.assertIn("--capture-mode size-only", command)
+            self.assertIn("--size-scope mcp-tool-response", command)
+            self.assertIn(
+                "--mcp-size-tool "
+                "mcp__codebase_memory_mcp__search_graph=codebase-memory.search",
+                command,
+            )
 
 
 if __name__ == "__main__":

@@ -95,9 +95,10 @@ Corporate mode has no Phoenix exporter.
 
 ## Initial evaluator backlog
 
-These evaluators require a real framework-owned emitter or a deliberately built
-OpenInference application trace. Native agent telemetry and prompt self-reports
-alone do not establish the required workflow/outcome semantics.
+These evaluators require a real runtime-owned emitter, orchestrator/client hook,
+or a deliberately built OpenInference application trace. The portable framework
+harness is not an execution runtime; native agent telemetry and prompt
+self-reports alone do not establish the required workflow/outcome semantics.
 
 Prefer deterministic code evaluators before LLM-as-a-judge:
 
