@@ -53,10 +53,13 @@ query 中把它們翻譯成中文。
 | `usage_class` | Accounting 使用的互不重疊 token 類別；不可和 raw input 重複相加 |
 | `tool_category` | 去除原始工具名稱後的 bounded category |
 | `evidence_class` | 說明資料是 provider-reported、observed extension 或其他核准證據類別 |
+| `content_scope` | 僅用於明確核准的本機量測範圍；Codex size-only 固定為 `user_prompt`，不含內容或 ID |
+| `measurement_method` | 本機量測方法；Codex size-only 固定為 `utf8_bytes`，不是 tokenizer 或 provider 計價方法 |
 | `ai_agent_turn_duration_ms` | Canonical 回合 duration histogram；不是 task 完成時間 |
 | `ai_agent_tool_call` | Canonical 工具呼叫 counter；不含原始參數或結果 |
 | `ai_agent_observed_context_used_ratio` | Extension 觀測到的 context 使用率；不是 provider 帳單 |
 | `ai_agent_observed_quota_remaining_ratio` | Extension 觀測到的 quota；不是權威餘額 |
+| `ai_agent_observed_user_prompt_bytes_sum` / `_count` | 使用者明確選擇 Codex Hook size-only 後的提交 prompt UTF-8 byte 量測；不含內容、不是完整 context、token 或帳單 |
 | `ai_agent_estimated_cost_usd_total` | 公開 API USD 牌價估算；不是帳單或訂閱扣款 |
 | `ai_agent_estimated_credit_usage_total` | 公開 Codex credits rate-card 等值估算；不是官方剩餘額度 |
 | `ai_agent_unpriced_credit_token_usage_total` | 沒有公開 Codex credits rate 的 token；未知不等於免費 |

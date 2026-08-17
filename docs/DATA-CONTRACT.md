@@ -55,6 +55,10 @@ Canonical metric datapoints may use only reviewed bounded dimensions:
   exposes a bounded value.
 - \`evidence_class\`: \`provider-reported\` for native SDK metrics or
   \`observed\` for local extension gauges.
+- \`content_scope\` and \`measurement_method\`: only fixed reviewed values for an
+  explicitly documented local measurement. The Codex Hook size-only metric uses
+  \`user_prompt\` and \`utf8_bytes\`; neither field carries content, an identifier,
+  or a token estimate.
 
 Never use session, prompt, conversation, task UUID, validation fingerprint,
 commit SHA, branch, path, user identity, account ID, call ID, trace ID, span
@@ -62,9 +66,11 @@ ID, or raw tool/skill name as a Prometheus or Loki index label.
 
 ## Canonical AI-agent metrics
 
-The Collector uses \`copy_metric\`: the native metric remains available after
-privacy filtering, while the canonical copy preserves the original instrument
-kind, unit, monotonicity, and aggregation temporality.
+For native mappings the Collector uses \`copy_metric\`: the native metric
+remains available after privacy filtering, while the canonical copy preserves
+the original instrument kind, unit, monotonicity, and aggregation temporality.
+The explicitly marked Codex Hook size-only metric is emitted directly into the
+canonical namespace because it has no provider-native counterpart.
 
 | Native input | Canonical metric | Semantics |
 |---|---|---|
@@ -83,11 +89,20 @@ kind, unit, monotonicity, and aggregation temporality.
 | \`antigravity_session_tokens\` | \`ai_agent.observed.session_tokens\` | Instantaneous observed gauge |
 | \`antigravity_context_tokens\` | \`ai_agent.observed.context_tokens\` | Instantaneous observed gauge |
 | Other \`antigravity_*\` status gauges | \`ai_agent.observed.*\` | Instantaneous observed gauge |
+| Codex Hook \`--capture-mode size-only\` | \`ai_agent.observed.user_prompt.bytes\` | Opt-in Delta histogram of locally measured user-prompt UTF-8 bytes; no content or token claim |
 
 Prometheus renders dotted OTLP names with underscores and renders histograms as
 \`_bucket\`, \`_count\`, and \`_sum\` series. Queries must use histogram
 operations; a histogram sum must not be treated as a counter instrument in the
 contract.
+
+\`ai_agent.observed.user_prompt.bytes\` is emitted only by the explicit Codex
+Hook \`size-only\` mode. Its Prometheus \`_sum\` and \`_count\` can be used with
+\`increase(...[$__range])\` for a selected time range. It measures the submitted
+user message before any provider-side expansion: it is not total context,
+system/developer instructions, skills, tool results, framework load size,
+provider token accounting, or billing. It must not be used to infer a per-turn
+token ratio. Corporate mode drops it even if a source is misconfigured.
 
 Prometheus adds provider-neutral accounting and estimate recording metrics for
 the new ingestion window:

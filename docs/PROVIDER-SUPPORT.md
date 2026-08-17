@@ -6,7 +6,7 @@ dashboard contract. Documentation alone is not normalization support.
 | Provider/product | Verified surface | Fixture | Native view | \`ai_agent.*\` | Cost estimate | Status |
 |---|---|---|---|---|---|---|
 | OpenAI Codex CLI 0.146.1 | app-server OTLP logs/metrics/traces; app-server 0.147.0-alpha.6.5 | \`fixtures/codex/0.146.1\` plus role/accounting runtime fixture | Yes | Yes, role-aware v2 accounting | Exact mapped models: separate public API USD and Codex credits estimates | Supported baseline; v0.2 role/credits candidate |
-| OpenAI Codex lifecycle Hooks | `UserPromptSubmit`/`Stop` and local `PreToolUse`/`PostToolUse` | `examples/codex-hooks` privacy fixtures | Phoenix/Tempo trace only | Bounded lifecycle attributes; no usage metrics | No | Experimental, metadata-only |
+| OpenAI Codex lifecycle Hooks | `UserPromptSubmit`/`Stop` and local `PreToolUse`/`PostToolUse` | `examples/codex-hooks` privacy fixtures | Phoenix/Tempo trace plus explicit size-only metric | Bounded lifecycle attributes; opt-in user-prompt UTF-8 byte histogram | No | Experimental; metadata-only by default, size-only is personal/Core/Evaluation only |
 | Google Antigravity | documented Hooks and CLI status-line extension | repository examples and privacy fixtures | Yes | Yes, observed gauges/lifecycle metadata | No; observations are not counters/billing | Supported, extension-observed |
 | Anthropic Claude Code | upstream OpenTelemetry metrics/events and optional traces; repository documentation only | None | No | No | No | Upstream capable; repository integration required |
 | GitHub Copilot | upstream organization/enterprise usage metrics API and dashboard; no workstation OTLP fixture here | None | No | No | No | Upstream capable; repository integration required |

@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
-            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
             "timeout": 5
           }
         ]
@@ -18,8 +18,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
-            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
             "timeout": 5
           }
         ]
@@ -30,8 +30,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
-            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
             "timeout": 5
           }
         ]
@@ -42,8 +42,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local",
-            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/examples/codex-hooks/codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
+            "commandWindows": "\"C:\\ABSOLUTE\\PATH\\TO\\python.exe\" \"C:\\ABSOLUTE\\PATH\\TO\\codex_hooks_otel_exporter.py\" --profile personal-local --capture-mode metadata-only",
             "timeout": 5
           }
         ]

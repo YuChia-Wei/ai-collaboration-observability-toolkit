@@ -165,6 +165,54 @@ class RepositoryTests(unittest.TestCase):
         self.assertNotIn('"ai_agent.user.id"', text)
         self.assertIn('"model_id"', text)
 
+    def test_opt_in_prompt_size_metric_is_allowlisted_only_outside_corporate(self) -> None:
+        for name in ("core.yaml", "evaluation.yaml"):
+            config = toolkit.yaml_load(ROOT / "config/otel-collector" / name)
+            groups = config["processors"]["transform/privacy"]["metric_statements"]
+            statements = "\n".join(
+                statement for group in groups for statement in group["statements"]
+            )
+            self.assertIn('"content_scope"', statements, name)
+            self.assertIn('"measurement_method"', statements, name)
+            canonical = "\n".join(
+                statement
+                for group in config["processors"]["transform/ai_agent"][
+                    "metric_statements"
+                ]
+                for statement in group["statements"]
+            )
+            self.assertIn(
+                'set(attributes["content_scope"], "user_prompt")', canonical, name
+            )
+            self.assertIn(
+                'set(attributes["measurement_method"], "utf8_bytes")', canonical, name
+            )
+            self.assertIn(
+                'delete_key(attributes, "content_scope")', canonical, name
+            )
+            self.assertIn(
+                'delete_key(attributes, "measurement_method")', canonical, name
+            )
+
+        corporate = toolkit.yaml_load(ROOT / "config/otel-collector/corporate.yaml")
+        filter_config = corporate["processors"][
+            "filter/corporate_drop_opt_in_prompt_size"
+        ]
+        self.assertEqual(filter_config["error_mode"], "propagate")
+        self.assertEqual(
+            filter_config["metric_conditions"],
+            ['metric.name == "ai_agent.observed.user_prompt.bytes"'],
+        )
+        processors = corporate["service"]["pipelines"]["metrics"]["processors"]
+        self.assertLess(
+            processors.index("transform/corporate_allowlist"),
+            processors.index("filter/corporate_drop_opt_in_prompt_size"),
+        )
+        self.assertLess(
+            processors.index("filter/corporate_drop_opt_in_prompt_size"),
+            processors.index("batch/metrics"),
+        )
+
     def test_phoenix_hybrid_routing_and_exporter_are_explicit(self) -> None:
         for filename, expected, trace_id in (
             ("phoenix-selected-trace.json", True, toolkit.TRACE_SELECTED),
@@ -682,6 +730,29 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("ai_agent_estimated_credit_usage_total", provider_neutral_expressions)
         self.assertIn("ai_agent_unpriced_credit_token_usage_total", provider_neutral_expressions)
         self.assertIn(fixture_exclusion, provider_neutral_expressions)
+
+        extension_row = next(
+            panel
+            for panel in provider_neutral["panels"]
+            if panel["id"] == 17
+        )
+        prompt_size_panels = [
+            panel
+            for panel in extension_row["panels"]
+            if panel["id"] in {25, 26, 27}
+        ]
+        self.assertEqual({panel["id"] for panel in prompt_size_panels}, {25, 26, 27})
+        prompt_size_expressions = "\n".join(
+            target["expr"]
+            for panel in prompt_size_panels
+            for target in panel["targets"]
+        )
+        self.assertIn("ai_agent_observed_user_prompt_bytes_sum", prompt_size_expressions)
+        self.assertIn("ai_agent_observed_user_prompt_bytes_count", prompt_size_expressions)
+        self.assertIn('content_scope="user_prompt"', prompt_size_expressions)
+        self.assertIn('measurement_method="utf8_bytes"', prompt_size_expressions)
+        self.assertIn("sum(increase(", prompt_size_expressions)
+        self.assertIn(fixture_exclusion, prompt_size_expressions)
 
         for filename, dashboard in (
             ("codex-usage.json", codex),

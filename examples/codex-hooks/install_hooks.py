@@ -20,6 +20,7 @@ DEFAULT_EXPORTER = EXAMPLE_DIR / "codex_hooks_otel_exporter.py"
 DEFAULT_TARGET = REPOSITORY_ROOT / ".codex" / "hooks.json"
 EVENTS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop")
 SAFE_PROFILE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$", re.ASCII)
+CAPTURE_MODES = ("metadata-only", "size-only")
 
 
 def _command(arguments: list[str]) -> str:
@@ -29,12 +30,21 @@ def _command(arguments: list[str]) -> str:
 
 
 def build_config(
-    *, python_executable: Path, exporter: Path, profile: str
+    *, python_executable: Path, exporter: Path, profile: str, capture_mode: str
 ) -> dict[str, Any]:
     if not SAFE_PROFILE.fullmatch(profile):
         raise ValueError("profile must be a bounded identifier")
+    if capture_mode not in CAPTURE_MODES:
+        raise ValueError("capture_mode must be metadata-only or size-only")
     command = _command(
-        [str(python_executable), str(exporter), "--profile", profile]
+        [
+            str(python_executable),
+            str(exporter),
+            "--profile",
+            profile,
+            "--capture-mode",
+            capture_mode,
+        ]
     )
     hooks: dict[str, Any] = {}
     for event in EVENTS:
@@ -81,6 +91,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--python", type=Path, default=Path(sys.executable))
     parser.add_argument("--profile", default="personal-local")
     parser.add_argument(
+        "--capture-mode",
+        choices=CAPTURE_MODES,
+        default="metadata-only",
+        help="Prompt-content handling: metadata-only (default) or opt-in size-only.",
+    )
+    parser.add_argument(
         "--print",
         dest="print_only",
         action="store_true",
@@ -101,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         python_executable=python_executable,
         exporter=exporter,
         profile=args.profile,
+        capture_mode=args.capture_mode,
     )
     if args.print_only:
         print(json.dumps(config, ensure_ascii=False, indent=2))

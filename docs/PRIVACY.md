@@ -137,10 +137,20 @@ Export failure is best-effort and must not alter tool permissions, model flow, o
 ## Codex lifecycle Hook bridge
 
 The opt-in Codex Hooks example applies an allowlist before writing local state
-or building OTLP. It consumes only the event name, active model slug, tool name
-for fixed category mapping, and IDs needed for local turn/tool correlation. It
-does not inspect `prompt`, `last_assistant_message`, `tool_input`,
-`tool_response`, `cwd`, or `transcript_path`.
+or building OTLP. Its default `metadata-only` mode consumes only the event name,
+active model slug, tool name for fixed category mapping, and IDs needed for
+local turn/tool correlation. It does not inspect `prompt`,
+`last_assistant_message`, `tool_input`, `tool_response`, `cwd`, or
+`transcript_path`.
+
+An explicit `--capture-mode size-only` is the sole exception: for
+`UserPromptSubmit` it reads `prompt` in memory to compute a UTF-8 byte count.
+Only that number is emitted in `ai_agent.observed.user_prompt.bytes`, with
+fixed reviewed dimensions. Prompt text, hashes, source paths, IDs, and
+per-turn linkage remain absent from local state, OTLP attributes, capture
+artifacts, logs, and debug output. Invalid or missing mode configuration falls
+back to `metadata-only`. Corporate profiles reject the mode and the Corporate
+Collector also drops this metric as a defense in depth.
 
 Raw session, turn, and tool IDs are never serialized. Their SHA-256 values are
 used only as local state path components, while exported trace and span IDs are

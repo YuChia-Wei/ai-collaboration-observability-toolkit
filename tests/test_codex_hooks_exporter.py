@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import importlib.util
 import json
 import os
 import shutil
@@ -32,6 +34,14 @@ FORBIDDEN_TEXT = (
     "Get-Content",
     "private assistant response",
 )
+
+EXPORTER_SPEC = importlib.util.spec_from_file_location(
+    "codex_hooks_otel_exporter_under_test", EXPORTER
+)
+if EXPORTER_SPEC is None or EXPORTER_SPEC.loader is None:
+    raise RuntimeError("Could not load the Codex Hooks exporter for direct privacy tests")
+EXPORTER_MODULE = importlib.util.module_from_spec(EXPORTER_SPEC)
+EXPORTER_SPEC.loader.exec_module(EXPORTER_MODULE)
 
 
 @contextmanager
@@ -94,6 +104,16 @@ class CodexHooksExporterTests(unittest.TestCase):
             for resource_spans in payload.get("resourceSpans", [])
             for scope_spans in resource_spans.get("scopeSpans", [])
             for span in scope_spans.get("spans", [])
+        ]
+
+    @staticmethod
+    def metrics(payloads: list[dict[str, object]]) -> list[dict[str, object]]:
+        return [
+            metric
+            for payload in payloads
+            for resource_metrics in payload.get("resourceMetrics", [])
+            for scope_metrics in resource_metrics.get("scopeMetrics", [])
+            for metric in scope_metrics.get("metrics", [])
         ]
 
     @staticmethod
@@ -162,6 +182,99 @@ class CodexHooksExporterTests(unittest.TestCase):
             self.assertEqual(agent_attributes["ai_agent.coverage"], "partial")
             self.assertFalse(list(state.rglob("*.json")))
 
+    def test_metadata_only_does_not_access_prompt_field(self) -> None:
+        class PromptPoison(dict[str, object]):
+            def get(self, key: str, default: object = None) -> object:
+                if key == "prompt":
+                    raise AssertionError("metadata-only mode must not read prompt")
+                return super().get(key, default)
+
+        with workspace_test_directory() as root:
+            payload = PromptPoison(
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "thr_PRIVATE_4c296a99",
+                    "turn_id": "turn_PRIVATE_b717195c",
+                    "model": "gpt-5.6-sol",
+                    "prompt": "CODEX_HOOK_PRIVATE_SENTINEL_72C9",
+                }
+            )
+            EXPORTER_MODULE._handle_event(
+                payload,
+                argparse.Namespace(
+                    state_dir=str(root / "state"),
+                    capture_mode="metadata-only",
+                ),
+            )
+            state_text = "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in (root / "state").rglob("*.json")
+            )
+            self.assertNotIn("CODEX_HOOK_PRIVATE_SENTINEL_72C9", state_text)
+
+    def test_size_only_exports_exact_utf8_bytes_without_content(self) -> None:
+        with workspace_test_directory() as root:
+            state = root / "state"
+            capture = root / "capture"
+            self.run_fixture(
+                "user-prompt-submit.json",
+                state_dir=state,
+                capture_dir=capture,
+                extra=["--capture-mode", "size-only"],
+            )
+
+            payloads = self.captured_payloads(capture)
+            rendered = json.dumps(payloads, sort_keys=True)
+            for forbidden in FORBIDDEN_TEXT:
+                self.assertNotIn(forbidden, rendered)
+            self.assertFalse(self.spans(payloads))
+
+            metrics = self.metrics(payloads)
+            self.assertEqual(len(metrics), 1)
+            metric = metrics[0]
+            self.assertEqual(metric["name"], "ai_agent.observed.user_prompt.bytes")
+            self.assertEqual(metric["unit"], "By")
+            histogram = metric["histogram"]
+            self.assertEqual(histogram["aggregationTemporality"], 1)
+            point = histogram["dataPoints"][0]
+            expected = len(
+                json.loads(
+                    (FIXTURES / "user-prompt-submit.json").read_text(encoding="utf-8")
+                )["prompt"].encode("utf-8")
+            )
+            self.assertEqual(point["sum"], expected)
+            self.assertEqual(point["count"], "1")
+            self.assertEqual(point["bucketCounts"].count("1"), 1)
+            self.assertEqual(
+                self.attributes(point),
+                {
+                    "operation": "turn",
+                    "evidence_class": "observed",
+                    "content_scope": "user_prompt",
+                    "measurement_method": "utf8_bytes",
+                },
+            )
+            state_text = "\n".join(
+                path.read_text(encoding="utf-8") for path in state.rglob("*.json")
+            )
+            for forbidden in FORBIDDEN_TEXT:
+                self.assertNotIn(forbidden, state_text)
+
+    def test_size_only_is_rejected_for_corporate_profile(self) -> None:
+        with workspace_test_directory() as root:
+            self.run_fixture(
+                "user-prompt-submit.json",
+                state_dir=root / "state",
+                capture_dir=root / "capture",
+                extra=[
+                    "--capture-mode",
+                    "size-only",
+                    "--profile",
+                    "corporate-local-redacted",
+                ],
+            )
+            self.assertEqual(self.captured_payloads(root / "capture"), [])
+
     def test_live_otlp_export_uses_collector_path_and_explicit_opt_out_header(self) -> None:
         received: list[tuple[str, str | None, bytes]] = []
 
@@ -222,6 +335,61 @@ class CodexHooksExporterTests(unittest.TestCase):
         for forbidden in FORBIDDEN_TEXT:
             self.assertNotIn(forbidden, rendered)
 
+    def test_live_size_only_metric_uses_metrics_path_without_content(self) -> None:
+        received: list[tuple[str, bytes]] = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:  # noqa: N802
+                length = int(self.headers.get("Content-Length", "0"))
+                received.append((self.path, self.rfile.read(length)))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, format: str, *args: object) -> None:
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        fixture = json.loads(
+            (FIXTURES / "user-prompt-submit.json").read_text(encoding="utf-8")
+        )
+        fixture["prompt"] = "CODEX_HOOK_PRIVATE_SENTINEL_72C9 \u91cf\u6e2c\U0001F512"
+        try:
+            with workspace_test_directory() as root:
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(EXPORTER),
+                        "--endpoint",
+                        f"http://127.0.0.1:{server.server_port}/v1/metrics",
+                        "--capture-mode",
+                        "size-only",
+                        "--state-dir",
+                        str(root / "state"),
+                    ],
+                    input=json.dumps(fixture),
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                    cwd=ROOT,
+                )
+                self.assertEqual(result.stderr, "")
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+            server.server_close()
+
+        self.assertEqual(len(received), 1)
+        self.assertEqual(received[0][0], "/v1/metrics")
+        rendered = received[0][1].decode("utf-8")
+        for forbidden in FORBIDDEN_TEXT:
+            self.assertNotIn(forbidden, rendered)
+        metric = self.metrics([json.loads(rendered)])[0]
+        self.assertEqual(metric["name"], "ai_agent.observed.user_prompt.bytes")
+        point = metric["histogram"]["dataPoints"][0]
+        self.assertEqual(point["sum"], len(fixture["prompt"].encode("utf-8")))
+
     def test_config_uses_documented_passive_events(self) -> None:
         config = json.loads(CONFIG.read_text(encoding="utf-8"))
         hooks = config["hooks"]
@@ -238,6 +406,7 @@ class CodexHooksExporterTests(unittest.TestCase):
             self.assertIn("ABSOLUTE", handler["commandWindows"])
             self.assertNotIn("powershell", handler["commandWindows"].lower())
             self.assertNotIn("--phoenix", handler["command"])
+            self.assertIn("--capture-mode metadata-only", handler["command"])
 
     def test_non_loopback_endpoint_is_rejected_without_blocking_stop(self) -> None:
         with workspace_test_directory() as root:
@@ -284,6 +453,7 @@ class CodexHooksExporterTests(unittest.TestCase):
             self.assertIn(str(Path(sys.executable).resolve()), command)
             self.assertIn(str(EXPORTER.resolve()), command)
             self.assertNotIn("powershell", command.lower())
+            self.assertIn("--capture-mode metadata-only", command)
 
             environment = os.environ.copy()
             environment["AI_OBSERVABILITY_DRY_RUN"] = "true"
@@ -315,6 +485,25 @@ class CodexHooksExporterTests(unittest.TestCase):
             self.assertNotEqual(refused.returncode, 0)
             self.assertIn("Refusing to replace existing hook configuration", refused.stderr)
             self.assertEqual(target.read_text(encoding="utf-8"), config_text)
+
+    def test_installer_can_render_explicit_size_only_command(self) -> None:
+        rendered = subprocess.run(
+            [
+                sys.executable,
+                str(INSTALLER),
+                "--print",
+                "--capture-mode",
+                "size-only",
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+            cwd=ROOT,
+        )
+        config = json.loads(rendered.stdout)
+        for group in config["hooks"].values():
+            command = group[0]["hooks"][0]["command"]
+            self.assertIn("--capture-mode size-only", command)
 
 
 if __name__ == "__main__":

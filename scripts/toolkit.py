@@ -637,6 +637,20 @@ def static_validate() -> list[str]:
                 transform_name,
                 batch_name,
             ]
+            if profile_name == "corporate.yaml" and signal == "metrics":
+                filter_name = "filter/corporate_drop_opt_in_prompt_size"
+                filter_config = processors.get(filter_name, {})
+                if filter_config.get("error_mode") != "propagate":
+                    errors.append(
+                        "corporate.yaml opt-in prompt-size filter must fail closed"
+                    )
+                if filter_config.get("metric_conditions") != [
+                    'metric.name == "ai_agent.observed.user_prompt.bytes"'
+                ]:
+                    errors.append(
+                        "corporate.yaml opt-in prompt-size filter must drop only the documented metric"
+                    )
+                expected_order.insert(-1, filter_name)
             found = (pipelines.get(signal) or {}).get("processors") or []
             if found != expected_order:
                 errors.append(

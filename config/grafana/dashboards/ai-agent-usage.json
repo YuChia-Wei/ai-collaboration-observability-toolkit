@@ -790,8 +790,8 @@
     },
     {
       "id": 17,
-      "title": "Extension 觀測快照（只在支援產品顯示）",
-      "description": "Session、context 與 quota 是 extension 當下觀測值，不是 provider 帳務；沒有支援資料時維持摺疊。",
+      "title": "Extension 觀測快照與 opt-in 大小量測（只在支援產品顯示）",
+      "description": "Session、context 與 quota 是 extension 當下觀測值，不是 provider 帳務；Codex prompt byte 量測需明確選擇 size-only，且不是 token、完整 context 或帳務；沒有支援資料時維持摺疊。",
       "type": "row",
       "collapsed": true,
       "gridPos": {
@@ -964,6 +964,141 @@
               "legendFormat": "{{ai_agent_product}} / {{model_family}} / {{token_type}}"
             }
           ]
+        },
+        {
+          "id": 25,
+          "title": "所選範圍 Codex 提示字元組（opt-in）",
+          "description": "僅在 Hook 明確選擇 size-only 時出現的使用者提交 prompt UTF-8 byte 總量；不含內容、系統指令、工具資料或完整 context，也不是 token 或帳務。",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 8,
+            "h": 6
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(increase(ai_agent_observed_user_prompt_bytes_sum{ai_agent_provider=~\"$provider\",ai_agent_product=\"codex\",ai_agent_surface=\"hooks\",content_scope=\"user_prompt\",measurement_method=\"utf8_bytes\",evidence_class=\"observed\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+              "legendFormat": "Bytes",
+              "instant": true
+            }
+          ]
+        },
+        {
+          "id": 26,
+          "title": "所選範圍 Size-only 提交筆數",
+          "description": "同一 opt-in histogram 的提交筆數；它不是 Codex provider 回報的完成回合數，不能拿來推論完整 token 用量。",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 36,
+            "w": 8,
+            "h": 6
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(increase(ai_agent_observed_user_prompt_bytes_count{ai_agent_provider=~\"$provider\",ai_agent_product=\"codex\",ai_agent_surface=\"hooks\",content_scope=\"user_prompt\",measurement_method=\"utf8_bytes\",evidence_class=\"observed\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+              "legendFormat": "提交筆數",
+              "instant": true
+            }
+          ]
+        },
+        {
+          "id": 27,
+          "title": "每次提交平均字元組（opt-in）",
+          "description": "所選範圍 byte 總量除以 size-only 提交筆數；這是輸入大小分布的輔助指標，不可視為每次作業的完整載入大小或 token 比率。",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 36,
+            "w": 8,
+            "h": 6
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(increase(ai_agent_observed_user_prompt_bytes_sum{ai_agent_provider=~\"$provider\",ai_agent_product=\"codex\",ai_agent_surface=\"hooks\",content_scope=\"user_prompt\",measurement_method=\"utf8_bytes\",evidence_class=\"observed\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) / clamp_min(sum(increase(ai_agent_observed_user_prompt_bytes_count{ai_agent_provider=~\"$provider\",ai_agent_product=\"codex\",ai_agent_surface=\"hooks\",content_scope=\"user_prompt\",measurement_method=\"utf8_bytes\",evidence_class=\"observed\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])), 1)",
+              "legendFormat": "平均 bytes",
+              "instant": true
+            }
+          ]
         }
       ]
     }
@@ -987,10 +1122,10 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_provider)",
+          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens|observed_user_prompt_bytes_(sum|count))\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_provider)",
           "refId": "provider-variable"
         },
-        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_provider)",
+        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens|observed_user_prompt_bytes_(sum|count))\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_provider)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -1015,10 +1150,10 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_product)",
+          "query": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens|observed_user_prompt_bytes_(sum|count))\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_product)",
           "refId": "product-variable"
         },
-        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens)\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_product)",
+        "definition": "label_values({__name__=~\"ai_agent_(token_usage_total|observed_session_tokens|observed_context_tokens|observed_user_prompt_bytes_(sum|count))\",ai_agent_provider=~\"$provider\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, ai_agent_product)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,

@@ -222,6 +222,12 @@ processors:
     - context: exemplar
       statements:
       - keep_keys(filtered_attributes, ["ai_context.safe_exemplar_attribute"])
+  filter/corporate_drop_opt_in_prompt_size:
+    # Prompt length is deliberately unavailable in Corporate mode, even when a
+    # local Hook command was configured with --capture-mode size-only.
+    error_mode: propagate
+    metric_conditions:
+    - metric.name == "ai_agent.observed.user_prompt.bytes"
 exporters:
   otlphttp/loki:
     endpoint: http://loki:3100/otlp
@@ -287,6 +293,7 @@ service:
       - transform/privacy_initial
       - transform/ai_agent
       - transform/corporate_allowlist
+      - filter/corporate_drop_opt_in_prompt_size
       - batch/metrics
       exporters:
       - prometheus

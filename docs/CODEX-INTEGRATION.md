@@ -38,11 +38,27 @@ Codex CLI 0.146.1 exposes stable lifecycle Hooks. The toolkit's
 `PreToolUse`/`PostToolUse` to create bounded child `TOOL` spans. These traces go
 through the same loopback Collector; no second OTLP ingress is introduced.
 
-The exporter uses a strict input allowlist. It never reads or persists prompt,
-assistant message, tool input/response, cwd, or transcript fields. Raw session,
-turn, and tool IDs are used only to locate hashed local state; exported trace
-and span IDs are newly generated. Tool names become one of five fixed
-categories.
+The exporter defaults to a strict input allowlist. In `metadata-only` mode it
+never reads or persists prompt, assistant message, tool input/response, cwd, or
+transcript fields. Raw session, turn, and tool IDs are used only to locate
+hashed local state; exported trace and span IDs are newly generated. Tool names
+become one of five fixed categories.
+
+### Opt-in size-only prompt measurement
+
+The project-local Hook command can explicitly use `--capture-mode size-only`.
+Only for `UserPromptSubmit`, it reads `prompt` in memory to calculate a UTF-8
+byte length, then emits the Delta histogram
+`ai_agent.observed.user_prompt.bytes`. It never exports the text, a hash, a
+path, an ID, tool data, or a per-turn correlation key. The fixed metric
+dimensions are `operation=turn`, `evidence_class=observed`,
+`content_scope=user_prompt`, and `measurement_method=utf8_bytes`.
+
+This is a locally observed submission size, not tokens, complete model context,
+AI Context/framework load evidence, or billing. It does not join individual
+prompt submissions to provider-reported token usage. Corporate profiles reject
+the mode in the Hook, and the Corporate Collector independently drops the
+metric if a source is misconfigured.
 
 Hooks do not expose a truthful per-model-call boundary or token/cost fields, so
 the experiment does not emit `LLM` spans and does not replace native Codex

@@ -192,7 +192,7 @@ processors:
     - context: datapoint
       statements:
       - keep_keys(attributes, ["event.name", "tool", "tool_name", "tool_category", "model", "model_id", "model_family", "agent_role", "operation", "success", "status", "type", "token_type", "task_type", "workflow_type", "stage",
-        "skill", "skill_id", "rule", "rule_id", "state", "outcome", "error_category", "evidence_class", "source", "unit", "tier", "reused", "reason", "framework_version", "validation_type", "validation_tier",
+        "skill", "skill_id", "rule", "rule_id", "state", "outcome", "error_category", "evidence_class", "content_scope", "measurement_method", "source", "unit", "tier", "reused", "reason", "framework_version", "validation_type", "validation_tier",
         "wait_reason", "cost_unit", "cost_source", "gen_ai.operation.name", "gen_ai.provider.name", "gen_ai.request.model", "gen_ai.response.model", "ai_context.environment.profile",
         "ai_context.framework.version", "ai_context.workflow.type", "ai_context.workflow.stage", "ai_context.task.type", "ai_context.skill.id", "ai_context.rule.id", "ai_context.rule.state",
         "ai_context.validation.type", "ai_context.validation.tier", "ai_context.validation.reused", "ai_context.retry.reason", "ai_context.wait.reason", "ai_context.outcome", "ai_context.evidence.class",
@@ -261,6 +261,10 @@ processors:
       - set(attributes["operation"], "api") where IsMatch(metric.name, "^ai_agent\\.api\\.")
       - set(attributes["evidence_class"], "provider-reported") where IsMatch(metric.name, "^ai_agent\\.") and resource.attributes["service.name"] == "codex-app-server"
       - set(attributes["evidence_class"], "observed") where IsMatch(metric.name, "^ai_agent\\.observed\\.")
+      - set(attributes["content_scope"], "user_prompt") where metric.name == "ai_agent.observed.user_prompt.bytes"
+      - set(attributes["measurement_method"], "utf8_bytes") where metric.name == "ai_agent.observed.user_prompt.bytes"
+      - delete_key(attributes, "content_scope") where metric.name != "ai_agent.observed.user_prompt.bytes"
+      - delete_key(attributes, "measurement_method") where metric.name != "ai_agent.observed.user_prompt.bytes"
       - set(attributes["tool_category"], "execution") where IsMatch(metric.name, "^ai_agent\\.tool\\.") and attributes["tool"] == "exec"
       - set(attributes["tool_category"], "execution") where IsMatch(metric.name, "^ai_agent\\.tool\\.") and attributes["tool"] == "exec_command"
       - set(attributes["tool_category"], "editor") where IsMatch(metric.name, "^ai_agent\\.tool\\.") and attributes["tool"] == "apply_patch"

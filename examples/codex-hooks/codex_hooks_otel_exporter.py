@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Privacy-first Codex lifecycle Hook exporter for local OTLP/HTTP.
 
-The exporter intentionally reads only the documented lifecycle metadata needed
-to correlate a turn and its tool calls. It never reads or stores prompt text,
-assistant messages, tool input/output, transcripts, or working-directory paths.
+The default ``metadata-only`` mode reads only the documented lifecycle metadata
+needed to correlate a turn and its tool calls. The explicit ``size-only`` mode
+may read a submitted user prompt in memory solely to calculate its UTF-8 byte
+length. It never stores prompt text, assistant messages, tool input/output,
+transcripts, or working-directory paths.
 
 Only OpenInference AGENT and TOOL spans are produced. Codex Hooks do not expose
 the model-call boundary or token accounting needed for a truthful LLM span.
@@ -29,8 +31,11 @@ from typing import Any
 DEFAULT_ENDPOINT = "http://127.0.0.1:4318"
 DEFAULT_PROFILE = "personal-local"
 DEFAULT_TIMEOUT_SECONDS = 0.35
+DEFAULT_CAPTURE_MODE = "metadata-only"
 SCOPE_NAME = "ai-collaboration-observability.codex-hooks-example"
 SCOPE_VERSION = "0.1.0"
+CAPTURE_MODES = ("metadata-only", "size-only")
+PROMPT_SIZE_BUCKETS = (256, 1024, 4096, 16384, 65536, 262144)
 SUPPORTED_EVENTS = {
     "UserPromptSubmit",
     "PreToolUse",
@@ -47,6 +52,11 @@ def _bool_env(name: str, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _default_capture_mode() -> str:
+    value = os.getenv("AI_OBSERVABILITY_CAPTURE_MODE", DEFAULT_CAPTURE_MODE)
+    return value if value in CAPTURE_MODES else DEFAULT_CAPTURE_MODE
 
 
 def _safe_text(value: Any, *, fallback: str = "unknown", limit: int = 80) -> str:
@@ -233,6 +243,67 @@ def _trace_payload(
     }
 
 
+def _prompt_size_bucket_counts(byte_count: int) -> list[str]:
+    for index, bound in enumerate(PROMPT_SIZE_BUCKETS):
+        if byte_count <= bound:
+            return ["1" if position == index else "0" for position in range(len(PROMPT_SIZE_BUCKETS) + 1)]
+    return ["0"] * len(PROMPT_SIZE_BUCKETS) + ["1"]
+
+
+def _prompt_size_metric_payload(
+    *,
+    profile: str,
+    timestamp_ns: int,
+    byte_count: int,
+) -> dict[str, Any]:
+    """Build the opt-in metric without retaining the source prompt.
+
+    The histogram is Delta so Prometheus can expose range-safe _sum and _count
+    series. Its labels are fixed reviewed dimensions; no correlation or content
+    identifier is emitted.
+    """
+    return {
+        "resourceMetrics": [
+            {
+                "resource": {"attributes": _otlp_attributes(_resource_attributes(profile))},
+                "scopeMetrics": [
+                    {
+                        "scope": {"name": SCOPE_NAME, "version": SCOPE_VERSION},
+                        "metrics": [
+                            {
+                                "name": "ai_agent.observed.user_prompt.bytes",
+                                "description": "Opt-in UTF-8 byte length of a Codex user prompt.",
+                                "unit": "By",
+                                "histogram": {
+                                    "aggregationTemporality": 1,
+                                    "dataPoints": [
+                                        {
+                                            "startTimeUnixNano": str(timestamp_ns),
+                                            "timeUnixNano": str(timestamp_ns),
+                                            "attributes": _otlp_attributes(
+                                                {
+                                                    "operation": "turn",
+                                                    "evidence_class": "observed",
+                                                    "content_scope": "user_prompt",
+                                                    "measurement_method": "utf8_bytes",
+                                                }
+                                            ),
+                                            "count": "1",
+                                            "sum": byte_count,
+                                            "bucketCounts": _prompt_size_bucket_counts(byte_count),
+                                            "explicitBounds": list(PROMPT_SIZE_BUCKETS),
+                                        }
+                                    ],
+                                },
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+
+
 def _base_endpoint(endpoint: str) -> str:
     parsed = urllib.parse.urlsplit(endpoint.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -240,14 +311,18 @@ def _base_endpoint(endpoint: str) -> str:
     if (parsed.hostname or "").lower() not in {"127.0.0.1", "localhost", "::1"}:
         raise ValueError("Codex Hook telemetry endpoint must be loopback")
     path = parsed.path.rstrip("/")
-    if path.endswith("/v1/traces"):
-        path = path[: -len("/v1/traces")]
+    for signal in ("traces", "metrics", "logs"):
+        suffix = f"/v1/{signal}"
+        if path.endswith(suffix):
+            path = path[: -len(suffix)]
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, path, "", "")).rstrip("/")
 
 
-def _capture_payload(capture_dir: Path, label: str, payload: dict[str, Any]) -> None:
+def _capture_payload(
+    capture_dir: Path, signal: str, label: str, payload: dict[str, Any]
+) -> None:
     capture_dir.mkdir(parents=True, exist_ok=True)
-    path = capture_dir / f"{time.time_ns()}-traces-{label}.json"
+    path = capture_dir / f"{time.time_ns()}-{signal}-{label}.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
@@ -263,7 +338,7 @@ def _emit_trace(
     debug: bool,
 ) -> None:
     if capture_dir:
-        _capture_payload(capture_dir, label, payload)
+        _capture_payload(capture_dir, "traces", label, payload)
     if dry_run:
         return
     headers = {"Content-Type": "application/json"}
@@ -281,6 +356,37 @@ def _emit_trace(
     except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
         if debug:
             print(f"Codex Hooks OTLP export skipped: {type(exc).__name__}", file=sys.stderr)
+
+
+def _emit_metric(
+    *,
+    label: str,
+    payload: dict[str, Any],
+    endpoint: str,
+    timeout: float,
+    dry_run: bool,
+    capture_dir: Path | None,
+    debug: bool,
+) -> None:
+    if capture_dir:
+        _capture_payload(capture_dir, "metrics", label, payload)
+    if dry_run:
+        return
+    try:
+        request = urllib.request.Request(
+            f"{_base_endpoint(endpoint)}/v1/metrics",
+            data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=max(0.05, timeout)) as response:
+            response.read(1024)
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        if debug:
+            print(
+                f"Codex Hooks OTLP metric export skipped: {type(exc).__name__}",
+                file=sys.stderr,
+            )
 
 
 def _tool_category(value: Any) -> str:
@@ -316,6 +422,19 @@ def _turn_state(payload: dict[str, Any], state_root: Path) -> tuple[Path, Path]:
     return session, _state_path(session, "turn", turn_id)
 
 
+def _size_only_enabled(args: argparse.Namespace) -> bool:
+    # Corporate mode stays fail-closed even when a hook command is misconfigured.
+    profile = _safe_text(getattr(args, "profile", DEFAULT_PROFILE), fallback=DEFAULT_PROFILE)
+    return (
+        getattr(args, "capture_mode", DEFAULT_CAPTURE_MODE) == "size-only"
+        and not profile.lower().startswith("corporate")
+    )
+
+
+def _utf8_byte_count(value: str) -> int:
+    return len(value.encode("utf-8", errors="surrogatepass"))
+
+
 def _handle_event(payload: dict[str, Any], args: argparse.Namespace) -> None:
     event = _event_name(payload)
     if not event:
@@ -335,6 +454,24 @@ def _handle_event(payload: dict[str, Any], args: argparse.Namespace) -> None:
                 "model": _model(payload),
             },
         )
+        if _size_only_enabled(args):
+            # Do not access this field unless the user explicitly selected the
+            # limited measurement mode. The string remains local and ephemeral.
+            prompt = payload.get("prompt")
+            if isinstance(prompt, str):
+                _emit_metric(
+                    label="user-prompt-bytes",
+                    payload=_prompt_size_metric_payload(
+                        profile=args.profile,
+                        timestamp_ns=now_ns,
+                        byte_count=_utf8_byte_count(prompt),
+                    ),
+                    endpoint=args.endpoint,
+                    timeout=args.timeout,
+                    dry_run=args.dry_run,
+                    capture_dir=args.capture_dir,
+                    debug=args.debug,
+                )
         return
 
     turn = _load_state(turn_path)
@@ -452,6 +589,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--profile",
         default=os.getenv("AI_OBSERVABILITY_PROFILE", DEFAULT_PROFILE),
         help="Bounded environment profile recorded on the resource.",
+    )
+    parser.add_argument(
+        "--capture-mode",
+        choices=CAPTURE_MODES,
+        default=_default_capture_mode(),
+        help=(
+            "metadata-only never reads prompt content; size-only exports only its "
+            "UTF-8 byte count outside Corporate profiles."
+        ),
     )
     parser.add_argument(
         "--timeout",
