@@ -207,21 +207,26 @@ instrumentation must not emit provider usage under \`ai_context.*\`.
 
 ## API USD and Codex credits estimates
 
-API cost is an explicitly versioned estimate, not provider billing. The active
-rate card is \`openai-api-2026-08-12\`, denominated in USD per one million tokens,
-and covers only exact \`gpt-5.6-sol\`, \`gpt-5.6-terra\`, and \`gpt-5.6-luna\`
-accounting classes. Each output series retains \`currency\`,
-\`rate_card_version\`, \`rate_card_source\`, \`pricing_scope\`, and
-\`cost_source=estimated_api_list_price\`.
+API cost is an explicitly versioned estimate, not provider billing. The GPT-5.6
+rate card is `openai-api-2026-08-12`, denominated in USD per one million tokens,
+and covers only exact `gpt-5.6-sol`, `gpt-5.6-terra`, and `gpt-5.6-luna`
+accounting classes. Each output series retains `currency`,
+`rate_card_version`, `rate_card_source`, `pricing_scope`, and
+`cost_source=estimated_api_list_price`.
 
-Codex credits use the separate \`openai-codex-credits-2026-08-12\` public rate
+Codex credits use the separate `openai-codex-credits-2026-08-12` public rate
 card. It publishes input, cached input, and output rates. Cached input is
 discounted, not free. Because the public table does not publish a distinct
-cache-write credits rate, \`input_cache_write\` stays in the credits-unpriced
+cache-write credits rate, `input_cache_write` stays in the credits-unpriced
 metric instead of borrowing the API 1.25x multiplier.
 
-No estimate is guessed for an \`unmapped\` model, including current
-\`approval_reviewer\` telemetry, or for Antigravity, Claude, or Copilot. The API
+The `openai-api-2026-09-07` card covers exact `gpt-6-astra`
+standard-context accounting classes. The `openai-codex-credits-2026-09-07`
+card covers its published input, cached-input, and output rates. Both retain
+their own version metadata rather than changing the GPT-5.6 cards.
+
+No estimate is guessed for an `unmapped` model, including current
+`approval_reviewer` telemetry, or for Antigravity, Claude, or Copilot. The API
 estimate does not represent Codex subscriptions, credits, Enterprise contracts,
 invoices, or internal showback. The credits estimate is a public rate-card
 equivalent, not the official remaining plan allowance or actual debit.
@@ -240,6 +245,12 @@ the mode's final policy:
 2. canonical copy/normalization;
 3. final Core/Evaluation privacy filter or Corporate exact allowlist;
 4. batching and local export.
+
+Source-named telemetry is preserved only after that ingress redaction. In other
+words, raw `codex.*` means source-shaped, privacy-filtered telemetry—not an
+unredacted archive of prompts, tool payloads, paths, or identifiers. Canonical
+`ai_agent.*` copies receive bounded derived dimensions without replacing the
+source-named metric.
 
 Evaluation spans reach Phoenix only after redaction and only when they declare
 \`openinference.span.kind\`. Compatible spans are routed by default;

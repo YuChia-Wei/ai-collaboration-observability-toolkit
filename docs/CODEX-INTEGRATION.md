@@ -123,7 +123,8 @@ dashboards are retired until a real framework emitter exists. No dashboard
 substitutes provider activity for framework evidence.
 
 Exact Codex models are mapped to bounded `model_id` before the raw model label
-is removed from the canonical copy. Unknown models become `unmapped` and remain
+is removed from the canonical copy. The reviewed set includes GPT-5.6 Sol,
+Terra, Luna, and GPT-6 Astra; unknown models become `unmapped` and remain
 visible without a price. `agent_role` is a separate bounded dimension:
 `primary`, `approval_reviewer`, `subagent`, or `unknown`. A producer-supplied
 subagent role is retained. The current `codex-auto-review` pseudo-model maps to

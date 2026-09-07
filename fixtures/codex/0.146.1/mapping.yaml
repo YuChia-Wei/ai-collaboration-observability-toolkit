@@ -70,8 +70,8 @@ metrics:
 
 bounded_dimensions:
   agent_role: [approval_reviewer, primary, subagent, unknown]
-  model_id: [gpt-5.6-luna, gpt-5.6-sol, gpt-5.6-terra, unmapped]
-  model_family: [gpt-5.6, unmapped]
+  model_id: [gpt-5.6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-6-astra, unmapped]
+  model_family: [gpt-5.6, gpt-6, unmapped]
   token_type: [input, non_cached_input, cached_input, cache_write_input, output, reasoning_output, total]
   operation: [api, compaction, mcp, thread, tool, turn]
   evidence_class: [provider-reported]

@@ -74,16 +74,18 @@ Antigravity smoke data uses `ai-collaboration-fixture`. Dashboards exclude all
 three. Existing stored series are not rewritten or backfilled; v2 requires the
 new `agent_role` label and therefore applies only to newly normalized data.
 
-## API USD rate card
+## API USD rate cards
 
-The active `openai-api-2026-08-12` card was read back from the official model
-pages:
+The `openai-api-2026-08-12` card was read back from the official GPT-5.6 model
+pages. The Astra row uses its separately versioned `openai-api-2026-09-07`
+read-back:
 
 | Model | Uncached input | Cached input | Cache write | Output |
 |---|---:|---:|---:|---:|
 | `gpt-5.6-sol` | $5.00 | $0.50 | $6.25 | $30.00 |
 | `gpt-5.6-terra` | $2.00 | $0.20 | $2.50 | $12.00 |
 | `gpt-5.6-luna` | $0.20 | $0.02 | $0.25 | $1.20 |
+| `gpt-6-astra` | $10.00 | $1.00 | $12.50 | $50.00 |
 
 Values are USD per one million tokens. The model pages state that cache writes
 are billed at 1.25 times uncached input. Aggregated telemetry cannot identify
@@ -95,23 +97,30 @@ Sources:
 - [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
 - [GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra)
 - [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
+- [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)
 
 ## Codex credits rate card
 
-The active `openai-codex-credits-2026-08-12` card follows the public Codex
-token-based table:
+The GPT-5.6 rows use `openai-codex-credits-2026-08-12`; the Astra row uses
+the separately versioned `openai-codex-credits-2026-09-07` read from the
+public Codex token-based table:
 
 | Model | Input | Cached input | Output |
 |---|---:|---:|---:|
 | `gpt-5.6-sol` | 125 | 12.5 | 750 |
 | `gpt-5.6-terra` | 50 | 5 | 300 |
 | `gpt-5.6-luna` | 5 | 0.5 | 30 |
+| `gpt-6-astra` | 250 | 25 | 1,250 |
 
 Values are credits per one million tokens. Cached input has a lower rate; it is
 not free. The public Codex table does not publish a separate cache-write credits
 rate, so `input_cache_write` remains visible in
 `ai_agent_unpriced_credit_token_usage_total` instead of borrowing the API
 cache-write multiplier.
+
+All Astra estimates use the published standard rate. The canonical accounting
+contract does not infer a Fast-mode multiplier when an individual token series
+does not prove that mode.
 
 This metric is a public rate-card equivalent, not a statement that the user's
 included weekly allowance was reduced by exactly that value. Model choice,

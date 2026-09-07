@@ -2,8 +2,8 @@ groups:
   - name: ai-agent-token-accounting-and-estimates
     interval: 10s
     rules:
-      # Public API list prices read back from each official GPT-5.6 model page
-      # on 2026-08-12. Cache writes are explicitly listed at 1.25x uncached
+      # Public API list prices are versioned by their official-model-page
+      # read-back date. Cache writes are explicitly listed at 1.25x uncached
       # input. These estimates are not Codex subscription or invoice prices.
       - record: ai_agent_token_price_usd_per_million
         expr: vector(5)
@@ -128,6 +128,49 @@ groups:
           rate_card_source: official_openai_model_pages
           pricing_scope: base_standard_context
 
+      # GPT-6 Astra public API standard-context rates read on 2026-09-07.
+      # The source does not make this estimate an invoice or subscription charge.
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(10)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-astra
+          usage_class: input_uncached
+          currency: USD
+          rate_card_version: openai-api-2026-09-07
+          rate_card_source: official_openai_model_pages
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(1)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-astra
+          usage_class: input_cached
+          currency: USD
+          rate_card_version: openai-api-2026-09-07
+          rate_card_source: official_openai_model_pages
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(12.5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-astra
+          usage_class: input_cache_write
+          currency: USD
+          rate_card_version: openai-api-2026-09-07
+          rate_card_source: official_openai_model_pages
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(50)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-astra
+          usage_class: output
+          currency: USD
+          rate_card_version: openai-api-2026-09-07
+          rate_card_source: official_openai_model_pages
+          pricing_scope: base_standard_context
+
       # Public Codex token-based credits rate card. It publishes input,
       # cached-input, and output rates only. Cache-write input deliberately has
       # no credit rate and stays visible through the unpriced recording rule.
@@ -221,6 +264,39 @@ groups:
           usage_class: output
           credit_unit: credits
           rate_card_version: openai-codex-credits-2026-08-12
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+
+      # GPT-6 Astra Codex standard-credit rates read on 2026-09-07. The
+      # published table has no cache-write class, so that class remains unpriced.
+      - record: ai_agent_token_credit_per_million
+        expr: vector(250)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-astra
+          usage_class: input_uncached
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-07
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+      - record: ai_agent_token_credit_per_million
+        expr: vector(25)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-astra
+          usage_class: input_cached
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-07
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+      - record: ai_agent_token_credit_per_million
+        expr: vector(1250)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-astra
+          usage_class: output
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-07
           rate_card_source: official_codex_pricing
           pricing_scope: published_token_classes
 

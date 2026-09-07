@@ -24,7 +24,7 @@
                     "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
                     "timeUnixNano": "{{TIME_UNIX_NANO}}",
                     "attributes": [
-                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "model", "value": {"stringValue": "gpt-6-astra"}},
                       {"key": "token_type", "value": {"stringValue": "input"}}
                     ],
                     "count": "1",
@@ -36,7 +36,7 @@
                     "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
                     "timeUnixNano": "{{TIME_UNIX_NANO}}",
                     "attributes": [
-                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "model", "value": {"stringValue": "gpt-6-astra"}},
                       {"key": "token_type", "value": {"stringValue": "cached_input"}}
                     ],
                     "count": "1",
@@ -48,7 +48,7 @@
                     "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
                     "timeUnixNano": "{{TIME_UNIX_NANO}}",
                     "attributes": [
-                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "model", "value": {"stringValue": "gpt-6-astra"}},
                       {"key": "token_type", "value": {"stringValue": "cache_write_input"}}
                     ],
                     "count": "1",
@@ -60,7 +60,7 @@
                     "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
                     "timeUnixNano": "{{TIME_UNIX_NANO}}",
                     "attributes": [
-                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "model", "value": {"stringValue": "gpt-6-astra"}},
                       {"key": "token_type", "value": {"stringValue": "output"}}
                     ],
                     "count": "1",
@@ -72,7 +72,7 @@
                     "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
                     "timeUnixNano": "{{TIME_UNIX_NANO}}",
                     "attributes": [
-                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "model", "value": {"stringValue": "gpt-6-astra"}},
                       {"key": "token_type", "value": {"stringValue": "reasoning_output"}}
                     ],
                     "count": "1",
@@ -84,7 +84,7 @@
                     "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
                     "timeUnixNano": "{{TIME_UNIX_NANO}}",
                     "attributes": [
-                      {"key": "model", "value": {"stringValue": "gpt-5.6-sol"}},
+                      {"key": "model", "value": {"stringValue": "gpt-6-astra"}},
                       {"key": "token_type", "value": {"stringValue": "total"}}
                     ],
                     "count": "1",

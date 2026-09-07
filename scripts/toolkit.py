@@ -1994,7 +1994,7 @@ def _check_backend_data(
                 + current_or_recent(
                     "ai_agent_token_usage_total{"
                     'ai_agent_provider="openai",ai_agent_product="codex",'
-                    'model_id="gpt-5.6-sol",'
+                    'model_id="gpt-6-astra",'
                     'agent_role="primary",'
                     'service_namespace="ai-collaboration-cost-fixture",'
                     'accounting_schema="v2",'
@@ -2015,14 +2015,14 @@ def _check_backend_data(
             "sum("
             + current_or_recent(
                 'ai_agent_estimated_cost_usd_total{ai_agent_provider="openai",'
-                'ai_agent_product="codex",model_id="gpt-5.6-sol",'
+                'ai_agent_product="codex",model_id="gpt-6-astra",'
                 'agent_role="primary",'
                 'service_namespace="ai-collaboration-cost-fixture",'
                 'accounting_schema="v2"}'
             )
             + ")"
         ),
-        lambda value: abs(value - 0.08425) < 0.000000001,
+        lambda value: abs(value - 0.1485) < 0.000000001,
     )
     estimated_credits = retry(
         "Codex estimated public credits",
@@ -2030,14 +2030,14 @@ def _check_backend_data(
             "sum("
             + current_or_recent(
                 'ai_agent_estimated_credit_usage_total{ai_agent_provider="openai",'
-                'ai_agent_product="codex",model_id="gpt-5.6-sol",'
+                'ai_agent_product="codex",model_id="gpt-6-astra",'
                 'agent_role="primary",'
                 'service_namespace="ai-collaboration-cost-fixture",'
                 'accounting_schema="v2"}'
             )
             + ")"
         ),
-        lambda value: abs(value - 1.95) < 0.000000001,
+        lambda value: abs(value - 3.4) < 0.000000001,
     )
     reviewer_accounting = retry(
         "Codex approval-reviewer token accounting",
@@ -2082,7 +2082,7 @@ def _check_backend_data(
         lambda: prometheus_scalar(
             "sum("
             + current_or_recent(
-                'ai_agent_unpriced_credit_token_usage_total{model_id="gpt-5.6-sol",'
+                'ai_agent_unpriced_credit_token_usage_total{model_id="gpt-6-astra",'
                 'agent_role="primary",usage_class="input_cache_write",'
                 'service_namespace="ai-collaboration-cost-fixture",'
                 'accounting_schema="v2"}'
@@ -2092,14 +2092,14 @@ def _check_backend_data(
         lambda value: abs(value - 1000.0) < 0.000001,
     )
     price_series = prometheus_query("ai_agent_token_price_usd_per_million")
-    if len(price_series) != 12:
+    if len(price_series) != 16:
         raise RuntimeError(
-            f"expected 12 exact rate-card series, found {len(price_series)}"
+            f"expected 16 exact rate-card series, found {len(price_series)}"
         )
     credit_series = prometheus_query("ai_agent_token_credit_per_million")
-    if len(credit_series) != 9:
+    if len(credit_series) != 12:
         raise RuntimeError(
-            f"expected 9 published Codex credit-rate series, found {len(credit_series)}"
+            f"expected 12 published Codex credit-rate series, found {len(credit_series)}"
         )
     report.pass_(
         prefix + "codex role/token accounting and estimates",
