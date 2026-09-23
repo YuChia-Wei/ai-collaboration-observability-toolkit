@@ -422,10 +422,14 @@ class RepositoryTests(unittest.TestCase):
             "gpt-5.6-terra": "gpt-5.6-terra",
             "gpt-5.6-luna": "gpt-5.6-luna",
             "gpt-6-astra": "gpt-6-astra",
+            "gpt-6-sol": "gpt-6-sol",
+            "gpt-6-luna": "gpt-6-luna",
         }
         expected_families = {
             "gpt-5.6": "gpt-5.6",
             "gpt-6-astra": "gpt-6",
+            "gpt-6-sol": "gpt-6",
+            "gpt-6-luna": "gpt-6",
         }
         for path in sorted((ROOT / "config/otel-collector").glob("*.yaml")):
             text = path.read_text(encoding="utf-8")
@@ -436,16 +440,35 @@ class RepositoryTests(unittest.TestCase):
                 statement = f'set(attributes["model_id"], "{model_id}")'
                 self.assertIn(statement, text, (path.name, source))
                 self.assertLess(text.index(statement), delete_index, (path.name, source))
+                mapping = next(line for line in text.splitlines() if statement in line)
+                self.assertIn(f'attributes["model"] == "{source}"', mapping)
             for source, family in expected_families.items():
                 statement = f'set(attributes["model_family"], "{family}")'
                 self.assertIn(statement, text, (path.name, source))
                 self.assertLess(text.index(statement), delete_index, (path.name, source))
+                if source.startswith("gpt-6-"):
+                    self.assertTrue(
+                        any(
+                            statement in line
+                            and f'attributes["model"] == "{source}"' in line
+                            for line in text.splitlines()
+                        ),
+                        (path.name, source),
+                    )
             reviewer = 'set(attributes["agent_role"], "approval_reviewer")'
             primary = 'set(attributes["agent_role"], "primary")'
             self.assertIn(reviewer, text, path.name)
             self.assertIn(primary, text, path.name)
             self.assertLess(text.index(reviewer), delete_index, path.name)
             self.assertLess(text.index(primary), delete_index, path.name)
+            primary_mapping = next(
+                line for line in text.splitlines()
+                if primary in line and 'resource.attributes["service.name"] == "codex-app-server"' in line
+            )
+            self.assertIn('attributes["agent_role"] == "unknown"', primary_mapping)
+            for model in ("gpt-6-sol", "gpt-6-luna"):
+                self.assertIn(f'attributes["model"] == "{model}"', primary_mapping)
+            self.assertNotRegex(text, r'IsMatch\(attributes\["model"\], "\^gpt-6')
             self.assertNotIn(
                 'set(attributes["model_id"], "codex-auto-review")', text, path.name
             )
@@ -466,7 +489,7 @@ class RepositoryTests(unittest.TestCase):
         config = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-cost.yml")
         rules = config["groups"][0]["rules"]
         prices = [rule for rule in rules if rule["record"] == "ai_agent_token_price_usd_per_million"]
-        self.assertEqual(len(prices), 16)
+        self.assertEqual(len(prices), 24)
         expected = {
             ("gpt-5.6-sol", "input_uncached"): 5.0,
             ("gpt-5.6-sol", "input_cached"): 0.5,
@@ -484,12 +507,22 @@ class RepositoryTests(unittest.TestCase):
             ("gpt-6-astra", "input_cached"): 1.0,
             ("gpt-6-astra", "input_cache_write"): 12.5,
             ("gpt-6-astra", "output"): 50.0,
+            ("gpt-6-sol", "input_uncached"): 2.0,
+            ("gpt-6-sol", "input_cached"): 0.2,
+            ("gpt-6-sol", "input_cache_write"): 2.5,
+            ("gpt-6-sol", "output"): 10.0,
+            ("gpt-6-luna", "input_uncached"): 0.1,
+            ("gpt-6-luna", "input_cached"): 0.01,
+            ("gpt-6-luna", "input_cache_write"): 0.125,
+            ("gpt-6-luna", "output"): 0.5,
         }
         api_rate_cards = {
             "gpt-5.6-sol": "openai-api-2026-08-12",
             "gpt-5.6-terra": "openai-api-2026-08-12",
             "gpt-5.6-luna": "openai-api-2026-08-12",
             "gpt-6-astra": "openai-api-2026-09-07",
+            "gpt-6-sol": "openai-api-2026-09-23",
+            "gpt-6-luna": "openai-api-2026-09-23",
         }
         observed = {}
         for rule in prices:
@@ -499,7 +532,12 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(
                 labels["rate_card_version"], api_rate_cards[labels["model_id"]]
             )
-            self.assertEqual(labels["rate_card_source"], "official_openai_model_pages")
+            self.assertEqual(
+                labels["rate_card_source"],
+                "official_openai_pricing"
+                if labels["model_id"] in {"gpt-6-sol", "gpt-6-luna"}
+                else "official_openai_model_pages",
+            )
             self.assertEqual(labels["pricing_scope"], "base_standard_context")
             value = float(rule["expr"].removeprefix("vector(").removesuffix(")"))
             observed[(labels["model_id"], labels["usage_class"])] = value
@@ -509,6 +547,7 @@ class RepositoryTests(unittest.TestCase):
         credit_rates = [
             rule for rule in rules if rule["record"] == "ai_agent_token_credit_per_million"
         ]
+        self.assertEqual(len(credit_rates), 18)
         expected_credits = {
             ("gpt-5.6-sol", "input_uncached"): 125.0,
             ("gpt-5.6-sol", "input_cached"): 12.5,
@@ -522,12 +561,20 @@ class RepositoryTests(unittest.TestCase):
             ("gpt-6-astra", "input_uncached"): 250.0,
             ("gpt-6-astra", "input_cached"): 25.0,
             ("gpt-6-astra", "output"): 1250.0,
+            ("gpt-6-sol", "input_uncached"): 50.0,
+            ("gpt-6-sol", "input_cached"): 5.0,
+            ("gpt-6-sol", "output"): 250.0,
+            ("gpt-6-luna", "input_uncached"): 2.5,
+            ("gpt-6-luna", "input_cached"): 0.25,
+            ("gpt-6-luna", "output"): 12.5,
         }
         credit_rate_cards = {
             "gpt-5.6-sol": "openai-codex-credits-2026-08-12",
             "gpt-5.6-terra": "openai-codex-credits-2026-08-12",
             "gpt-5.6-luna": "openai-codex-credits-2026-08-12",
             "gpt-6-astra": "openai-codex-credits-2026-09-07",
+            "gpt-6-sol": "openai-codex-credits-2026-09-23",
+            "gpt-6-luna": "openai-codex-credits-2026-09-23",
         }
         observed_credits = {}
         for rule in credit_rates:
@@ -665,6 +712,100 @@ class RepositoryTests(unittest.TestCase):
             )
         ]
         self.assertEqual(len(subagent_points), 4)
+
+    def test_gpt6_fixture_covers_accounting_role_and_unknown_model_boundaries(self) -> None:
+        fixture = json.loads(
+            toolkit.render_fixture(ROOT / "examples/otlp/codex-gpt6-metrics.json")
+        )
+        resources = fixture["resourceMetrics"]
+        self.assertEqual(len(resources), 2)
+        cost_resource, role_resource = resources
+        for resource, namespace in (
+            (cost_resource, "ai-collaboration-cost-fixture"),
+            (role_resource, "ai-collaboration-role-fixture"),
+        ):
+            attributes = {
+                item["key"]: item["value"]["stringValue"]
+                for item in resource["resource"]["attributes"]
+            }
+            self.assertEqual(attributes["service.name"], "codex-app-server")
+            self.assertEqual(attributes["service.namespace"], namespace)
+            for scope in resource["scopeMetrics"]:
+                for metric in scope["metrics"]:
+                    self.assertEqual(metric["name"], "codex.turn.token_usage")
+                    self.assertEqual(metric["unit"], "{token}")
+                    self.assertEqual(metric["histogram"]["aggregationTemporality"], 1)
+                    for point in metric["histogram"]["dataPoints"]:
+                        bounds = point["explicitBounds"]
+                        buckets = list(map(int, point["bucketCounts"]))
+                        self.assertEqual(len(buckets), len(bounds) + 1)
+                        self.assertEqual(sum(buckets), int(point["count"]))
+                        self.assertEqual(int(point["count"]), 1)
+                        expected_bucket = next(
+                            (index for index, bound in enumerate(bounds) if point["sum"] <= bound),
+                            len(bounds),
+                        )
+                        self.assertEqual(buckets[expected_bucket], 1)
+
+        points = cost_resource["scopeMetrics"][0]["metrics"][0]["histogram"]["dataPoints"]
+        tokens_by_model = {}
+        for point in points:
+            attributes = {
+                item["key"]: item["value"]["stringValue"] for item in point["attributes"]
+            }
+            self.assertNotIn("agent_role", attributes)
+            tokens_by_model.setdefault(attributes["model"], {})[attributes["token_type"]] = point["sum"]
+        self.assertEqual(set(tokens_by_model), {"gpt-6-sol", "gpt-6-luna"})
+        self.assertEqual(len(points), 12)
+        rules = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-cost.yml")["groups"][0]["rules"]
+        for model, expected_cost, expected_credits in (
+            ("gpt-6-sol", 0.0297, 0.68),
+            ("gpt-6-luna", 0.001485, 0.034),
+        ):
+            with self.subTest(model=model):
+                tokens = tokens_by_model[model]
+                self.assertEqual(tokens["input"] + tokens["output"], tokens["total"])
+                self.assertGreater(tokens["reasoning_output"], 0)
+                self.assertLess(tokens["reasoning_output"], tokens["output"])
+                accounting = {
+                    "input_uncached": tokens["input"] - tokens["cached_input"] - tokens["cache_write_input"],
+                    "input_cached": tokens["cached_input"],
+                    "input_cache_write": tokens["cache_write_input"],
+                    "output": tokens["output"],
+                }
+                self.assertEqual(accounting, {
+                    "input_uncached": 3000, "input_cached": 6000,
+                    "input_cache_write": 1000, "output": 2000,
+                })
+                self.assertEqual(sum(accounting.values()), tokens["total"])
+                for record, expected_estimate, unpriced in (
+                    ("ai_agent_token_price_usd_per_million", expected_cost, set()),
+                    ("ai_agent_token_credit_per_million", expected_credits, {"input_cache_write"}),
+                ):
+                    rates = {
+                        rule["labels"]["usage_class"]: float(rule["expr"].removeprefix("vector(").removesuffix(")"))
+                        for rule in rules
+                        if rule["record"] == record and rule["labels"]["model_id"] == model
+                    }
+                    self.assertEqual(set(accounting) - set(rates), unpriced)
+                    self.assertAlmostEqual(
+                        sum(accounting[usage_class] * rate / 1_000_000 for usage_class, rate in rates.items()),
+                        expected_estimate,
+                    )
+
+        role_points = role_resource["scopeMetrics"][0]["metrics"][0]["histogram"]["dataPoints"]
+        observed_roles = {}
+        for point in role_points:
+            attributes = {
+                item["key"]: item["value"]["stringValue"] for item in point["attributes"]
+            }
+            self.assertEqual(attributes["token_type"], "output")
+            self.assertEqual(point["sum"], 200)
+            observed_roles[attributes["model"]] = attributes.get("agent_role")
+        self.assertEqual(len(role_points), 3)
+        self.assertEqual(observed_roles, {
+            "gpt-6-sol": "subagent", "gpt-6-luna": "subagent", "gpt-6-future": None,
+        })
 
     def test_loki_only_indexes_approved_low_cardinality_attributes(self) -> None:
         loki = toolkit.yaml_load(ROOT / "config/loki/loki.yml")

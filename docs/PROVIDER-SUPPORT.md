@@ -5,7 +5,7 @@ dashboard contract. Documentation alone is not normalization support.
 
 | Provider/product | Verified surface | Fixture | Native view | \`ai_agent.*\` | Cost estimate | Status |
 |---|---|---|---|---|---|---|
-| OpenAI Codex CLI 0.146.1 | app-server OTLP logs/metrics/traces; app-server 0.147.0-alpha.6.5 | \`fixtures/codex/0.146.1\` plus role/accounting runtime fixture | Yes | Yes, role-aware v2 accounting | Exact reviewed GPT-5.6 and GPT-6 Astra mappings: separate public API USD and Codex credits estimates | Supported baseline; v0.2 role/credits candidate |
+| OpenAI Codex CLI 0.146.1 | app-server OTLP logs/metrics/traces; app-server 0.147.0-alpha.6.5 | \`fixtures/codex/0.146.1\` plus role/accounting runtime fixture | Yes | Yes, role-aware v2 accounting | Exact reviewed GPT-5.6 and GPT-6 Astra/Sol/Luna mappings: separate public API USD and Codex credits estimates | Supported baseline; v0.2 role/credits candidate |
 | OpenAI Codex lifecycle Hooks | `UserPromptSubmit`/`Stop` and local `PreToolUse`/`PostToolUse` | `examples/codex-hooks` privacy fixtures | Phoenix/Tempo trace plus explicit size-only metrics | Bounded lifecycle attributes; opt-in user-prompt or exact-allowlisted MCP-response UTF-8 byte histogram | No | Experimental; metadata-only by default, each size source is explicit and personal/Core/Evaluation only |
 | Google Antigravity | documented Hooks and CLI status-line extension | repository examples and privacy fixtures | Yes | Yes, observed gauges/lifecycle metadata | No; observations are not counters/billing | Supported, extension-observed |
 | Anthropic Claude Code | native OpenTelemetry metrics from CLI/Desktop | `examples/otlp/claude-code-token-metrics.json` | Yes | Token usage by type, role, skill and redacted MCP attribution | No; `model_id=unmapped` | Supported metrics baseline; Core/Evaluation attribution only |
@@ -22,8 +22,10 @@ Codex `agent_role` and `model_id` are independent. The current
 `codex-auto-review` source value proves `approval_reviewer`, but not the exact
 model, so reviewer tokens remain `model_id=unmapped` and unpriced. Cached input
 is discounted according to the matching public rate card, not free. The public
-Codex credits table has no cache-write-specific rate; that class remains visible
-as credits-unpriced.
+Codex credits table states no separate cache-write charge; that class remains
+visible as credits-unpriced, outside the three-class estimate. GPT-6 Sol/Luna
+cards are dated 2026-09-23 and use standard rates; Fast and long-context rates
+are not inferred from aggregated telemetry.
 
 Provider telemetry can establish usage, timing, tool activity, and trace events.
 It cannot independently establish that a prompt-framework rule or governance

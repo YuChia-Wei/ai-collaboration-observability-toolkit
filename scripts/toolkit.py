@@ -2092,14 +2092,14 @@ def _check_backend_data(
         lambda value: abs(value - 1000.0) < 0.000001,
     )
     price_series = prometheus_query("ai_agent_token_price_usd_per_million")
-    if len(price_series) != 16:
+    if len(price_series) != 24:
         raise RuntimeError(
-            f"expected 16 exact rate-card series, found {len(price_series)}"
+            f"expected 24 exact rate-card series, found {len(price_series)}"
         )
     credit_series = prometheus_query("ai_agent_token_credit_per_million")
-    if len(credit_series) != 12:
+    if len(credit_series) != 18:
         raise RuntimeError(
-            f"expected 12 published Codex credit-rate series, found {len(credit_series)}"
+            f"expected 18 published Codex credit-rate series, found {len(credit_series)}"
         )
     report.pass_(
         prefix + "codex role/token accounting and estimates",
@@ -2108,6 +2108,103 @@ def _check_backend_data(
         f"subagent_series={len(subagent_series)}, "
         f"unpriced_cache_write={unpriced_cache_write:g}",
     )
+
+    def checked_total(metric: str, labels: str, expected: float) -> float:
+        return retry(
+            f"{metric} {{{labels}}}",
+            lambda: prometheus_scalar(
+                "sum(" + current_or_recent(f"{metric}{{{labels}}}") + ")"
+            ),
+            lambda value: abs(value - expected) < 0.000000001,
+        )
+
+    for model, expected_cost, expected_credits in (
+        ("gpt-6-sol", 0.0297, 0.68),
+        ("gpt-6-luna", 0.001485, 0.034),
+    ):
+        cost_labels = (
+            'ai_agent_provider="openai",ai_agent_product="codex",'
+            f'model_id="{model}",model_family="gpt-6",agent_role="primary",'
+            'service_namespace="ai-collaboration-cost-fixture"'
+        )
+        for usage_class, expected in expected_accounting.items():
+            checked_total(
+                "ai_agent_token_usage_total",
+                cost_labels + f',accounting_schema="v2",usage_class="{usage_class}"',
+                expected,
+            )
+        checked_total(
+            "ai_agent_estimated_cost_usd_total",
+            cost_labels + ',accounting_schema="v2",rate_card_version="openai-api-2026-09-23"',
+            expected_cost,
+        )
+        checked_total(
+            "ai_agent_estimated_credit_usage_total",
+            cost_labels + ',accounting_schema="v2",rate_card_version="openai-codex-credits-2026-09-23"',
+            expected_credits,
+        )
+        checked_total(
+            "ai_agent_unpriced_credit_token_usage_total",
+            cost_labels + ',accounting_schema="v2",usage_class="input_cache_write"',
+            1000.0,
+        )
+        raw_model_series, canonical_model_series = retry(
+            f"{model} raw/canonical model attribution",
+            lambda: (
+                prometheus_query(current_or_recent(
+                    f'codex_turn_token_usage_sum{{model="{model}",'
+                    'service_namespace="ai-collaboration-cost-fixture"}'
+                )),
+                prometheus_query(current_or_recent(
+                    f"ai_agent_turn_token_usage_sum{{{cost_labels}}}"
+                )),
+            ),
+            lambda value: len(value[0]) == 6 and len(value[1]) == 6,
+        )
+        if any("model" in item["metric"] for item in canonical_model_series):
+            raise RuntimeError(f"raw model label leaked into {model} canonical series")
+        raw_model_sum = sum(float(item["value"][1]) for item in raw_model_series)
+        canonical_model_sum = sum(float(item["value"][1]) for item in canonical_model_series)
+        if abs(raw_model_sum - 31500.0) > 0.000001 or abs(raw_model_sum - canonical_model_sum) > 0.000001:
+            raise RuntimeError(f"{model} raw/canonical token histograms do not reconcile")
+        checked_total(
+            "ai_agent_turn_token_usage_sum",
+            f'model_id="{model}",model_family="gpt-6",agent_role="subagent",'
+            'service_namespace="ai-collaboration-role-fixture",token_type="output"',
+            200.0,
+        )
+        report.pass_(
+            prefix + f"{model} mapping/accounting and role preservation",
+            f"raw_sum={raw_model_sum:g}, canonical_sum={canonical_model_sum:g}, "
+            f"estimated_usd={expected_cost:g}, estimated_credits={expected_credits:g}, "
+            "unpriced_cache_write=1000, subagent_output=200",
+        )
+
+    unknown_labels = (
+        'model_id="unmapped",model_family="unmapped",agent_role="unknown",'
+        'service_namespace="ai-collaboration-role-fixture"'
+    )
+    checked_total(
+        "codex_turn_token_usage_sum",
+        'model="gpt-6-future",service_namespace="ai-collaboration-role-fixture",'
+        'token_type="output"',
+        200.0,
+    )
+    checked_total(
+        "ai_agent_turn_token_usage_sum", unknown_labels + ',token_type="output"', 200.0
+    )
+    for metric in (
+        "ai_agent_unpriced_api_token_usage_total",
+        "ai_agent_unpriced_credit_token_usage_total",
+    ):
+        checked_total(metric, unknown_labels + ',accounting_schema="v2",usage_class="output"', 200.0)
+    for metric in (
+        "ai_agent_estimated_cost_usd_total",
+        "ai_agent_estimated_credit_usage_total",
+    ):
+        if prometheus_query(current_or_recent(f"{metric}{{{unknown_labels}}}")):
+            raise RuntimeError("unknown GPT-6 model was unexpectedly priced")
+    report.pass_(prefix + "unknown GPT-6 model remains unmapped and unpriced")
 
     claude_raw, claude_canonical = retry(
         "Claude raw/canonical request token reconciliation",
@@ -2456,6 +2553,7 @@ def smoke(
         send_fixture("logs.json", "logs")
         send_fixture("metrics.json", "metrics")
         send_fixture("codex-cost-accounting-metrics.json", "metrics")
+        send_fixture("codex-gpt6-metrics.json", "metrics")
         send_fixture("claude-code-token-metrics.json", "metrics")
         send_antigravity_status_fixture(mode)
         send_fixture("traces.json", "traces")

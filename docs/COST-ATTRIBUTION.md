@@ -77,8 +77,9 @@ new `agent_role` label and therefore applies only to newly normalized data.
 ## API USD rate cards
 
 The `openai-api-2026-08-12` card was read back from the official GPT-5.6 model
-pages. The Astra row uses its separately versioned `openai-api-2026-09-07`
-read-back:
+pages. Astra uses `openai-api-2026-09-07`; GPT-6 Sol and Luna use
+`openai-api-2026-09-23` from the official API pricing page. These are dated
+snapshots; adding a new model does not revise older cards:
 
 | Model | Uncached input | Cached input | Cache write | Output |
 |---|---:|---:|---:|---:|
@@ -86,11 +87,14 @@ read-back:
 | `gpt-5.6-terra` | $2.00 | $0.20 | $2.50 | $12.00 |
 | `gpt-5.6-luna` | $0.20 | $0.02 | $0.25 | $1.20 |
 | `gpt-6-astra` | $10.00 | $1.00 | $12.50 | $50.00 |
+| `gpt-6-sol` | $2.00 | $0.20 | $2.50 | $10.00 |
+| `gpt-6-luna` | $0.10 | $0.01 | $0.125 | $0.50 |
 
-Values are USD per one million tokens. The model pages state that cache writes
-are billed at 1.25 times uncached input. Aggregated telemetry cannot identify
-which individual request crossed the greater-than-272K threshold, so this
-estimate does not apply the long-context premium.
+Values are USD per one million tokens at standard speed and base context
+(at most 272K input tokens). The sources list cache writes at 1.25 times
+uncached input. Aggregated telemetry cannot identify which individual request
+crossed the greater-than-272K threshold or used Fast mode, so this estimate
+does not apply long-context or Fast rates.
 
 Sources:
 
@@ -98,12 +102,15 @@ Sources:
 - [GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra)
 - [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 - [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)
+- [API pricing: GPT-6 Sol and Luna, read 2026-09-23](https://developers.openai.com/api/docs/pricing)
 
 ## Codex credits rate card
 
-The GPT-5.6 rows use `openai-codex-credits-2026-08-12`; the Astra row uses
-the separately versioned `openai-codex-credits-2026-09-07` read from the
-public Codex token-based table:
+The GPT-5.6 rows retain `openai-codex-credits-2026-08-12`; Astra uses
+`openai-codex-credits-2026-09-07`; GPT-6 Sol and Luna use
+`openai-codex-credits-2026-09-23` from the public Codex token-based table.
+Older cards remain historical snapshots; they do not automatically adopt
+promotional rates appearing after their read-back dates:
 
 | Model | Input | Cached input | Output |
 |---|---:|---:|---:|
@@ -111,16 +118,21 @@ public Codex token-based table:
 | `gpt-5.6-terra` | 50 | 5 | 300 |
 | `gpt-5.6-luna` | 5 | 0.5 | 30 |
 | `gpt-6-astra` | 250 | 25 | 1,250 |
+| `gpt-6-sol` | 50 | 5 | 250 |
+| `gpt-6-luna` | 2.5 | 0.25 | 12.5 |
 
 Values are credits per one million tokens. Cached input has a lower rate; it is
-not free. The public Codex table does not publish a separate cache-write credits
-rate, so `input_cache_write` remains visible in
-`ai_agent_unpriced_credit_token_usage_total` instead of borrowing the API
-cache-write multiplier.
+not free. The Codex pricing page read on 2026-09-23 states that cache writes
+have no separate charge and publishes only input, cached-input, and output
+rates. This estimate retains those three classes; `input_cache_write` stays
+visible in `ai_agent_unpriced_credit_token_usage_total` because it is outside
+this accounting estimate, not because an additional charge is expected. No
+API cache-write multiplier or inferred credit rate is applied.
 
-All Astra estimates use the published standard rate. The canonical accounting
-contract does not infer a Fast-mode multiplier when an individual token series
-does not prove that mode.
+All GPT-6 estimates use published standard rates. The Codex page lists a 2.5x
+Fast-mode credit multiplier, but the canonical accounting contract does not
+infer that mode from a model name or token series. API Fast pricing is a
+separate schedule and is not derived from that credit multiplier.
 
 This metric is a public rate-card equivalent, not a statement that the user's
 included weekly allowance was reduced by exactly that value. Model choice,

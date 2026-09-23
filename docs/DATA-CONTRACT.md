@@ -216,14 +216,22 @@ accounting classes. Each output series retains `currency`,
 
 Codex credits use the separate `openai-codex-credits-2026-08-12` public rate
 card. It publishes input, cached input, and output rates. Cached input is
-discounted, not free. Because the public table does not publish a distinct
-cache-write credits rate, `input_cache_write` stays in the credits-unpriced
-metric instead of borrowing the API 1.25x multiplier.
+discounted, not free. The pricing page read on 2026-09-23 states no separate
+cache-write charge. `input_cache_write` stays in the credits-unpriced metric
+as a class outside this three-class estimate; it does not imply an additional
+charge or borrow the API 1.25x multiplier.
 
 The `openai-api-2026-09-07` card covers exact `gpt-6-astra`
 standard-context accounting classes. The `openai-codex-credits-2026-09-07`
 card covers its published input, cached-input, and output rates. Both retain
 their own version metadata rather than changing the GPT-5.6 cards.
+
+The `openai-api-2026-09-23` and `openai-codex-credits-2026-09-23` cards cover
+exact `gpt-6-sol` and `gpt-6-luna`. Their canonical family is `gpt-6`; a valid
+producer-supplied role is retained, otherwise ordinary Codex usage defaults to
+`primary`. The API card uses `rate_card_source=official_openai_pricing`;
+credits use `official_codex_pricing`. Older cards and stored data remain
+unchanged. New mappings apply only to newly ingested data.
 
 No estimate is guessed for an `unmapped` model, including current
 `approval_reviewer` telemetry, or for Antigravity, Claude, or Copilot. The API
@@ -232,7 +240,8 @@ invoices, or internal showback. The credits estimate is a public rate-card
 equivalent, not the official remaining plan allowance or actual debit.
 Aggregated telemetry cannot determine which individual requests exceeded the
 long-context threshold, so the API estimate does not apply the greater-than-272K
-premium. See
+premium. Both estimates use standard rates and do not infer Fast mode or its
+multipliers from a model identifier. See
 [Cost attribution](COST-ATTRIBUTION.md).
 
 ## Privacy and routing

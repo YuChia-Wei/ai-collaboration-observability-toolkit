@@ -124,8 +124,8 @@ substitutes provider activity for framework evidence.
 
 Exact Codex models are mapped to bounded `model_id` before the raw model label
 is removed from the canonical copy. The reviewed set includes GPT-5.6 Sol,
-Terra, Luna, and GPT-6 Astra; unknown models become `unmapped` and remain
-visible without a price. `agent_role` is a separate bounded dimension:
+Terra, Luna, and GPT-6 Astra, Sol, Luna; unknown models become `unmapped` and
+remain visible without a price. `agent_role` is a separate bounded dimension:
 `primary`, `approval_reviewer`, `subagent`, or `unknown`. A producer-supplied
 subagent role is retained. The current `codex-auto-review` pseudo-model maps to
 `approval_reviewer`, but because it does not reveal the actual model, its
@@ -134,11 +134,14 @@ canonical `model_id` remains `unmapped` and both estimates remain absent.
 API USD uses a versioned public API card. Codex credits use a separate public
 token-based rate card and are an estimate, not the official remaining plan
 allowance or actual debit. Cached input is discounted rather than free. The
-public credits table does not list a cache-write-specific rate, so cache-write
-tokens remain visible as credits-unpriced. Raw `token_type` panels remain
-available to reconcile the non-overlapping accounting classes. The API estimate
+public credits table states no separate cache-write charge; cache-write tokens
+remain visible as credits-unpriced, outside this three-class estimate. GPT-6
+Sol and Luna use separately versioned API and credits cards dated 2026-09-23.
+Raw `token_type` panels remain available to reconcile the non-overlapping
+accounting classes. The API estimate
 does not apply the greater-than-272K premium because aggregated telemetry cannot
-identify affected requests.
+identify affected requests. Both estimates use standard rates and do not infer
+Fast mode from the model name. Existing stored data is not backfilled.
 
 Before changing a live Codex configuration, create a same-directory backup.
 For this toolkit, change only the [otel] block, keep all three endpoints on the

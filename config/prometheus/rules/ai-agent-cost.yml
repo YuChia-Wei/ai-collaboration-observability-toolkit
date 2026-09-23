@@ -171,6 +171,90 @@ groups:
           rate_card_source: official_openai_model_pages
           pricing_scope: base_standard_context
 
+      # GPT-6 Sol/Luna standard API rates (<=272K input context), read on
+      # 2026-09-23 at https://developers.openai.com/api/docs/pricing.
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(2)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-sol
+          usage_class: input_uncached
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.2)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-sol
+          usage_class: input_cached
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(2.5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-sol
+          usage_class: input_cache_write
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(10)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-sol
+          usage_class: output
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.1)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-luna
+          usage_class: input_uncached
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.01)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-luna
+          usage_class: input_cached
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.125)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-luna
+          usage_class: input_cache_write
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+      - record: ai_agent_token_price_usd_per_million
+        expr: vector(0.5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-luna
+          usage_class: output
+          currency: USD
+          rate_card_version: openai-api-2026-09-23
+          rate_card_source: official_openai_pricing
+          pricing_scope: base_standard_context
+
       # Public Codex token-based credits rate card. It publishes input,
       # cached-input, and output rates only. Cache-write input deliberately has
       # no credit rate and stays visible through the unpriced recording rule.
@@ -297,6 +381,72 @@ groups:
           usage_class: output
           credit_unit: credits
           rate_card_version: openai-codex-credits-2026-09-07
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+
+      # GPT-6 Sol/Luna standard Codex credits, read on 2026-09-23 at
+      # https://learn.chatgpt.com/docs/pricing#token-rates. No Fast multiplier.
+      # The source states no separate cache-write charge. Keep that class
+      # outside this three-class estimate, visible through the unpriced rule.
+      - record: ai_agent_token_credit_per_million
+        expr: vector(50)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-sol
+          usage_class: input_uncached
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-23
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+      - record: ai_agent_token_credit_per_million
+        expr: vector(5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-sol
+          usage_class: input_cached
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-23
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+      - record: ai_agent_token_credit_per_million
+        expr: vector(250)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-sol
+          usage_class: output
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-23
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+
+      - record: ai_agent_token_credit_per_million
+        expr: vector(2.5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-luna
+          usage_class: input_uncached
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-23
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+      - record: ai_agent_token_credit_per_million
+        expr: vector(0.25)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-luna
+          usage_class: input_cached
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-23
+          rate_card_source: official_codex_pricing
+          pricing_scope: published_token_classes
+      - record: ai_agent_token_credit_per_million
+        expr: vector(12.5)
+        labels:
+          ai_agent_provider: openai
+          model_id: gpt-6-luna
+          usage_class: output
+          credit_unit: credits
+          rate_card_version: openai-codex-credits-2026-09-23
           rate_card_source: official_codex_pricing
           pricing_scope: published_token_classes
 
