@@ -15,6 +15,7 @@ override remains possible, but floating tags and unmatched defaults fail validat
 | Component | Committed image/version | License | Role | Selection notes |
 | --- | --- | --- | --- | --- |
 | OpenTelemetry Collector Contrib | `otel/opentelemetry-collector-contrib:0.158.0` | Apache-2.0 | OTLP ingress, minimization, cardinality, routing | Pinned Collector Contrib baseline used by the repository validation and routing profiles |
+| Source archive runtime | `python:3.13.7-alpine3.22` | PSF-2.0 | Internal OTLP JSON privacy and append-only storage | Standard library only; no host port; non-root; source storage is initialized by the existing pinned Grafana image |
 | Prometheus | `prom/prometheus:v3.13.2` | Apache-2.0 | Metrics store/query | Pinned metrics baseline; validate migration notes before changing major or minor versions |
 | Loki | `grafana/loki:3.7.6` | AGPL-3.0 | Native OTLP log store/query | Uses filesystem TSDB v13 and structured metadata |
 | Tempo | `grafana/tempo:3.0.2` | AGPL-3.0 | Trace store/query | Uses the Tempo 3 monolithic local-storage configuration |

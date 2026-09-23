@@ -8,6 +8,10 @@ header-based opt-out.
 
 ## Evidence layers
 
+Core/Evaluation retain all received logs, metrics, and traces as privacy-filtered
+OTLP JSONL in a local named volume, regardless of whether a provider mapping or
+dashboard exists. These analysis evidence layers remain separately available:
+
 - Native provider telemetry: privacy-filtered codex.* and antigravity_* data.
 - Canonical AI-agent usage: bounded ai_agent.* copies created by the Collector.
 - Framework evidence: ai_context.* is reserved for independently emitted skills,
@@ -19,12 +23,19 @@ estimate is produced only when provider-reported tokens, an exact model, and a
 versioned rate card all exist. Extension-observed gauges are never presented as
 counters or billing.
 
+The source archive preserves safe source attributes and histogram datapoints.
+Analysis labels and canonical metrics are additional projections. Prometheus
+label restrictions and Phoenix compatibility filters do not remove the
+corresponding source records. Sensitive content is still removed. This applies
+only to newly received data; it cannot recover earlier discarded records,
+unsent sender data, or transport failures.
+
 ## Modes
 
 | Mode | Purpose | Policy |
 | --- | --- | --- |
-| core | Personal LGTM baseline | Initial denylist plus final privacy filter |
-| evaluation | Phoenix annotations/datasets/experiments | Redacted OpenInference-compatible spans reach Phoenix by default; generic spans remain in Tempo; `x-ai-observability-phoenix: false` opts out |
+| core | Personal LGTM baseline | Privacy-filtered source archive plus analysis copies; backend privacy/cardinality filters remain |
+| evaluation | Phoenix annotations/datasets/experiments | Same source archive as Core; redacted OpenInference-compatible spans reach Phoenix by default; `x-ai-observability-phoenix: false` opts out |
 | corporate | Company workstation metadata baseline | Exact allowlist, unknown fields dropped, no Phoenix |
 
 ## Compose-first quick start
@@ -32,7 +43,7 @@ counters or billing.
     Copy-Item .env.example .env
     docker compose -f compose.yaml up -d
 
-Evaluation:
+Evaluation (Core source archive and LGTM, plus Phoenix):
 
     docker compose -f compose.yaml -f compose.evaluation.yaml up -d
 
@@ -52,6 +63,16 @@ smoke orchestration, and evidence reports:
 
 All published ports are loopback-bound. AI tools send OTLP only to the
 Collector on 4317/4318.
+
+Core/Evaluation enable the source archive automatically. Export it for later
+analysis without printing telemetry content:
+
+    python scripts/toolkit.py source-export --mode evaluation --output artifacts/source-export-2026-09-20
+
+The output contains `logs.jsonl`, `metrics.jsonl`, and `traces.jsonl`. The archive
+has no automatic expiration, rotation, or deletion; plan disk capacity and
+manual maintenance. `down` preserves it and restarts append to the same files.
+Corporate does not route telemetry to the archive. See [Operations](docs/OPERATIONS.md).
 
 ## Verified provider surfaces
 

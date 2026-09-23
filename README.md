@@ -9,6 +9,10 @@ OpenInference span kind 的 traces，並支援 header 明確退出。
 
 ## 三層證據
 
+Core／Evaluation 另存來源封存：所有收到的 logs、metrics、traces 在機敏資料清理後，
+以 OTLP JSONL 保留在本機 named volume；不因未知 provider、未建立 mapping 或 dashboard
+不支援而略過。以下分析證據另外保留：
+
 - Provider native：經隱私過濾後保留 codex.* 與 antigravity_*，供原生診斷。
 - AI-agent canonical：Collector 建立 ai_agent.* 副本，供跨 AI coding agent 的 bounded usage 分析。
 - AI Context：ai_context.* 保留給 framework、skill、rule、validation、wait、retry 與 outcome 的顯式 emitter；目前只有 schema／fixture，沒有 production emitter 或 dashboard。
@@ -18,12 +22,18 @@ OpenInference span kind 的 traces，並支援 header 明確退出。
 時才顯示公開 API 基礎牌價估算；extension-observed gauges 不會被冒充成
 counter 或帳務。
 
+來源封存保留安全的原始欄位與 histogram datapoints；分析標籤與 canonical
+metrics 另外建立。Prometheus 的 bounded labels 與 Phoenix 的相容性篩選
+不會刪除來源封存中的對應資料。機敏內容仍會清理；這不會補回過去已丟棄、
+sender 未送出或傳輸失敗的資料。
+
 ## 架構與模式
 
     AI tools / applications / AI Context hooks
                        | OTLP gRPC or HTTP
                        v
               OpenTelemetry Collector
+              |-- internal source archive --> privacy --> OTLP JSONL (local volume)
               |-- metrics --> Prometheus --+
               |-- logs ----> Loki ---------+--> Grafana
               +-- traces --> Tempo --------+
@@ -31,8 +41,8 @@ counter 或帳務。
 
 | 模式 | 用途 | Phoenix | 資料政策 |
 | --- | --- | --- | --- |
-| core | 個人本機 LGTM 基線 | 無 | 初始 denylist 加最終 privacy filter |
-| evaluation | trace 評註、資料集與實驗 | 有 | 已去識別且含 `openinference.span.kind` 的 span 預設轉送；一般 spans 留在 Tempo，`x-ai-observability-phoenix: false` 可退出 |
+| core | 個人本機 LGTM 基線 | 無 | 來源封存加分析副本；封存保留所有收到且通過機敏清理的訊號，backend 維持 privacy／cardinality filter |
+| evaluation | trace 評註、資料集與實驗 | 有 | 同 Core 的來源封存；已去識別且含 `openinference.span.kind` 的 span 預設轉送 Phoenix，`x-ai-observability-phoenix: false` 可退出 |
 | corporate | 公司電腦 metadata-only 基線 | 無 | exact keep_keys allowlist，未知欄位一律丟棄 |
 
 Evaluation 與 Corporate 不可同時啟用。所有 host ports 預設綁定
@@ -46,7 +56,7 @@ Evaluation 與 Corporate 不可同時啟用。所有 host ports 預設綁定
     docker compose -f compose.yaml up -d
     docker compose -f compose.yaml ps
 
-Evaluation 完整模式：
+Evaluation 模式（Core 的來源封存與 LGTM，再加 Phoenix）：
 
     docker compose -f compose.yaml -f compose.evaluation.yaml up -d
 
@@ -69,6 +79,16 @@ smoke orchestrator 與報告工具：
     python scripts/toolkit.py smoke --mode evaluation --persistence-check
 
 跨平台 thin wrappers 位於 scripts/。
+
+Core／Evaluation 的來源封存會自動啟用，不需額外 capture 參數。匯出收到且
+已清理的來源資料以供後續分析：
+
+    python scripts/toolkit.py source-export --mode evaluation --output artifacts/source-export-2026-09-20
+
+輸出包含 `logs.jsonl`、`metrics.jsonl`、`traces.jsonl`；CLI 不印出遙測內容。
+封存沒有自動到期、輪替或刪除，磁碟用量會持續增加，需自行安排匯出與維護。
+`down` 保留資料，重新啟動接續寫入；Corporate 不將遙測送往來源封存。
+詳見 [Operations](docs/OPERATIONS.md)。
 
 ## 本機介面
 

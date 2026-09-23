@@ -18,8 +18,10 @@ contracts.
 
 ## Shared resource attributes
 
-The Collector accepts OpenTelemetry resources and emits only bounded,
-privacy-reviewed attributes.
+The backend analysis projections use the bounded, privacy-reviewed resource
+attributes below. Core/Evaluation source archives separately retain received
+resource fields after privacy filtering; their safe unknown attributes are not
+restricted to this table.
 
 | Attribute | Type | Examples | Notes |
 |---|---|---|---|
@@ -73,8 +75,9 @@ ID, or unrestricted raw tool name as a Prometheus or Loki index label.
 ## Canonical AI-agent metrics
 
 For native mappings the Collector uses \`copy_metric\`: the native metric
-remains available after privacy filtering, while the canonical copy preserves
-the original instrument kind, unit, monotonicity, and aggregation temporality.
+remains in the backend projection after privacy filtering, while the canonical
+copy preserves the original instrument kind, unit, monotonicity, and aggregation
+temporality.
 The explicitly marked Codex Hook size-only metric is emitted directly into the
 canonical namespace because it has no provider-native counterpart.
 
@@ -103,6 +106,15 @@ Prometheus renders dotted OTLP names with underscores and renders histograms as
 \`_bucket\`, \`_count\`, and \`_sum\` series. Queries must use histogram
 operations; a histogram sum must not be treated as a counter instrument in the
 contract.
+
+The separate source archive retains the received metric kind, unit,
+aggregation temporality, timestamps, values, counts, sums, bounds, and buckets
+after privacy filtering. Safe source metric names are not rewritten to canonical
+or Prometheus names; names containing recognized sensitive patterns are masked.
+Unknown metric names and safe dimensions remain available there even when
+normalization has no mapping or Prometheus
+cannot represent a datapoint. Backend label collapse or histogram rejection
+does not alter the archived source copy.
 
 \`ai_agent.observed.user_prompt.bytes\` is emitted only by the explicit Codex
 Hook \`size-only\` mode. Its Prometheus \`_sum\` and \`_count\` can be used with
@@ -246,8 +258,8 @@ multipliers from a model identifier. See
 
 ## Privacy and routing
 
-All modes apply an initial denylist before canonical normalization, then apply
-the mode's final policy:
+All backend analysis pipelines apply an initial denylist before canonical
+normalization, then apply the mode's final policy:
 
 1. initial deletion of content, tool payloads, command output, paths, credentials,
    identifiers, and known Codex underscore-form fields;
@@ -255,23 +267,71 @@ the mode's final policy:
 3. final Core/Evaluation privacy filter or Corporate exact allowlist;
 4. batching and local export.
 
-Source-named telemetry is preserved only after that ingress redaction. In other
-words, raw `codex.*` means source-shaped, privacy-filtered telemetry—not an
-unredacted archive of prompts, tool payloads, paths, or identifiers. Canonical
-`ai_agent.*` copies receive bounded derived dimensions without replacing the
-source-named metric.
+Core/Evaluation also attach three source archive pipelines to the same OTLP
+receiver, independent of those backend processors:
+
+1. memory limit;
+2. additive `resource/source_metadata`;
+3. `otlphttp/source`, using JSON encoding and no sending queue;
+4. internal source service privacy sanitization, then per-signal append and
+   filesystem sync.
+
+The archive accepts all received providers and signal names without requiring a
+canonical mapping. It preserves safe source fields rather than applying the
+backend cardinality allowlists. Sensitive values remain excluded; raw `codex.*`
+always means source-shaped, privacy-filtered telemetry, never unredacted
+prompts, tool payloads, identities, paths, or secrets. The internal service in
+`scripts/source_archive_server.py` recursively sanitizes records while preserving
+safe nested attribute maps, arrays, and value types. It retains span links and
+their trace/span IDs while removing sensitive link attributes and trace state.
+Free-text log bodies, span status messages, trace state, and metric descriptions
+are cleared or replaced by privacy markers. Opaque `bytesValue` attributes become
+`[REDACTED]` strings because the sanitizer cannot inspect their binary contents.
+Records with an `attributes` collection report removals and opaque-value
+replacements through additive `ai_observability.source_redacted_attribute_count`
+metadata when absent; original producer dropped-attribute counters remain
+unchanged. OTLP encoding, redaction, and
+provenance make this a processed archive rather than a byte-identical wire
+capture.
+
+The source resource metadata processor inserts
+`ai_observability.collection=source-preserving` and
+`ai_observability.source_schema_version="2"` only when absent; it does not replace
+producer-supplied values. These markers describe the archive format and do not
+prove provider semantics, model identity, or accounting correctness. Canonical
+`ai_agent.*` copies separately receive bounded derived dimensions without
+replacing source data.
+
+Each archive file is append-only OTLP JSONL at
+`/var/lib/otelcol/source/{logs,metrics,traces}.jsonl` in the
+`collector-source-data` named volume, written by the internal `source-archive`
+service. Its receiver is not published to the host; only the Collector accepts
+host telemetry. Each complete line is one OTLP export
+request with `resourceLogs`, `resourceMetrics`, or `resourceSpans`; it may
+contain multiple records. A line is not necessarily one event. The archive has
+startup recovery for an incomplete final write: its redacted bytes are durably
+retained in a separate `.partial` file before further complete lines are appended.
+These fragments are included in exports and are not complete OTLP requests. The archive has
+no automatic expiration or rotation; export and maintenance instructions are
+in [Operations](OPERATIONS.md). It covers only data received after deployment
+and does not guarantee persistence through disk, memory, transport, or process
+failures.
 
 Evaluation spans reach Phoenix only after redaction and only when they declare
 \`openinference.span.kind\`. Compatible spans are routed by default;
 \`x-ai-observability-phoenix: false\` or legacy boolean
 \`ai_context.export.phoenix=false\` opts out. Generic spans remain in Tempo. The
 header-derived routing attribute is deleted before export. Corporate mode
-defines no Phoenix exporter.
+defines no Phoenix exporter, source archive pipeline, or source exporter;
+its exact allowlist remains the authoritative policy.
 See [Privacy](PRIVACY.md) and the versioned
 [Codex fixture](../fixtures/codex/0.146.1/README.md).
 
 ## Compatibility and migration
 
+- Core/Evaluation automatically begin archiving newly received, privacy-filtered
+  source signals after the updated configuration starts. Existing stored data is
+  not migrated or reconstructed, and prior dropped data cannot be recovered.
 - The Codex 原生 Telemetry dashboard keeps UID \`ai-codex-usage\`; human-facing text changes in
   place while the PromQL contract remains stable, avoiding a duplicate dashboard.
 - The dedicated Codex Auto-review dashboard uses UID \`ai-codex-auto-review\`

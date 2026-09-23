@@ -28,6 +28,48 @@ The cardinality processor intentionally removes session, request, trace, prompt,
 UUID, validation fingerprint, and commit dimensions. Inspect traces or Loki structured metadata
 instead of restoring them as metric labels. Add only bounded dimensions to the documented contract.
 
+For safe source dimensions that are not in the backend allowlist, export the
+Core/Evaluation source archive with
+`python scripts/toolkit.py source-export --mode evaluation --output artifacts/source-export-2026-09-20`
+and inspect `metrics.jsonl` locally. It retains non-sensitive source attributes
+before canonical mapping and Prometheus label reduction. Sensitive identifiers
+and content remain redacted there too.
+
+## Unknown telemetry or a histogram is absent from Prometheus
+
+A backend metric name or dashboard mapping is not the source retention boundary.
+Core/Evaluation source pipelines archive all three received signal types before
+Prometheus conversion. For example, `Dropped misaligned histogram datapoint`
+can mean that a histogram projection cannot be accumulated by Prometheus; the
+original privacy-filtered datapoint remains in `metrics.jsonl` if the source
+export succeeded. Review its bounds, count, sum, and temporality before adding a
+canonical mapping. Do not guess semantics from the metric name.
+
+If the record is absent from the archive too, check the running mode and
+Collector configuration, source archive service health, source-export errors, available disk space, and
+whether the sender sent that signal after source archiving was deployed.
+Corporate intentionally has no source archive route. This feature cannot recover
+earlier discarded records, sender-side omissions, or transport failures.
+
+## Source archive grows or export fails
+
+For startup permission errors under `/var/lib/otelcol/source`, inspect
+`source-storage-init` first. Its expected state is `Exited (0)` after setting the
+volume directory owner and permissions. The Collector waits for that successful
+exit indirectly through the source service, which runs as UID/GID `10001:10001`;
+do not work around directory permissions by running either service as root.
+
+Check both Collector and `source-archive` logs for ingestion errors. The source
+service has no published host port; senders must use the Collector endpoint,
+which forwards this copy over the private Compose network.
+
+The `collector-source-data` volume has no TTL or automatic rotation/deletion.
+Backend retention settings do not prune it. Disk exhaustion and file-write
+errors can prevent new source records from being stored. Check disk capacity
+and Collector errors, export records that must survive, and follow the explicit
+maintenance procedure in [Operations](OPERATIONS.md). Do not use `down -v` to
+solve a full disk without exact project verification and deletion authorization.
+
 ## Loki returns HTTP 400 from the Collector
 
 Inspect Collector and Loki logs. Common causes are an invalid Loki OTLP resource-attribute mapping,

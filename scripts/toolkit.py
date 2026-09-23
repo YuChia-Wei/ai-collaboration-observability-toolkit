@@ -46,6 +46,8 @@ PHOENIX_ROUTING_ATTRIBUTE = "ai_observability.routing.phoenix"
 PHOENIX_ANNOTATION_CONFIGS = ROOT / "config/phoenix/annotation-configs.zh-TW.json"
 EXACT_IMAGES = {
     "otel-collector": "otel/opentelemetry-collector-contrib:0.158.0",
+    "source-storage-init": "grafana/grafana:13.1.3",
+    "source-archive": "python:3.13.7-alpine3.22",
     "prometheus": "prom/prometheus:v3.13.2",
     "loki": "grafana/loki:3.7.6",
     "tempo": "grafana/tempo:3.0.2",
@@ -55,6 +57,8 @@ EXACT_IMAGES = {
 }
 IMAGE_ENV_VARS = {
     "otel-collector": "OTEL_COLLECTOR_IMAGE",
+    "source-storage-init": "GRAFANA_IMAGE",
+    "source-archive": "SOURCE_ARCHIVE_IMAGE",
     "prometheus": "PROMETHEUS_IMAGE",
     "loki": "LOKI_IMAGE",
     "tempo": "TEMPO_IMAGE",
@@ -265,6 +269,78 @@ def compose_command(
     compose = require_compose()
     load_env_file()
     return run(compose + compose_args(mode) + tail, capture=capture)
+
+
+SOURCE_SIGNALS = ("logs", "metrics", "traces")
+SOURCE_ARCHIVE_PATH = "/var/lib/otelcol/source"
+
+
+def source_archive_policy_errors(profile: dict[str, Any], mode: str) -> list[str]:
+    """Keep source retention separate from lossy analytical projections."""
+    errors: list[str] = []
+    pipelines = profile.get("service", {}).get("pipelines", {})
+    exporters = profile.get("exporters", {})
+    processors = profile.get("processors", {})
+    if mode == "corporate":
+        if any(name.endswith("/source") for name in pipelines) or any(
+            name.startswith("file/") or name == "otlphttp/source" for name in exporters
+        ):
+            errors.append("Corporate must not archive source telemetry")
+        return errors
+    for signal in SOURCE_SIGNALS:
+        expected = {
+            "receivers": ["otlp"],
+            "processors": ["memory_limiter", "resource/source_metadata"],
+            "exporters": ["otlphttp/source"],
+        }
+        if pipelines.get(f"{signal}/source") != expected:
+            errors.append(f"{mode} {signal} source archive must precede analytical transformations")
+    exporter = exporters.get("otlphttp/source", {})
+    if (
+        exporter.get("endpoint") != "http://source-archive:4320"
+        or exporter.get("encoding") != "json"
+        or exporter.get("sending_queue", {}).get("enabled") is not False
+    ):
+        errors.append(f"{mode} source export must use internal JSON receiver without a raw disk queue")
+    return errors
+
+
+def source_export(mode: str, output: Path | None = None) -> Path:
+    """Copy local redacted OTLP files; never print telemetry or delete the source."""
+    if mode not in {"core", "evaluation"}:
+        raise ValueError("Source archives are available only in Core and Evaluation")
+    target = output or Path("artifacts") / f"source-export-{timestamp_slug()}"
+    if not target.is_absolute():
+        target = ROOT / target
+    if target.exists():
+        raise ValueError("Source export output must be a new directory")
+    # Check Docker before creating any local output. Compose cp also works when stopped.
+    compose = require_compose()
+    load_env_file()
+    target.mkdir(parents=True, exist_ok=False)
+    result = subprocess.run(
+        compose + compose_args(mode) + [
+            "cp", f"source-archive:{SOURCE_ARCHIVE_PATH}/.", str(target)
+        ], cwd=ROOT, capture_output=True, text=True,
+    )
+    if result.returncode or any(not (target / f"{signal}.jsonl").is_file() for signal in SOURCE_SIGNALS):
+        raise RuntimeError(
+            f"Could not copy source archive; partial export retained at {display_path(target)}. "
+            "Check the running mode and Collector source exporters."
+        )
+    files = [
+        {"file": file.name, "bytes": file.stat().st_size}
+        for file in sorted(target.iterdir()) if file.is_file()
+    ]
+    (target / "manifest.json").write_text(
+        json.dumps({
+            "exported_at": utc_now(), "mode": mode, "files": files,
+            "format": "OTLP JSON Lines", "privacy": "source-redacted-v2",
+            "snapshot": "live copy; files are not atomic across signals and the last line may be incomplete",
+        }, indent=2) + "\n", encoding="utf-8",
+    )
+    print(f"Source archive copied to {display_path(target)} (telemetry contents not printed)")
+    return target
 
 
 def _tracked_env_error() -> str | None:
@@ -591,6 +667,7 @@ def static_validate() -> list[str]:
         ("evaluation.yaml", evaluation, "transform/privacy"),
         ("corporate.yaml", corporate, "transform/corporate_allowlist"),
     ]:
+        errors.extend(source_archive_policy_errors(profile, profile_name.removesuffix(".yaml")))
         transform = profile.get("processors", {}).get(transform_name, {})
         if transform.get("error_mode") != "propagate":
             errors.append(
@@ -2511,6 +2588,8 @@ def _verify_named_volumes(mode: str, report: SmokeReport) -> None:
         "prometheus-data",
         "tempo-data",
     ]
+    if mode in {"core", "evaluation"}:
+        expected_fragments.append("collector-source-data")
     if mode == "evaluation":
         expected_fragments.append("phoenix-postgres-data")
     missing = [
@@ -2816,6 +2895,10 @@ def main() -> int:
         help="Write the resource snapshot to this repository-relative or absolute path.",
     )
 
+    source_parser = sub.add_parser("source-export", help="Copy redacted source OTLP archives for analysis")
+    source_parser.add_argument("--mode", choices=["core", "evaluation"], default="core")
+    source_parser.add_argument("--output", type=Path, help="New output directory; existing directories are refused")
+
     smoke_parser = sub.add_parser("smoke")
     smoke_parser.add_argument("--mode", choices=sorted(MODES), default="core")
     persistence_group = smoke_parser.add_mutually_exclusive_group()
@@ -2874,6 +2957,8 @@ def main() -> int:
             reset(args.mode, args.confirm)
         elif args.command == "snapshot":
             resource_snapshot(args.mode, args.output)
+        elif args.command == "source-export":
+            source_export(args.mode, args.output)
         elif args.command == "phoenix-annotations":
             phoenix_annotations(args.project, apply=args.apply)
         return 0

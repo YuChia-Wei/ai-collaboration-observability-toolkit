@@ -8,7 +8,10 @@ authorization headers, user identities, and internal repository names. A loopbac
 network exposure but does not remove the risk of durable storage, backups, screenshots, or later
 centralization.
 
-The Collector is therefore a data-loss-prevention boundary, not merely a router.
+The Collector is the only host-facing ingress and applies privacy policy to
+backend analysis. The internal source archive service applies its own redaction
+before persistence. These reviewed rules are not a universal
+data-loss-prevention classifier for arbitrary future fields or disguised content.
 
 ## Default prohibited content
 
@@ -29,15 +32,45 @@ control.
 
 ## Core and evaluation controls
 
-`transform/privacy` performs three independent reductions before fan-out:
+Core and Evaluation retain a source archive as well as backend analysis views.
+The OTLP receiver fans each signal into an independent `*/source` pipeline before
+provider normalization, canonical copies, backend allowlists, or Phoenix routing.
+`resource/source_metadata` adds archive provenance, then `otlphttp/source`
+forwards OTLP JSON over the private Compose network to `source-archive:4320`.
+The internal service in `scripts/source_archive_server.py` recursively redacts
+the received records before appending and syncing OTLP JSONL to the local
+`collector-source-data` volume. It has no published host port. The source
+exporter has no sending queue and does not spool unredacted payloads to disk.
+
+This path preserves unknown non-sensitive attributes and original metric
+datapoints without applying the Prometheus label allowlist. New provider names,
+unmapped metrics, and unsupported backend histogram shapes are not reasons to
+discard source records. It still removes known content, secrets, identities,
+paths, free-text log bodies, status messages, and metric descriptions. There is
+no unredacted capture mode. The archive is not a Prometheus or Loki index and
+does not widen either backend's permitted labels.
+
+Nested attribute maps and arrays retain their structure and safe value types.
+The sanitizer visits resource, scope, record, event, exemplar, and span-link
+attributes, including sensitive patterns in attribute keys. Safe span-link
+topology remains intact while sensitive link attributes and trace state are
+removed. Opaque `bytesValue` attributes are replaced with `[REDACTED]` because
+their binary contents cannot be inspected by these key/string rules. For records
+with an `attributes` collection, the service reports removals and opaque-value
+replacements in `ai_observability.source_redacted_attribute_count` if absent,
+while keeping producer dropped-attribute counters unchanged. Redaction and OTLP serialization
+still make this a processed archive, not byte-identical input.
+
+The backend analysis pipelines retain their initial denylist and normalization.
+`transform/privacy` then performs three reductions before backend export:
 
 1. deletes known content-, credential-, identity-, path-, command-, database-statement-, and
    exception-message attributes from resources, spans, span events, logs, and metrics;
 2. replaces every log body with `AI telemetry metadata event`;
 3. keeps only an explicit bounded label set on metric resources, datapoints, and exemplars.
 
-The transform uses `error_mode: propagate`. When a privacy statement cannot be applied, the affected
-payload is dropped instead of bypassing minimization. The Prometheus exporter also disables
+Backend privacy transforms use `error_mode: propagate`. When a privacy statement cannot be applied, the affected
+payload is rejected instead of bypassing minimization. The Prometheus exporter also disables
 OpenMetrics exemplar output, scope labels, and automatic type/unit suffixes so the committed
 dashboard metric names remain deterministic.
 
@@ -63,6 +96,12 @@ than passed through. In addition:
 - log bodies become `AI telemetry metadata event`;
 - metric datapoint labels use the same bounded label policy as personal mode;
 - no Phoenix or Internet exporter exists in the profile.
+- no source archive pipelines or source exporters exist; Core/Evaluation source
+  retention does not bypass the Corporate allowlist.
+
+The shared Compose source service may remain idle in Corporate mode; the
+Corporate Collector does not forward telemetry to it. Switching profiles does
+not delete any previously retained Core/Evaluation archive.
 
 A production company rollout additionally requires security/data-owner approval, user notice,
 backend access controls, audit logging, retention/deletion rules, pseudonym key management, and a
@@ -78,6 +117,7 @@ value, synthetic absolute paths, or prohibited fixture keys appear in:
 - Loki query results;
 - Tempo trace payloads;
 - Phoenix selected-project trace payloads.
+- Core/Evaluation source archive files.
 
 The sentinel is not a production secret. It is a deterministic canary proving that the configured
 route applies its minimization processors. A failed sentinel assertion blocks release of the
@@ -108,7 +148,15 @@ The versioned Codex fixture intentionally injects a synthetic privacy sentinel
 into metrics, logs, and traces. Runtime smoke verifies that the sentinel and
 forbidden labels are absent in the new Prometheus/Loki/Tempo time window.
 
-Collector policy changes are forward-looking. Data written to persistent
+Source archives have no automatic retention period or rotation. They grow until
+the owner performs explicit maintenance. Treat exported JSONL and backups as
+local telemetry with the same access restrictions, even after redaction. Disk
+exhaustion or export failure can prevent further writes; this is not a lossless
+transport guarantee. See [Operations](OPERATIONS.md).
+
+Collector policy changes are forward-looking. The source archive starts only
+after the updated Collector is running; it cannot restore data previously
+discarded by senders or backend pipelines. Data written to persistent
 volumes before 0.1.3 may contain attributes that the older policy admitted.
 The release does not silently delete those volumes. Irreversible cleanup
 requires an explicit Owner decision and a reviewed backup/retention procedure.

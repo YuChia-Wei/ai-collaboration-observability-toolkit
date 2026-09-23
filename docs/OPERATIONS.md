@@ -104,6 +104,16 @@ subscription allowance, debit, Enterprise contract, or invoice.
 
     python scripts/toolkit.py smoke --mode evaluation --persistence-check
 
+Verify the source archive's independent privacy and retention path as well:
+
+    python scripts/source_archive_smoke.py --mode evaluation --persistence-check
+
+This sends synthetic logs, traces, and histogram streams with unknown safe
+dimensions and sensitive canaries, reads the source files, restarts both the
+archive service and Collector, and sends another fixture. It verifies that old
+file bytes survive and new records append. Use `--mode core` when
+verifying Core. Reports are written under `artifacts/source-smoke-<marker>`.
+
 Runtime smoke:
 
 - sends legacy compatibility fixtures plus the versioned Codex metrics/logs/
@@ -173,6 +183,7 @@ The named volumes are:
 - loki-data
 - prometheus-data
 - tempo-data
+- collector-source-data for the Core/Evaluation source archive
 - phoenix-postgres-data in Evaluation
 
 PostgreSQL 18 must mount phoenix-postgres-data at /var/lib/postgresql, not the
@@ -188,6 +199,103 @@ must survive. To roll back application/config changes:
 5. record that legacy stored data was not retroactively removed.
 
 The toolkit has no automated backup and never silently deletes pre-0.1.3 data.
+
+## Source archive export and maintenance
+
+Core and Evaluation automatically retain privacy-filtered source logs, metrics,
+and traces in `collector-source-data`, mounted at `/var/lib/otelcol/source` in
+the internal `source-archive` service. The three files are `logs.jsonl`,
+`metrics.jsonl`, and `traces.jsonl`. They receive data before provider normalization, backend label
+allowlists, Prometheus conversion, and Phoenix filtering. Safe unknown fields
+and unmapped metrics therefore remain available for later analysis.
+
+Compose first runs `source-storage-init` once to set the volume directory owner
+to UID/GID `10001:10001` with mode `0700`. This uses the existing pinned Grafana
+image, no network, and root only for directory ownership and permissions; the
+source service runs as UID/GID `10001:10001`, and the Collector continues to run
+as its image's non-root user. `Exited (0)` is the
+expected init-service state. It does not clear archive files or change their
+contents, and the source service waits for successful initialization before startup.
+
+The service uses the Python standard library in
+`scripts/source_archive_server.py`. The Collector sends JSON to it over
+the private Compose network; it recursively redacts, appends, and syncs the
+per-signal file. It publishes no host port. Senders keep using the Collector's
+4317/4318 endpoints.
+
+Export the archive to a new local directory:
+
+    python scripts/toolkit.py source-export --mode evaluation --output artifacts/source-export-2026-09-20
+
+Use `--mode core` for Core. Corporate has no source export route and this command
+is unavailable for that mode. The shared Compose service may remain idle;
+switching to Corporate does not erase existing personal archive data. The command copies
+the source directory, including all three signal files and any recovered partial
+records, and writes a metadata manifest with byte sizes without
+printing their contents or deleting source data. The output directory must be
+new; omitting `--output` creates `artifacts/source-export-<UTC timestamp>`.
+This is an export of stored source records, not a backfill from Loki, Tempo,
+Prometheus, Phoenix, or the provider. Records previously discarded or never sent
+to the updated Collector cannot be recovered.
+
+Read the exported OTLP JSONL locally with Python, for example to count metrics
+without printing attribute values:
+
+```python
+import json
+from pathlib import Path
+
+archive = Path("artifacts/source-export-2026-09-20/metrics.jsonl")
+metric_count = 0
+with archive.open(encoding="utf-8") as stream:
+    for line in stream:
+        try:
+            request = json.loads(line)
+        except json.JSONDecodeError:
+            # A live copy may end halfway through the last written record.
+            if not line.endswith("\n") and not stream.read(1):
+                print("Skipped incomplete final line from live export")
+                break
+            raise
+        metric_count += sum(
+            len(scope.get("metrics", []))
+            for resource in request.get("resourceMetrics", [])
+            for scope in resource.get("scopeMetrics", [])
+        )
+print(f"Archived metric records: {metric_count}")
+```
+
+Each line is an OTLP export request and can contain multiple records. JSON
+decoding does not imply that a metric has reviewed accounting semantics; use
+the [data contract](DATA-CONTRACT.md) before deriving token or cost totals.
+Ignore only an incomplete final line from a live copy; malformed complete lines
+or corruption in the middle of a file require investigation.
+
+The archive service appends on restart and deliberately performs no rotation,
+expiration, or automatic deletion. Backend 14-day retention does not apply to
+this archive. Check free disk space and Collector export failures regularly;
+the volume can grow until the disk is full. Privacy filtering is still required
+and does not constitute universal DLP for arbitrary future fields. Exported
+files and backups need the same local access controls as the live volume.
+
+Treat this as a local analysis format, not an exactly-once durable queue. The
+archive checks for an unfinished final record at startup. Before continuing it
+durably preserves those already-redacted bytes in a uniquely named
+`recovered-<signal>-<id>.partial` file, then restores the signal file to its last
+complete line. If preservation fails, startup fails without removing the tail.
+Recovery files are included in `source-export`; they are incomplete fragments,
+not valid OTLP requests. A retry after an uncertain acknowledgement may also
+produce duplicate complete records.
+
+The
+Collector source export has no sending queue, so unredacted data is not spooled
+to disk. An export from a running archive service is not an atomic snapshot
+across all three signals; ongoing ingestion may append records while files are
+copied. Stop the source archive service for a quiescent copy when needed and
+account for sender and Collector retry/loss during the
+pause. Before any manual archive truncation or volume deletion, confirm the
+exact Compose project and volume, export and verify the records to retain, and
+obtain explicit deletion authorization. Ordinary `down` keeps the archive.
 
 ## Resource snapshot
 

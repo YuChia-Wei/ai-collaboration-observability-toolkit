@@ -17,6 +17,7 @@ This repository provides a local, privacy-first OpenTelemetry observability tool
 
 - Compose topology: `compose.yaml` plus its mode override.
 - Collector policy: `config/otel-collector/*.yaml`.
+- Source archive privacy and persistence: `scripts/source_archive_server.py` (internal-only OTLP JSON; no host ingress).
 - Telemetry contract: `docs/DATA-CONTRACT.md` and `schemas/`.
 - Privacy boundary: `docs/PRIVACY.md`.
 - Operations: `scripts/toolkit.py`; shell files are thin wrappers.

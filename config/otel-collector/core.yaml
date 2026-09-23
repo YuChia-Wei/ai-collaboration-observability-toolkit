@@ -15,6 +15,15 @@ processors:
     check_interval: 2s
     limit_mib: 384
     spike_limit_mib: 96
+  # Source metadata is additive; the private archive backend redacts before storage.
+  resource/source_metadata:
+    attributes:
+    - key: ai_observability.collection
+      value: source-preserving
+      action: insert
+    - key: ai_observability.source_schema_version
+      value: '2'
+      action: insert
   resource/normalize:
     attributes:
     - key: ai_context.environment.profile
@@ -327,6 +336,18 @@ processors:
     send_batch_size: 512
     send_batch_max_size: 1024
 exporters:
+  otlphttp/source:
+    endpoint: http://source-archive:4320
+    encoding: json
+    compression: none
+    timeout: 15s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 5s
+      max_elapsed_time: 30s
+    sending_queue:
+      enabled: false
   otlphttp/loki:
     endpoint: http://loki:3100/otlp
     tls:
@@ -370,6 +391,30 @@ service:
   - health_check
   - zpages
   pipelines:
+    logs/source:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/source_metadata
+      exporters:
+      - otlphttp/source
+    metrics/source:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/source_metadata
+      exporters:
+      - otlphttp/source
+    traces/source:
+      receivers:
+      - otlp
+      processors:
+      - memory_limiter
+      - resource/source_metadata
+      exporters:
+      - otlphttp/source
     logs:
       receivers:
       - otlp

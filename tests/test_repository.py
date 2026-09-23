@@ -105,6 +105,21 @@ class RepositoryTests(unittest.TestCase):
                         (path.name, pipeline_name, kind, pipeline[kind]),
                     )
                 self.assertEqual(pipeline["processors"][0], "memory_limiter")
+                if pipeline_name.endswith("/source"):
+                    self.assertNotEqual(path.name, "corporate.yaml")
+                    self.assertEqual(
+                        pipeline["processors"],
+                        [
+                            "memory_limiter",
+                            "resource/source_metadata",
+                        ],
+                    )
+                    self.assertEqual(pipeline["receivers"], ["otlp"])
+                    self.assertEqual(
+                        pipeline["exporters"],
+                        ["otlphttp/source"],
+                    )
+                    continue
                 privacy = (
                     "transform/corporate_allowlist"
                     if path.name == "corporate.yaml"
@@ -1279,6 +1294,15 @@ class RepositoryTests(unittest.TestCase):
             check=True,
         ).stdout
         self.assertIn("--output", snapshot)
+        source = subprocess.run(
+            [sys.executable, "scripts/toolkit.py", "source-export", "--help"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        self.assertIn("--output", source)
+        self.assertIn("{core,evaluation}", source)
 
     def test_reset_refuses_without_exact_confirmation(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "destructive reset refused"):
