@@ -244,11 +244,14 @@ COMPOSE_PROJECT_NAME=ai-collaboration-observability
 
 OTLP_GRPC_PORT=4317
 OTLP_HTTP_PORT=4318
+OTEL_HEALTH_PORT=13133
 GRAFANA_PORT=3000
+PHOENIX_PORT=6006
+
+# 僅在明確加入 compose.debug.yaml 時發布後端 API
 PROMETHEUS_PORT=9090
 LOKI_PORT=3100
 TEMPO_PORT=3200
-PHOENIX_PORT=6006
 
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=change-me-local-only
@@ -256,6 +259,11 @@ POSTGRES_USER=phoenix
 POSTGRES_PASSWORD=change-me-local-only
 POSTGRES_DB=phoenix
 ```
+
+一般運作只發布 Collector（包含 health）、Grafana，以及 Evaluation 模式的
+Phoenix；Prometheus、Loki、Tempo 的 host port 變數只在明確加入
+`compose.debug.yaml` 後生效。該 overlay 只綁定 `127.0.0.1`，供本機直接
+除錯後端 API 使用，不是一般驗證或 smoke 的前置條件。
 
 啟動腳本 SHOULD 在偵測到預設密碼時提出清楚警告；不得將實際密碼寫回 tracked file。
 

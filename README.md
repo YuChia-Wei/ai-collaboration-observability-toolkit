@@ -45,8 +45,10 @@ sender 未送出或傳輸失敗的資料。
 | evaluation | trace 評註、資料集與實驗 | 有 | 同 Core 的來源封存；已去識別且含 `openinference.span.kind` 的 span 預設轉送 Phoenix，`x-ai-observability-phoenix: false` 可退出 |
 | corporate | 公司電腦 metadata-only 基線 | 無 | exact keep_keys allowlist，未知欄位一律丟棄 |
 
-Evaluation 與 Corporate 不可同時啟用。所有 host ports 預設綁定
-127.0.0.1；Tempo 與 Phoenix 的 OTLP receivers 不發布到 host。
+Evaluation 與 Corporate 不可同時啟用。一般運作只發布 Collector（既有
+OTLP gRPC、OTLP HTTP、health 端口）、Grafana，以及 Evaluation 模式的
+Phoenix。所有 host ports 綁定 127.0.0.1；Prometheus、Loki、Tempo 與
+Postgres 留在 Compose 內部網路。Tempo 與 Phoenix 的 OTLP receivers 不發布到 host。
 
 ## Compose-first 快速開始
 
@@ -93,11 +95,20 @@ Core／Evaluation 的來源封存會自動啟用，不需額外 capture 參數�
 ## 本機介面
 
 - Grafana: http://127.0.0.1:3000
-- Prometheus: http://127.0.0.1:9090
-- Loki: http://127.0.0.1:3100
-- Tempo: http://127.0.0.1:3200
 - Phoenix（Evaluation）: http://127.0.0.1:6006
 - OTLP gRPC / HTTP: 127.0.0.1:4317 / 127.0.0.1:4318
+- Collector health: http://127.0.0.1:13133
+
+Grafana 透過內部網路讀取 Prometheus、Loki、Tempo；一般的驗證與 smoke
+不需發布這些後端的 host ports。只有直接除錯資料來源 API 時，才在所選模式的
+Compose 檔案後加入 `compose.debug.yaml`，例如 Evaluation：
+
+    docker compose -f compose.yaml -f compose.evaluation.yaml -f compose.debug.yaml up -d
+
+這會額外將 Prometheus 9090、Loki 3100、Tempo 3200 綁到 127.0.0.1；
+可用 `.env` 的 `PROMETHEUS_PORT`、`LOKI_PORT`、`TEMPO_PORT` 調整。
+Core 可用 `-f compose.yaml -f compose.debug.yaml`。詳見
+[Operations](docs/OPERATIONS.md)。
 
 ## 已驗證的 provider surfaces
 

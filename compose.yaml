@@ -65,8 +65,6 @@ services:
     - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     - ./config/prometheus/rules:/etc/prometheus/rules:ro
     - prometheus-data:/prometheus
-    ports:
-    - 127.0.0.1:${PROMETHEUS_PORT:-9090}:9090
     depends_on:
     - otel-collector
     networks:
@@ -79,8 +77,6 @@ services:
     volumes:
     - ./config/loki/loki.yml:/etc/loki/loki.yml:ro
     - loki-data:/loki
-    ports:
-    - 127.0.0.1:${LOKI_PORT:-3100}:3100
     networks:
     - observability
   tempo:
@@ -91,8 +87,6 @@ services:
     volumes:
     - ./config/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
     - tempo-data:/var/tempo
-    ports:
-    - 127.0.0.1:${TEMPO_PORT:-3200}:3200
     expose:
     - '4317'
     - '4318'

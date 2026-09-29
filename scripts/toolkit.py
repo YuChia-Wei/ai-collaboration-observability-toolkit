@@ -472,6 +472,7 @@ def static_validate() -> list[str]:
         ROOT / "compose.yaml",
         ROOT / "compose.evaluation.yaml",
         ROOT / "compose.corporate.yaml",
+        ROOT / "compose.debug.yaml",
     ]
     compose_text = "\n".join(
         path.read_text(encoding="utf-8") for path in compose_paths
@@ -482,8 +483,25 @@ def static_validate() -> list[str]:
         r"image:\s*[^\n]+:(?:latest|edge|nightly)(?:\s|$)", compose_text
     ):
         errors.append("Compose policy: floating image tag is forbidden")
+    expected_published_services = {
+        "compose.yaml": {"otel-collector", "grafana"},
+        "compose.evaluation.yaml": {"phoenix"},
+        "compose.corporate.yaml": set(),
+        "compose.debug.yaml": {"prometheus", "loki", "tempo"},
+    }
     for path in compose_paths:
         document = yaml_load(path) or {}
+        published_services = {
+            name
+            for name, service in (document.get("services") or {}).items()
+            if service.get("ports")
+        }
+        expected_services = expected_published_services[path.name]
+        if published_services != expected_services:
+            errors.append(
+                f"Compose policy: {path.name} published services must be "
+                f"{sorted(expected_services)}, found {sorted(published_services)}"
+            )
         for service_name, service in (document.get("services") or {}).items():
             image = service.get("image")
             if image:
@@ -1377,18 +1395,23 @@ def external_validate(mode: str) -> list[str]:
     compose = find_compose()
     if compose:
         for item in modes:
-            result = subprocess.run(
-                compose + compose_args(item) + ["config", "--quiet"],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode:
-                errors.append(
-                    f"Compose {item}: {result.stderr.strip() or result.stdout.strip()}"
+            for debug in (False, True):
+                args = compose_args(item)
+                if debug:
+                    args += ["-f", str(ROOT / "compose.debug.yaml")]
+                result = subprocess.run(
+                    compose + args + ["config", "--quiet"],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
                 )
-            else:
-                print(f"PASS: Compose config ({item})")
+                label = f"{item}{' + debug' if debug else ''}"
+                if result.returncode:
+                    errors.append(
+                        f"Compose {label}: {result.stderr.strip() or result.stdout.strip()}"
+                    )
+                else:
+                    print(f"PASS: Compose config ({label})")
     else:
         print("SKIP: Docker Compose v2+ executable not available")
 
@@ -1667,12 +1690,17 @@ def phoenix_annotations(project: str, *, apply: bool) -> None:
     print(f"PASS: Phoenix zh-TW annotation rubric for project {project}")
 
 
-def wait_url(name: str, url: str, timeout: float = 180.0) -> None:
+def wait_url(
+    name: str,
+    url: str,
+    timeout: float = 180.0,
+    headers: dict[str, str] | None = None,
+) -> None:
     deadline = time.monotonic() + timeout
     last_error = ""
     while time.monotonic() < deadline:
         try:
-            status, body = http("GET", url, timeout=4.0)
+            status, body = http("GET", url, headers=headers, timeout=4.0)
             if 200 <= status < 400:
                 print(f"READY: {name} ({url})")
                 return
@@ -1687,11 +1715,6 @@ def urls(mode: str) -> dict[str, str]:
     load_env_file()
     result = {
         "Grafana": f"http://127.0.0.1:{os.getenv('GRAFANA_PORT', '3000')}",
-        "Prometheus": (
-            f"http://127.0.0.1:{os.getenv('PROMETHEUS_PORT', '9090')}"
-        ),
-        "Loki": f"http://127.0.0.1:{os.getenv('LOKI_PORT', '3100')}",
-        "Tempo": f"http://127.0.0.1:{os.getenv('TEMPO_PORT', '3200')}",
         "OTLP gRPC": f"127.0.0.1:{os.getenv('OTLP_GRPC_PORT', '4317')}",
         "OTLP HTTP": (
             f"http://127.0.0.1:{os.getenv('OTLP_HTTP_PORT', '4318')}"
@@ -1711,19 +1734,16 @@ def wait_stack(mode: str) -> None:
         f"http://127.0.0.1:{os.getenv('OTEL_HEALTH_PORT', '13133')}/",
     )
     wait_url(
-        "Prometheus",
-        f"http://127.0.0.1:{os.getenv('PROMETHEUS_PORT', '9090')}/-/ready",
-    )
-    wait_url(
-        "Loki", f"http://127.0.0.1:{os.getenv('LOKI_PORT', '3100')}/ready"
-    )
-    wait_url(
-        "Tempo", f"http://127.0.0.1:{os.getenv('TEMPO_PORT', '3200')}/ready"
-    )
-    wait_url(
         "Grafana",
         f"http://127.0.0.1:{os.getenv('GRAFANA_PORT', '3000')}/api/health",
     )
+    headers = grafana_headers()
+    for name, uid, path in (
+        ("Prometheus", "prometheus", "/-/ready"),
+        ("Loki", "loki", "/ready"),
+        ("Tempo", "tempo", "/ready"),
+    ):
+        wait_url(name, grafana_proxy_url(uid, path), headers=headers)
     if mode == "evaluation":
         wait_url(
             "Phoenix",
@@ -1823,11 +1843,8 @@ def retry(
 
 
 def prometheus_query(expr: str) -> list[dict[str, Any]]:
-    port = os.getenv("PROMETHEUS_PORT", "9090")
     query = urllib.parse.urlencode({"query": expr})
-    status, body = http(
-        "GET", f"http://127.0.0.1:{port}/api/v1/query?{query}"
-    )
+    status, body = backend_http("prometheus", f"/api/v1/query?{query}")
     payload = json.loads(body)
     if status != 200 or payload.get("status") != "success":
         raise RuntimeError(f"Prometheus query failed: {payload}")
@@ -1835,11 +1852,8 @@ def prometheus_query(expr: str) -> list[dict[str, Any]]:
 
 
 def prometheus_series(metric: str) -> list[dict[str, str]]:
-    port = os.getenv("PROMETHEUS_PORT", "9090")
     query = urllib.parse.urlencode({"match[]": metric})
-    status, body = http(
-        "GET", f"http://127.0.0.1:{port}/api/v1/series?{query}"
-    )
+    status, body = backend_http("prometheus", f"/api/v1/series?{query}")
     payload = json.loads(body)
     if status != 200 or payload.get("status") != "success":
         raise RuntimeError(f"Prometheus series query failed: {payload}")
@@ -1857,7 +1871,6 @@ def loki_query(
     service_name: str = "ai-observability-fixture",
     service_namespace: str | None = None,
 ) -> tuple[dict[str, Any], bytes]:
-    port = os.getenv("LOKI_PORT", "3100")
     selector = f'service_name="{service_name}"'
     if service_namespace:
         selector += f',service_namespace="{service_namespace}"'
@@ -1869,9 +1882,7 @@ def loki_query(
             "end": str(time.time_ns()),
         }
     )
-    status, body = http(
-        "GET", f"http://127.0.0.1:{port}/loki/api/v1/query_range?{params}"
-    )
+    status, body = backend_http("loki", f"/loki/api/v1/query_range?{params}")
     payload = json.loads(body)
     if status != 200 or payload.get("status") != "success":
         raise RuntimeError(f"Loki query failed: {payload}")
@@ -1879,8 +1890,7 @@ def loki_query(
 
 
 def tempo_trace(trace_id: str) -> tuple[int, bytes]:
-    port = os.getenv("TEMPO_PORT", "3200")
-    return http("GET", f"http://127.0.0.1:{port}/api/traces/{trace_id}")
+    return backend_http("tempo", f"/api/traces/{trace_id}")
 
 
 def grafana_headers() -> dict[str, str]:
@@ -1888,6 +1898,18 @@ def grafana_headers() -> dict[str, str]:
     password = os.getenv("GRAFANA_ADMIN_PASSWORD", "change-me-local-only")
     token = base64.b64encode(f"{user}:{password}".encode()).decode()
     return {"Authorization": f"Basic {token}"}
+
+
+def grafana_proxy_url(uid: str, path: str) -> str:
+    """Reach a private backend through its provisioned Grafana datasource."""
+    port = os.getenv("GRAFANA_PORT", "3000")
+    return f"http://127.0.0.1:{port}/api/datasources/proxy/uid/{uid}{path}"
+
+
+def backend_http(uid: str, path: str, *, timeout: float = 10.0) -> tuple[int, bytes]:
+    return http(
+        "GET", grafana_proxy_url(uid, path), headers=grafana_headers(), timeout=timeout
+    )
 
 
 def grafana_datasource_health(uid: str) -> dict[str, Any]:
@@ -2730,22 +2752,23 @@ def status(mode: str) -> None:
     compose_command(mode, ["ps"])
     print_urls(mode)
     print("Readiness:")
-    for name, url in urls(mode).items():
-        if name.startswith("OTLP"):
-            continue
-        health_url = url
-        if name == "Prometheus":
-            health_url += "/-/ready"
-        elif name == "Loki":
-            health_url += "/ready"
-        elif name == "Tempo":
-            health_url += "/ready"
-        elif name == "Grafana":
-            health_url += "/api/health"
-        elif name == "Phoenix":
-            health_url += "/healthz"
+    load_env_file()
+    probes = [
+        (
+            "Collector",
+            f"http://127.0.0.1:{os.getenv('OTEL_HEALTH_PORT', '13133')}/",
+            None,
+        ),
+        ("Grafana", urls(mode)["Grafana"] + "/api/health", None),
+        ("Prometheus", grafana_proxy_url("prometheus", "/-/ready"), grafana_headers()),
+        ("Loki", grafana_proxy_url("loki", "/ready"), grafana_headers()),
+        ("Tempo", grafana_proxy_url("tempo", "/ready"), grafana_headers()),
+    ]
+    if mode == "evaluation":
+        probes.append(("Phoenix", urls(mode)["Phoenix"] + "/healthz", None))
+    for name, health_url, headers in probes:
         try:
-            code, _ = http("GET", health_url, timeout=3)
+            code, _ = http("GET", health_url, headers=headers, timeout=3)
             print(f"  {name:12} HTTP {code}")
         except Exception as exc:  # noqa: BLE001
             print(f"  {name:12} unavailable: {exc}")

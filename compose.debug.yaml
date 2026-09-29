@@ -1,0 +1,12 @@
+# Opt-in, loopback-only backend APIs for direct local troubleshooting.
+# Add this file after the selected mode override, if any.
+services:
+  prometheus:
+    ports:
+    - 127.0.0.1:${PROMETHEUS_PORT:-9090}:9090
+  loki:
+    ports:
+    - 127.0.0.1:${LOKI_PORT:-3100}:3100
+  tempo:
+    ports:
+    - 127.0.0.1:${TEMPO_PORT:-3200}:3200

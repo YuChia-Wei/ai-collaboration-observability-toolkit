@@ -59,12 +59,46 @@ class RepositoryTests(unittest.TestCase):
             self.assertFalse(expected.endswith(":latest"))
 
     def test_host_ports_are_loopback_bound(self) -> None:
-        for file in ("compose.yaml", "compose.evaluation.yaml"):
+        for file in ("compose.yaml", "compose.evaluation.yaml", "compose.debug.yaml"):
             data = toolkit.yaml_load(ROOT / file)
             for service in data.get("services", {}).values():
                 for port in service.get("ports", []) or []:
                     self.assertIsInstance(port, str)
                     self.assertTrue(port.startswith("127.0.0.1:"), port)
+
+    def test_default_published_services_are_only_user_facing(self) -> None:
+        base = toolkit.yaml_load(ROOT / "compose.yaml")["services"]
+        evaluation = toolkit.yaml_load(ROOT / "compose.evaluation.yaml")["services"]
+        corporate = toolkit.yaml_load(ROOT / "compose.corporate.yaml")["services"]
+
+        self.assertEqual(
+            {name for name, service in base.items() if service.get("ports")},
+            {"otel-collector", "grafana"},
+        )
+        self.assertEqual(
+            base["otel-collector"]["ports"],
+            [
+                "127.0.0.1:${OTLP_GRPC_PORT:-4317}:4317",
+                "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318",
+                "127.0.0.1:${OTEL_HEALTH_PORT:-13133}:13133",
+            ],
+        )
+        self.assertEqual(
+            {name for name, service in evaluation.items() if service.get("ports")},
+            {"phoenix"},
+        )
+        self.assertFalse(any(service.get("ports") for service in corporate.values()))
+
+    def test_debug_overlay_publishes_only_backend_apis(self) -> None:
+        debug = toolkit.yaml_load(ROOT / "compose.debug.yaml")["services"]
+        self.assertEqual(
+            debug,
+            {
+                "prometheus": {"ports": ["127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"]},
+                "loki": {"ports": ["127.0.0.1:${LOKI_PORT:-3100}:3100"]},
+                "tempo": {"ports": ["127.0.0.1:${TEMPO_PORT:-3200}:3200"]},
+            },
+        )
 
     def test_postgres_18_uses_the_version_aware_volume_root(self) -> None:
         evaluation = toolkit.yaml_load(ROOT / "compose.evaluation.yaml")

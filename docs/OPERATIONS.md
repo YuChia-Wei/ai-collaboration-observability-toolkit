@@ -14,8 +14,9 @@ Containers do not require a host Python environment.
 
     Copy-Item .env.example .env
 
-Review every port and replace sample passwords. The untracked .env file may
-override exact, committed image defaults for controlled tests; an override is
+Review host-facing ports and replace sample passwords. The Prometheus, Loki,
+and Tempo host port settings apply only with `compose.debug.yaml`. The
+untracked .env file may override exact, committed image defaults for controlled tests; an override is
 a reviewed change, not an untracked upgrade mechanism.
 
 ## Compose-first lifecycle
@@ -41,6 +42,40 @@ Corporate:
 Use exactly one mode override. Evaluation and Corporate are not composable.
 Plain down retains named volumes. Never add -v unless the exact Compose project,
 backup requirement, and irreversible deletion are explicitly approved.
+
+Default Core and Corporate publish only Collector OTLP gRPC/HTTP and health,
+plus Grafana. Evaluation also publishes Phoenix. Prometheus, Loki, Tempo,
+Postgres, and the source archive have no default host ports. Grafana reaches
+the three data backends through the private Compose network. Normal `validate`
+needs no backend host ports; `smoke` queries them through Grafana's datasource
+proxy.
+
+If direct backend API access is needed for local troubleshooting, append the
+optional, loopback-only overlay after the selected mode override:
+
+    docker compose -f compose.yaml -f compose.evaluation.yaml -f compose.debug.yaml up -d
+    docker compose -f compose.yaml -f compose.evaluation.yaml -f compose.debug.yaml ps
+
+This publishes Prometheus on `127.0.0.1:${PROMETHEUS_PORT:-9090}`, Loki on
+`127.0.0.1:${LOKI_PORT:-3100}`, and Tempo on `127.0.0.1:${TEMPO_PORT:-3200}`.
+For Core, omit `-f compose.evaluation.yaml`; for Corporate, use
+`-f compose.corporate.yaml` in its place. The overlay adds no service or volume.
+Remove `-f compose.debug.yaml` from the next `up -d` to return to normal
+port publishing; do not use `down -v` for this change.
+
+For an existing Evaluation stack that still has the old backend host ports,
+apply the new default during a maintenance window by recreating only the three
+backend containers:
+
+    docker compose -f compose.yaml -f compose.evaluation.yaml up -d --no-deps prometheus
+    docker compose -f compose.yaml -f compose.evaluation.yaml up -d --no-deps loki
+    docker compose -f compose.yaml -f compose.evaluation.yaml up -d --no-deps tempo
+    python scripts/toolkit.py wait --mode evaluation
+    docker compose -f compose.yaml -f compose.evaluation.yaml ps
+
+The Collector container is not recreated by those commands. Backend export
+may briefly retry while Loki or Tempo restarts, so choose a maintenance window
+where that short interruption is acceptable. The named volumes are retained.
 
 The shell and PowerShell files in scripts/ are thin wrappers. The optional
 Python tool provides the same lifecycle plus structured validation reports:

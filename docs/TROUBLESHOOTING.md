@@ -104,7 +104,14 @@ prompt/response content.
 
 ## Grafana datasource health fails
 
-Use the direct endpoints first:
+Check the Grafana health endpoint, then test the provisioned data sources in
+Grafana and run `python scripts/toolkit.py status --mode <selected-mode>`.
+The status and smoke checks query the backends through Grafana's datasource
+proxy; neither requires backend host ports. Check `docker compose ... ps` and
+the relevant service logs if a datasource is unhealthy.
+
+For direct backend readiness checks only, add `compose.debug.yaml` after the
+selected mode override as described in [Operations](OPERATIONS.md), then use:
 
 ```text
 Prometheus  http://127.0.0.1:9090/-/ready
@@ -113,7 +120,9 @@ Tempo       http://127.0.0.1:3200/ready
 Grafana     http://127.0.0.1:3000/api/health
 ```
 
-Then inspect provisioned URLs inside the Docker network. `localhost` inside Grafana would point to the
+The three backend URLs above are available only with the debug overlay, and
+may differ if their `.env` host ports were changed. Inspect provisioned URLs
+inside the Docker network. `localhost` inside Grafana would point to the
 Grafana container; the correct datasource URLs use Compose service names.
 
 ## Docker Desktop / WSL path problems
@@ -124,8 +133,10 @@ read-only configuration mounts and named data volumes to minimize this risk.
 
 ## Port already allocated
 
-Change the corresponding host port in `.env`; do not change backend container ports or publish Tempo
-or Phoenix OTLP ports. AI tools must use the updated Collector host port.
+Change the corresponding host port in `.env`. Prometheus, Loki, and Tempo host
+port settings apply only when `compose.debug.yaml` is selected. Do not change
+backend container ports or publish Tempo or Phoenix OTLP ports. AI tools must
+use the updated Collector host port.
 
 ## Smoke test keeps finding an old rejected Phoenix trace
 

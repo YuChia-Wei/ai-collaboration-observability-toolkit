@@ -61,8 +61,22 @@ smoke orchestration, and evidence reports:
     python scripts/toolkit.py validate --mode all
     python scripts/toolkit.py smoke --mode evaluation --persistence-check
 
-All published ports are loopback-bound. AI tools send OTLP only to the
-Collector on 4317/4318.
+Normal operation publishes only the Collector (its existing OTLP gRPC 4317,
+OTLP HTTP 4318, and health 13133 ports), Grafana 3000, and Phoenix 6006 in
+Evaluation mode. All published ports are loopback-bound. Prometheus, Loki,
+Tempo, and Postgres remain internal. AI tools send OTLP only to the Collector.
+Grafana reads the backends across the Compose network; normal validation and
+smoke checks need no backend host ports.
+
+For direct backend API troubleshooting, explicitly add the loopback-only
+`compose.debug.yaml` after the selected mode override, for example:
+
+    docker compose -f compose.yaml -f compose.evaluation.yaml -f compose.debug.yaml up -d
+
+This additionally publishes Prometheus 9090, Loki 3100, and Tempo 3200 to
+127.0.0.1. Their host ports can be changed with `PROMETHEUS_PORT`, `LOKI_PORT`,
+and `TEMPO_PORT` in `.env`. For Core, use `-f compose.yaml -f compose.debug.yaml`.
+See [Operations](docs/OPERATIONS.md).
 
 Core/Evaluation enable the source archive automatically. Export it for later
 analysis without printing telemetry content:

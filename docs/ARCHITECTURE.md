@@ -101,9 +101,13 @@ published ports creates ambiguous data-governance semantics and is unsupported.
 
 ## Network boundaries
 
-Every host-published port in committed Compose is explicitly bound to `127.0.0.1`. Container-to-
-container communication uses the private `observability` bridge. The toolkit does not provide an
-authentication gateway or TLS for network exposure. Editing Compose to bind a service to `0.0.0.0`
+Every host-published port in committed Compose is explicitly bound to `127.0.0.1`. By default,
+only the Collector (existing OTLP and health ports), Grafana, and Evaluation Phoenix publish to
+the host. Prometheus, Loki, Tempo, Postgres, and the source archive remain internal. An explicit
+`compose.debug.yaml` overlay can publish the Prometheus, Loki, and Tempo APIs on loopback for
+direct troubleshooting. Container-to-container communication uses the private `observability`
+bridge. The toolkit does not provide an authentication gateway or TLS for network exposure.
+Editing Compose to bind a service to `0.0.0.0`
 without adding those controls is a security exception, not a normal configuration change.
 
 Only the Collector publishes OTLP ports to the host. Tempo, Phoenix, and
