@@ -4,7 +4,16 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
-### v0.2.0 candidate
+### v0.2.0 candidate — Privacy-first agent usage and source evidence
+
+Release preparation only; no publication date or tag has been assigned.
+See [release notes](docs/RELEASE-NOTES-v0.2.0.md) and
+[readiness and issue review](docs/RELEASE-READINESS-v0.2.0.md).
+
+### Added
+
+- Provider-neutral token accounting with disjoint uncached input, cached input,
+  cache-write input, and output classes; unknown models/rates remain unpriced.
 
 - Added provider-neutral `agent_role` attribution (`primary`,
   `approval_reviewer`, `subagent`, `unknown`) without conflating roles with
@@ -19,8 +28,48 @@ All notable changes to this project will be documented here.
 - Added exact-model, approval-reviewer, and producer-supplied subagent runtime
   fixture coverage. Existing data is not backfilled or rewritten.
 
-This is implementation evidence for Issue #22 and does not publish, tag, or
-freeze v0.2.0.
+- Exact reviewed GPT-6 Astra/Sol/Luna mappings and versioned rate cards, with
+  fixture reconciliation and unknown-model coverage.
+- Experimental metadata-only Codex lifecycle Hooks producing OpenInference
+  AGENT/TOOL traces, plus separately enabled prompt-size and allowlisted MCP
+  response-size byte metrics. Bytes are not tokens or full model context.
+- Claude Code CLI/Desktop native token mapping, skill/MCP attribution, and
+  context-attribution dashboards; exact-client capture evidence remains a
+  follow-up and bounded attribution acceptance remains open in Issue #24.
+- Internal Core/Evaluation source archive with recursive privacy filtering,
+  append-only OTLP JSON storage, recovery, and explicit export. Safe unknown
+  fields, metric shapes, exemplars, events, and span links remain available
+  before analytical normalization. Corporate has no source archive route.
+- Optional loopback-only `compose.debug.yaml` for direct backend API access.
+
+### Changed
+
+- Usage dashboards lead with freshness, selected-range usage, estimate
+  coverage, and activity. Added AI Agent Activity and context-attribution views.
+- Retired the two AI Context dashboards without a real producer; the reserved
+  schema/fixtures do not establish framework effectiveness.
+- Evaluation sends only redacted OpenInference-compatible spans to Phoenix;
+  generic spans stay in Tempo. Header/resource opt-outs remain supported.
+- Pinned Evaluation Phoenix to `version-20.0.0-nonroot`, with its persistent
+  agent disabled and existing PostgreSQL data retained.
+- Default host interfaces are Collector, Grafana, and Evaluation Phoenix.
+  Prometheus/Loki/Tempo remain internal; operational queries use Grafana proxy.
+
+### Fixed
+
+- Selected-range estimated costs use counter increases instead of a last
+  cumulative value that can misleadingly appear frozen.
+
+### Compatibility and release boundary
+
+- Existing backend host-port consumers must opt into the debug overlay or use
+  Grafana. Apply topology changes during a maintenance window.
+- Accounting v2 and privacy rules apply to new ingestion. Historical data is
+  neither backfilled nor erased, and estimates are not invoices or allowances.
+- The complete AI Collaboration Improvement Loop is excluded. Issues #4/#5
+  are retired planning scopes, not delivered capabilities.
+- Release preparation does not waive the open candidate checks in the readiness
+  report, including Issue #24 attribution bounds and Issue #22 observation.
 
 ## [0.1.5] - 2026-08-09
 

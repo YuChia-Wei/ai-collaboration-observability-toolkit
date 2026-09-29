@@ -23,18 +23,24 @@
 - Provision an idempotent Chinese operational annotation rubric through the pinned Phoenix REST API.
 - Close the planned 0.1.x line; subsequent feature planning targets v0.2.0.
 
-## v0.2.0 — AI Collaboration Improvement Loop
+## v0.2.0 — Privacy-first agent usage and source evidence
 
-- Issue #4 requires re-scoping around a deterministic runtime-owned emitter,
-  orchestrator, or client hook. The framework harness itself is not expected to
-  observe model execution. Provider-native telemetry and prompt self-reports do not satisfy the
-  effectiveness evidence contract; no AI Context dashboard is provisioned until
-  a real emitter is available.
-- Issue #5 remains downstream of compatible application/framework traces and
-  meaningful outputs. Phoenix receives only already-redacted spans with an
-  OpenInference span kind; generic agent-internal traces remain in Tempo.
+- Candidate scope: role-aware token accounting, separate API USD/Codex credits,
+  GPT-6 mappings, usage/activity/context views, optional metadata-only Hooks,
+  explicit size-only proxies, and privacy-safe source archive/export.
+- Default backend APIs remain internal; normal operations use Grafana proxy,
+  with an explicit loopback-only debug overlay.
+- Phoenix 20.0.0 remains Evaluation-only and receives redacted OpenInference
+  spans; generic agent-internal traces remain in Tempo.
+- Preparation is not release freeze or publication. See [release notes](RELEASE-NOTES-v0.2.0.md)
+  and [readiness / issue review](RELEASE-READINESS-v0.2.0.md).
+- #8 tracks release gates; #22 retains the real-data observation gate and #24
+  retains the skill/MCP attribution-bounding acceptance gap.
+- Old #4/#5 improvement-loop scopes are closed as not planned, not completed.
+  Reopening requires a real producer, bounded workflow/dataset, deterministic
+  evaluator, privacy review, and experiment ownership/budget.
 
-## Issue #18 — Actionable usage and activity views
+## Delivered baseline: Issue #18 — Actionable usage and activity views
 
 - Retire the two no-source AI Context dashboards while preserving the reserved
   schema/fixture contract.
@@ -45,12 +51,19 @@
 - Filter generic non-OpenInference spans out of Phoenix without deleting
   historical PostgreSQL/Phoenix data.
 
-## Unassigned and later horizons
+## After v0.2.0: follow-up priorities
 
-- Issue #6 remains unassigned until an Owner allocates it.
-- Issue #7 remains a deferred proposal.
-- Claude Code has a privacy-reviewed native metrics baseline. GitHub Copilot
-  normalization still requires a separate version-pinned fixture and follow-up
-  Issue; documentation does not count as support.
+- First, #9: strengthen the implemented Claude metrics baseline with exact
+  CLI/Desktop client versions, sanitized real-capture provenance, and
+  native/canonical reconciliation. Existing deterministic fixtures are not
+  proof of version-pinned production capture.
+- Next, #10: choose an authorized Copilot telemetry/API surface and obtain a
+  reproducible fixture before implementing an adapter.
+- #6 remains conditional: begin with bounded aggregate feedback export or
+  authorized official CSV reconciliation, not the entire company platform.
+- #7 remains a deferred comparison proposal, justified only by measured pain
+  and an approved workload/budget. Keeping LGTM is an acceptable outcome.
+- No patch/minor versions are reserved. New mapping, fixture, and rate-card
+  maintenance should follow observed evidence and preserve privacy boundaries.
 - Company showback, billing reconciliation, and task-level cost attribution
   remain later horizons and require authoritative inputs.

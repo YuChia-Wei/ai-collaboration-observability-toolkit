@@ -13,10 +13,14 @@ dashboard contract. Documentation alone is not normalization support.
 | AI Context framework | reserved \`ai_context.*\` workflow-evidence contract | schema/example only; framework is not a runtime emitter | Not a provider | Not applicable | Not applicable | Contract reserved; dashboards retired |
 
 The Antigravity status-line values are observations, not a turn-token counter
-or billing ledger, and are therefore not priced. Claude Code and Copilot have
-upstream telemetry surfaces, but they must not be shown as normalized or priced
-by this toolkit until a real, version-pinned privacy-safe fixture and defensible
-usage contract are available.
+or billing ledger, and are therefore not priced. Production verification across
+Claude/Copilot client versions requires a real, version-pinned privacy-safe
+capture and defensible usage contract. Claude has
+an implemented, synthetic-fixture-tested metrics mapping; Issue #9 tracks
+exact-client capture provenance. Copilot has no repository adapter. Neither
+provider has an exact-model cost estimate here. Issue #24 remains open for
+explicit bounding and negative tests of Claude skill/MCP label values; provider
+redaction defaults alone do not establish a Collector-enforced finite value set.
 
 Codex `agent_role` and `model_id` are independent. The current
 `codex-auto-review` source value proves `approval_reviewer`, but not the exact

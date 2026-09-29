@@ -130,9 +130,10 @@ the official remaining subscription allowance, enterprise contract, debit, or
 invoice. Cached input is discounted rather than free. Current Auto-review
 telemetry proves the approval-reviewer role but not the exact model, so those
 tokens remain unmapped and unpriced. Antigravity status-line
-token/context/quota values remain unpriced observed snapshots. Claude and
-Copilot remain unnormalized and unpriced until version-pinned fixtures are
-available.
+token/context/quota values remain unpriced observed snapshots. Claude has an
+implemented, synthetic-fixture-tested native metrics mapping; exact-client
+capture provenance remains a follow-up. Copilot has no repository adapter.
+Both remain unpriced. Claude attribution bounding remains an open release gate.
 
 ## Validation
 
@@ -144,6 +145,13 @@ reconciliation, and persistence checks.
     python -m unittest discover -s tests -v
 
 Unavailable checks are reported as not-executed, never passed.
+
+## Release preparation
+
+[v0.2.0 release notes](docs/RELEASE-NOTES-v0.2.0.md),
+[readiness and issue review](docs/RELEASE-READINESS-v0.2.0.md), and
+[changelog](CHANGELOG.md) describe the prepared scope and remaining gates.
+The candidate is not yet tagged or published.
 
 The 0.1.3 policy protects the new ingestion window. It does not silently erase
 legacy data in persistent volumes; irreversible cleanup requires an explicit

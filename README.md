@@ -189,6 +189,9 @@ Synthetic smoke traces 固定使用 `ai-collaboration-observability-fixture` Pro
 
 ## 文件
 
+- [v0.2.0 發布說明（準備中，尚未發布）](docs/RELEASE-NOTES-v0.2.0.md)
+- [v0.2.0 驗證狀態與 Issue 盤點](docs/RELEASE-READINESS-v0.2.0.md)
+- [CHANGELOG](CHANGELOG.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Data contract](docs/DATA-CONTRACT.md)
 - [Privacy](docs/PRIVACY.md)
