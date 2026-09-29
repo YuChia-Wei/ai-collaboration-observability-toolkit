@@ -17,15 +17,6 @@ processors:
     check_interval: 2s
     limit_mib: 384
     spike_limit_mib: 96
-  # Source metadata is additive; the private archive backend redacts before storage.
-  resource/source_metadata:
-    attributes:
-    - key: ai_observability.collection
-      value: source-preserving
-      action: insert
-    - key: ai_observability.source_schema_version
-      value: '2'
-      action: insert
   resource/normalize:
     attributes:
     - key: ai_context.environment.profile
@@ -74,6 +65,9 @@ processors:
       - 'delete_matching_keys(attributes, ".*")'
     - context: datapoint
       statements:
+      - set(attributes["skill.name"], "other") where attributes["skill.name"] != nil and not IsMatch(attributes["skill.name"], "^(none|code-reviewer|other)$")
+      - set(attributes["mcp_server.name"], "custom") where attributes["mcp_server.name"] != nil and not IsMatch(attributes["mcp_server.name"], "^(none|custom)$")
+      - set(attributes["mcp_tool.name"], "custom") where attributes["mcp_tool.name"] != nil and not IsMatch(attributes["mcp_tool.name"], "^(none|custom)$")
       - 'delete_matching_keys(attributes, "(?i)(conversation[._-]id|request[._-]id|call[._-]id|trace[._-]id|span[._-]id|account[._-]id|user[._-]account[._-]id|absolute[._-]?path|repository[._-]name|branch|commit)")'
   transform/privacy:
     error_mode: propagate
@@ -363,18 +357,6 @@ processors:
     send_batch_size: 256
     send_batch_max_size: 512
 exporters:
-  otlphttp/source:
-    endpoint: http://source-archive:4320
-    encoding: json
-    compression: none
-    timeout: 15s
-    retry_on_failure:
-      enabled: true
-      initial_interval: 1s
-      max_interval: 5s
-      max_elapsed_time: 30s
-    sending_queue:
-      enabled: false
   otlphttp/loki:
     endpoint: http://loki:3100/otlp
     tls:
@@ -432,30 +414,6 @@ service:
   - health_check
   - zpages
   pipelines:
-    logs/source:
-      receivers:
-      - otlp
-      processors:
-      - memory_limiter
-      - resource/source_metadata
-      exporters:
-      - otlphttp/source
-    metrics/source:
-      receivers:
-      - otlp
-      processors:
-      - memory_limiter
-      - resource/source_metadata
-      exporters:
-      - otlphttp/source
-    traces/source:
-      receivers:
-      - otlp
-      processors:
-      - memory_limiter
-      - resource/source_metadata
-      exporters:
-      - otlphttp/source
     logs:
       receivers:
       - otlp

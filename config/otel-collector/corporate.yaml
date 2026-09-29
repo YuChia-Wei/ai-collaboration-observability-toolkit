@@ -13,8 +13,8 @@ receivers:
 processors:
   memory_limiter:
     check_interval: 2s
-    limit_mib: 384
-    spike_limit_mib: 96
+    limit_mib: 192
+    spike_limit_mib: 48
   resource/normalize:
     attributes:
     - key: ai_context.environment.profile
@@ -63,6 +63,9 @@ processors:
       - 'delete_matching_keys(attributes, ".*")'
     - context: datapoint
       statements:
+      - set(attributes["skill.name"], "other") where attributes["skill.name"] != nil and not IsMatch(attributes["skill.name"], "^(none|code-reviewer|other)$")
+      - set(attributes["mcp_server.name"], "custom") where attributes["mcp_server.name"] != nil and not IsMatch(attributes["mcp_server.name"], "^(none|custom)$")
+      - set(attributes["mcp_tool.name"], "custom") where attributes["mcp_tool.name"] != nil and not IsMatch(attributes["mcp_tool.name"], "^(none|custom)$")
       - 'delete_matching_keys(attributes, "(?i)(conversation[._-]id|request[._-]id|call[._-]id|trace[._-]id|span[._-]id|account[._-]id|user[._-]account[._-]id|absolute[._-]?path|repository[._-]name|branch|commit)")'
   transform/ai_agent:
     error_mode: propagate
@@ -286,7 +289,7 @@ exporters:
     sending_queue:
       enabled: true
       num_consumers: 2
-      queue_size: 2048
+      queue_size: 256
   prometheus:
     endpoint: 0.0.0.0:8889
     send_timestamps: true
@@ -310,7 +313,7 @@ exporters:
     sending_queue:
       enabled: true
       num_consumers: 2
-      queue_size: 2048
+      queue_size: 256
 service:
   extensions:
   - health_check

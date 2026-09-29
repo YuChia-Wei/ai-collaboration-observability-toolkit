@@ -1,4 +1,52 @@
 services:
   otel-collector:
     volumes:
-      - ./config/otel-collector/corporate.yaml:/etc/otelcol/config.yaml:ro
+    - ./config/otel-collector/corporate.yaml:/etc/otelcol/config.yaml:ro
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1.0
+    environment:
+      GOMEMLIMIT: 192MiB
+      GOMAXPROCS: '2'
+  prometheus:
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 1.0
+    environment:
+      GOMEMLIMIT: 288MiB
+      GOMAXPROCS: '2'
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --storage.tsdb.retention.time=7d
+    - --storage.tsdb.retention.size=1GB
+    - --query.max-concurrency=2
+    - --query.max-samples=5000000
+    volumes:
+    - ./config/prometheus/corporate.yml:/etc/prometheus/prometheus.yml:ro
+  loki:
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1.0
+    environment:
+      GOMEMLIMIT: 192MiB
+      GOMAXPROCS: '2'
+    volumes:
+    - ./config/loki/corporate.yml:/etc/loki/loki.yml:ro
+  tempo:
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1.0
+    environment:
+      GOMEMLIMIT: 384MiB
+      GOMAXPROCS: '2'
+    volumes:
+    - ./config/tempo/corporate.yml:/etc/tempo/tempo.yml:ro
+  grafana:
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1.0
+    environment:
+      GOMEMLIMIT: 192MiB
+      GOMAXPROCS: '2'
+      GF_UNIFIED_ALERTING_ENABLED: 'false'

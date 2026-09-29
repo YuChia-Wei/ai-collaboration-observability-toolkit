@@ -23,19 +23,20 @@
 - Provision an idempotent Chinese operational annotation rubric through the pinned Phoenix REST API.
 - Close the planned 0.1.x line; subsequent feature planning targets v0.2.0.
 
-## v0.2.0 — Privacy-first agent usage and source evidence
+## v0.2.0 — Privacy-first agent usage for constrained workstations
 
 - Candidate scope: role-aware token accounting, separate API USD/Codex credits,
   GPT-6 mappings, usage/activity/context views, optional metadata-only Hooks,
-  explicit size-only proxies, and privacy-safe source archive/export.
+  explicit size-only proxies, and a bounded five-service company profile.
+- Source archive services and pipelines are removed; old volumes are retained.
 - Default backend APIs remain internal; normal operations use Grafana proxy,
   with an explicit loopback-only debug overlay.
 - Phoenix 20.0.0 remains Evaluation-only and receives redacted OpenInference
   spans; generic agent-internal traces remain in Tempo.
-- Preparation is not release freeze or publication. See [release notes](RELEASE-NOTES-v0.2.0.md)
+- See [release notes](RELEASE-NOTES-v0.2.0.md)
   and [readiness / issue review](RELEASE-READINESS-v0.2.0.md).
-- #8 tracks release gates; #22 retains the real-data observation gate and #24
-  retains the skill/MCP attribution-bounding acceptance gap.
+- #8 tracks release closeout; #22 real-data observation and #24 attribution
+  bounds are recorded in the readiness report with their evidence limitations.
 - Old #4/#5 improvement-loop scopes are closed as not planned, not completed.
   Reopening requires a real producer, bounded workflow/dataset, deterministic
   evaluator, privacy review, and experiment ownership/budget.

@@ -4,9 +4,9 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
-### v0.2.0 candidate — Privacy-first agent usage and source evidence
+## [0.2.0] - 2026-09-29
 
-Release preparation only; no publication date or tag has been assigned.
+Privacy-first agent usage with a bounded company workstation profile.
 See [release notes](docs/RELEASE-NOTES-v0.2.0.md) and
 [readiness and issue review](docs/RELEASE-READINESS-v0.2.0.md).
 
@@ -35,11 +35,8 @@ See [release notes](docs/RELEASE-NOTES-v0.2.0.md) and
   response-size byte metrics. Bytes are not tokens or full model context.
 - Claude Code CLI/Desktop native token mapping, skill/MCP attribution, and
   context-attribution dashboards; exact-client capture evidence remains a
-  follow-up and bounded attribution acceptance remains open in Issue #24.
-- Internal Core/Evaluation source archive with recursive privacy filtering,
-  append-only OTLP JSON storage, recovery, and explicit export. Safe unknown
-  fields, metric shapes, exemplars, events, and span links remain available
-  before analytical normalization. Corporate has no source archive route.
+  follow-up. Arbitrary skill/MCP names become bounded other/custom values before
+  native/canonical export; Corporate removes attribution dimensions.
 - Optional loopback-only `compose.debug.yaml` for direct backend API access.
 
 ### Changed
@@ -54,6 +51,19 @@ See [release notes](docs/RELEASE-NOTES-v0.2.0.md) and
   agent disabled and existing PostgreSQL data retained.
 - Default host interfaces are Collector, Grafana, and Evaluation Phoenix.
   Prometheus/Loki/Tempo remain internal; operational queries use Grafana proxy.
+- Corporate uses five services capped at 1664 MiB aggregate container memory,
+  30-second scrape/rule evaluation, reduced query concurrency, 7-day/1GB
+  Prometheus block retention, and 72-hour log/trace retention. Container logs rotate.
+- Patched Grafana to 13.1.7, Prometheus to 3.13.3, Loki to 3.7.8, Tempo to 3.0.3,
+  and optional PostgreSQL to 18.6-alpine3.24. Collector/Phoenix feature upgrades
+  remain separate from this resource-focused release.
+
+### Removed
+
+- Removed the unreleased source archive service, initializer, independent
+  Collector pipelines, export CLI and dedicated implementation/tests. No
+  duplicate OTLP JSONL storage runs in any mode. Existing archive volumes are
+  retained until separately reviewed for export/deletion.
 
 ### Fixed
 
@@ -68,8 +78,9 @@ See [release notes](docs/RELEASE-NOTES-v0.2.0.md) and
   neither backfilled nor erased, and estimates are not invoices or allowances.
 - The complete AI Collaboration Improvement Loop is excluded. Issues #4/#5
   are retired planning scopes, not delivered capabilities.
-- Release preparation does not waive the open candidate checks in the readiness
-  report, including Issue #24 attribution bounds and Issue #22 observation.
+- Corporate caps are a resource budget, not a throughput or disk-capacity
+  guarantee. Retention can remove older data after deployment; back up before
+  changing an existing personal stack to the short-retention company profile.
 
 ## [0.1.5] - 2026-08-09
 

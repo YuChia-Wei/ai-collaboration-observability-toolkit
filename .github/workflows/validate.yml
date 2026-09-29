@@ -36,20 +36,27 @@ jobs:
           docker run --rm \
             --entrypoint=/bin/promtool \
             -v "$PWD/config/prometheus:/etc/prometheus:ro" \
-            prom/prometheus:v3.13.2 \
+            prom/prometheus:v3.13.3 \
             check config /etc/prometheus/prometheus.yml
 
           docker run --rm \
             -v "$PWD/config/loki:/etc/loki:ro" \
-            grafana/loki:3.7.6 \
+            grafana/loki:3.7.8 \
             -config.file=/etc/loki/loki.yml \
             -verify-config=true
 
           docker run --rm \
             -v "$PWD/config/tempo:/etc/tempo:ro" \
-            grafana/tempo:3.0.2 \
+            grafana/tempo:3.0.3 \
             -config.file=/etc/tempo/tempo.yml \
             -config.verify=true
+          docker run --rm --entrypoint=/bin/promtool \
+            -v "$PWD/config/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.13.3 check config /etc/prometheus/corporate.yml
+          docker run --rm -v "$PWD/config/loki:/etc/loki:ro" \
+            grafana/loki:3.7.8 -config.file=/etc/loki/corporate.yml -verify-config=true
+          docker run --rm -v "$PWD/config/tempo:/etc/tempo:ro" \
+            grafana/tempo:3.0.3 -config.file=/etc/tempo/corporate.yml -config.verify=true
       - name: Run repository tests and language syntax checks
         run: |
           python -m unittest discover -s tests -v
@@ -61,6 +68,8 @@ jobs:
         run: python scripts/toolkit.py up --mode core
       - name: Run core smoke and persistence checks
         run: python scripts/toolkit.py smoke --mode core --persistence-check --report artifacts/smoke-core.json
+      - name: Check arbitrary attribution values
+        run: python scripts/check_attribution_bounds.py --mode core
       - name: Capture runtime evidence
         if: always()
         run: |

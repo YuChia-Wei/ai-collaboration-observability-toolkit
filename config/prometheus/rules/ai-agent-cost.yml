@@ -1,6 +1,5 @@
 groups:
   - name: ai-agent-token-accounting-and-estimates
-    interval: 10s
     rules:
       # Public API list prices are versioned by their official-model-page
       # read-back date. Cache writes are explicitly listed at 1.25x uncached

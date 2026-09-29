@@ -8,9 +8,7 @@ header-based opt-out.
 
 ## Evidence layers
 
-Core/Evaluation retain all received logs, metrics, and traces as privacy-filtered
-OTLP JSONL in a local named volume, regardless of whether a provider mapping or
-dashboard exists. These analysis evidence layers remain separately available:
+v0.2.0 stores privacy-filtered LGTM analytical data without a source archive.
 
 - Native provider telemetry: privacy-filtered codex.* and antigravity_* data.
 - Canonical AI-agent usage: bounded ai_agent.* copies created by the Collector.
@@ -23,19 +21,12 @@ estimate is produced only when provider-reported tokens, an exact model, and a
 versioned rate card all exist. Extension-observed gauges are never presented as
 counters or billing.
 
-The source archive preserves safe source attributes and histogram datapoints.
-Analysis labels and canonical metrics are additional projections. Prometheus
-label restrictions and Phoenix compatibility filters do not remove the
-corresponding source records. Sensitive content is still removed. This applies
-only to newly received data; it cannot recover earlier discarded records,
-unsent sender data, or transport failures.
-
 ## Modes
 
 | Mode | Purpose | Policy |
 | --- | --- | --- |
-| core | Personal LGTM baseline | Privacy-filtered source archive plus analysis copies; backend privacy/cardinality filters remain |
-| evaluation | Phoenix annotations/datasets/experiments | Same source archive as Core; redacted OpenInference-compatible spans reach Phoenix by default; `x-ai-observability-phoenix: false` opts out |
+| core | Personal LGTM baseline | Privacy-filtered LGTM analysis; no source archive |
+| evaluation | Phoenix annotations/datasets/experiments | redacted OpenInference-compatible spans reach Phoenix by default; `x-ai-observability-phoenix: false` opts out |
 | corporate | Company workstation metadata baseline | Exact allowlist, unknown fields dropped, no Phoenix |
 
 ## Compose-first quick start
@@ -43,7 +34,7 @@ unsent sender data, or transport failures.
     Copy-Item .env.example .env
     docker compose -f compose.yaml up -d
 
-Evaluation (Core source archive and LGTM, plus Phoenix):
+Evaluation (Core LGTM, plus Phoenix):
 
     docker compose -f compose.yaml -f compose.evaluation.yaml up -d
 
@@ -77,16 +68,6 @@ This additionally publishes Prometheus 9090, Loki 3100, and Tempo 3200 to
 127.0.0.1. Their host ports can be changed with `PROMETHEUS_PORT`, `LOKI_PORT`,
 and `TEMPO_PORT` in `.env`. For Core, use `-f compose.yaml -f compose.debug.yaml`.
 See [Operations](docs/OPERATIONS.md).
-
-Core/Evaluation enable the source archive automatically. Export it for later
-analysis without printing telemetry content:
-
-    python scripts/toolkit.py source-export --mode evaluation --output artifacts/source-export-2026-09-20
-
-The output contains `logs.jsonl`, `metrics.jsonl`, and `traces.jsonl`. The archive
-has no automatic expiration, rotation, or deletion; plan disk capacity and
-manual maintenance. `down` preserves it and restarts append to the same files.
-Corporate does not route telemetry to the archive. See [Operations](docs/OPERATIONS.md).
 
 ## Verified provider surfaces
 
@@ -133,7 +114,7 @@ tokens remain unmapped and unpriced. Antigravity status-line
 token/context/quota values remain unpriced observed snapshots. Claude has an
 implemented, synthetic-fixture-tested native metrics mapping; exact-client
 capture provenance remains a follow-up. Copilot has no repository adapter.
-Both remain unpriced. Claude attribution bounding remains an open release gate.
+Both remain unpriced. Claude attribution values are bounded before native/canonical export.
 
 ## Validation
 
@@ -146,13 +127,18 @@ reconciliation, and persistence checks.
 
 Unavailable checks are reported as not-executed, never passed.
 
-## Release preparation
+## Release information
 
 [v0.2.0 release notes](docs/RELEASE-NOTES-v0.2.0.md),
 [readiness and issue review](docs/RELEASE-READINESS-v0.2.0.md), and
-[changelog](CHANGELOG.md) describe the prepared scope and remaining gates.
-The candidate is not yet tagged or published.
+[changelog](CHANGELOG.md) describe the scope, validation, and limitations.
 
 The 0.1.3 policy protects the new ingestion window. It does not silently erase
 legacy data in persistent volumes; irreversible cleanup requires an explicit
 Owner decision.
+
+## Company / 32 GB workstation
+
+Use Corporate mode: five services, no Phoenix/PostgreSQL or source archive,
+1664 MiB total container memory limits, shorter retention, bounded query work.
+See [company setup and limits](docs/COMPANY-LOW-RESOURCE.md).

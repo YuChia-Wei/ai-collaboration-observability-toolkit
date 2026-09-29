@@ -32,7 +32,7 @@ DEFAULT_PROFILE = "personal-local"
 DEFAULT_TIMEOUT_SECONDS = 0.35
 DEFAULT_HEARTBEAT_SECONDS = 60.0
 SCOPE_NAME = "ai-collaboration-observability.antigravity-example"
-SCOPE_VERSION = "0.1.5"
+SCOPE_VERSION = "0.2.0"
 SAFE_TEXT = re.compile(r"[^A-Za-z0-9_.:/() +\-]", re.ASCII)
 
 

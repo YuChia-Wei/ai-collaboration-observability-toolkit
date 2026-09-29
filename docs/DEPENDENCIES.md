@@ -15,13 +15,12 @@ override remains possible, but floating tags and unmatched defaults fail validat
 | Component | Committed image/version | License | Role | Selection notes |
 | --- | --- | --- | --- | --- |
 | OpenTelemetry Collector Contrib | `otel/opentelemetry-collector-contrib:0.158.0` | Apache-2.0 | OTLP ingress, minimization, cardinality, routing | Pinned Collector Contrib baseline used by the repository validation and routing profiles |
-| Source archive runtime | `python:3.13.7-alpine3.22` | PSF-2.0 | Internal OTLP JSON privacy and append-only storage | Standard library only; no host port; non-root; source storage is initialized by the existing pinned Grafana image |
-| Prometheus | `prom/prometheus:v3.13.2` | Apache-2.0 | Metrics store/query | Pinned metrics baseline; validate migration notes before changing major or minor versions |
-| Loki | `grafana/loki:3.7.6` | AGPL-3.0 | Native OTLP log store/query | Uses filesystem TSDB v13 and structured metadata |
-| Tempo | `grafana/tempo:3.0.2` | AGPL-3.0 | Trace store/query | Uses the Tempo 3 monolithic local-storage configuration |
-| Grafana | `grafana/grafana:13.1.3` | AGPL-3.0 | Dashboards and cross-signal exploration | Provisioned datasources/dashboards; no floating plugin installation |
+| Prometheus | `prom/prometheus:v3.13.3` | Apache-2.0 | Metrics store/query | Pinned metrics baseline; validate migration notes before changing major or minor versions |
+| Loki | `grafana/loki:3.7.8` | AGPL-3.0 | Native OTLP log store/query | Uses filesystem TSDB v13 and structured metadata |
+| Tempo | `grafana/tempo:3.0.3` | AGPL-3.0 | Trace store/query | Uses the Tempo 3 monolithic local-storage configuration |
+| Grafana | `grafana/grafana:13.1.7` | AGPL-3.0 | Dashboards and cross-signal exploration | Provisioned datasources/dashboards; no floating plugin installation |
 | Phoenix | `arizephoenix/phoenix:version-20.0.0-nonroot` | Elastic License 2.0 | Optional AI trace evaluation | Evaluation receives minimized OpenInference-compatible spans by default with explicit opt-out; generic spans remain in Tempo; the persistent Phoenix Agent is disabled |
-| PostgreSQL | `postgres:18.4-alpine3.24` | PostgreSQL License | Phoenix persistence | Exact image tag; PostgreSQL 18 data volume mounts at `/var/lib/postgresql` |
+| PostgreSQL | `postgres:18.6-alpine3.24` | PostgreSQL License | Phoenix persistence | Exact image tag; PostgreSQL 18 data volume mounts at `/var/lib/postgresql` |
 | PyYAML | `6.0.3` | MIT | YAML parsing and duplicate-key/policy validation | Pinned in `requirements.txt` |
 | jsonschema | `4.26.0` | MIT | Feedback-bundle schema validation | Pinned in `requirements.txt` |
 
@@ -56,3 +55,6 @@ configuration with the exact pinned container images above.
 `examples/antigravity/antigravity_otel_exporter.py` uses only the Python standard library. It does not
 add a package dependency to the observability containers. Python is required only on the host running
 the optional Antigravity Hook/status-line bridge; no `pip install` is required for this exporter.
+
+See [v0.2.0 dependency assessment](DEPENDENCY-REVIEW-v0.2.0.md) for the
+2026-09-29 patch selection, deferred upgrades, and company resource budget.

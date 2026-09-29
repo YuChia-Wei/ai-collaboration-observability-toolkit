@@ -1307,8 +1307,24 @@ class RepositoryTests(unittest.TestCase):
         self.assertEqual(list(Draft202012Validator(schema).iter_errors(instance)), [])
 
     def test_version_and_requirement_metadata(self) -> None:
-        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.1.5")
+        self.assertEqual((ROOT / "VERSION").read_text().strip(), "0.2.0")
         self.assertEqual((ROOT / "requirements-dev.txt").read_text(), "-r requirements.txt\n")
+
+    def test_corporate_resource_budget_and_no_archive(self) -> None:
+        base = toolkit.yaml_load(ROOT / "compose.yaml")
+        corporate = toolkit.yaml_load(ROOT / "compose.corporate.yaml")
+        self.assertEqual(set(base["services"]), {"otel-collector", "prometheus", "loki", "tempo", "grafana"})
+        self.assertNotIn("collector-source-data", base["volumes"])
+        self.assertLessEqual(sum(int(s["mem_limit"].removesuffix("m")) for s in corporate["services"].values()), 1664)
+        for service in corporate["services"].values():
+            self.assertEqual(service["mem_limit"], service["memswap_limit"])
+        for mode in toolkit.MODES:
+            profile = toolkit.yaml_load(ROOT / f"config/otel-collector/{mode}.yaml")
+            self.assertNotIn("otlphttp/source", profile["exporters"])
+            self.assertFalse(any(p.endswith("/source") for p in profile["service"]["pipelines"]))
+        self.assertIn("--storage.tsdb.retention.size=1GB", corporate["services"]["prometheus"]["command"])
+        self.assertEqual(toolkit.yaml_load(ROOT / "config/loki/corporate.yml")["limits_config"]["retention_period"], "72h")
+        self.assertEqual(toolkit.yaml_load(ROOT / "config/tempo/corporate.yml")["overrides"]["defaults"]["compaction"]["block_retention"], "72h")
 
     def test_cli_exposes_explicit_report_snapshot_and_persistence_options(self) -> None:
         smoke = subprocess.run(
@@ -1328,15 +1344,6 @@ class RepositoryTests(unittest.TestCase):
             check=True,
         ).stdout
         self.assertIn("--output", snapshot)
-        source = subprocess.run(
-            [sys.executable, "scripts/toolkit.py", "source-export", "--help"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
-        self.assertIn("--output", source)
-        self.assertIn("{core,evaluation}", source)
 
     def test_reset_refuses_without_exact_confirmation(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "destructive reset refused"):

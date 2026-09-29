@@ -11,11 +11,6 @@ separates three concerns that are often incorrectly combined:
 3. **Improvement evidence** — human annotations, evaluators, datasets, and experiments comparing AI
    collaboration framework versions.
 
-Grafana LGTM is the execution/usage layer. Phoenix is an optional improvement layer. The
-OpenTelemetry Collector is the canonical host ingress and backend analysis policy
-boundary. An internal source archive service separately redacts received OTLP
-records before local persistence.
-
 ## Component topology
 
 ```text
@@ -39,48 +34,22 @@ records before local persistence.
 
 Evaluation mode only:
 minimized traces → OpenInference compatibility filter → default-on header/resource routing → Phoenix → PostgreSQL
-
-Core/Evaluation, from the same OTLP receiver, before backend transforms:
-receive → memory limit → additive metadata → internal source-archive service
-                                            recursive privacy → local OTLP JSONL
-                                                                (collector-source-data)
 ```
 
 ## Deployment modes
 
 ### Core
 
-- General local development and framework observation.
-- All three signals flow to the LGTM backends.
-- All three signals also flow to independent source archive pipelines, enabled
-  automatically. They retain privacy-filtered OTLP JSONL before canonical
-  mapping, metric label reduction, or backend conversion.
-- Phoenix is absent.
-- Known content-bearing attributes are removed.
-- Log bodies are replaced with a constant metadata marker before Loki export.
-- Span names retain operational meaning, but obvious absolute paths and secret-shaped fragments are
-  replaced.
+- Five local services: Collector, Prometheus, Loki, Tempo, Grafana.
+- Privacy-filtered native and canonical telemetry are queried through Grafana.
 
 Core is a private-laboratory baseline, not a proof that an unknown future client field is safe. A
 client upgrade requires the sentinel smoke test and representative metadata inspection.
 
 ### Evaluation
 
-- Adds Phoenix and PostgreSQL.
-- Includes the same source archive as Core. Evaluation adds analysis features;
-  it is not an option to capture unredacted content or all workstation data.
-- Every minimized trace still reaches Tempo.
-- Minimized spans that declare `openinference.span.kind` reach Phoenix by default.
-  Generic/internal spans remain in Tempo because Phoenix cannot infer LLM or
-  evaluation semantics from them. The OTLP header
-  `x-ai-observability-phoenix: false` or legacy boolean resource attribute
-  `ai_context.export.phoenix=false` opts out.
-- The routing processors run after the same privacy transform used by the Tempo route. Temporary
-  header-derived routing metadata is deleted before Phoenix export.
-- Runtime smoke verifies missing-header, header-true, and header-false semantic
-  traces in Tempo and confirms only the first two through Phoenix's project span
-  API. Legacy resource true/false remains covered, and a generic trace is
-  required in Tempo but absent from Phoenix.
+- Core plus optional Phoenix/PostgreSQL for OpenInference trace annotation.
+- Generic spans stay in Tempo; header/resource opt-outs remain supported.
 
 ### Corporate
 
@@ -93,34 +62,20 @@ client upgrade requires the sentinel smoke test and representative metadata insp
 - Phoenix and all Internet/external exporters are absent.
 - Unknown fields fail closed by being dropped.
 - Source archive pipelines and source exporters are absent.
-- The shared source service may remain idle; switching profiles does not erase
-  a previous Core/Evaluation archive.
 
 These modes are intentionally mutually exclusive. Running multiple mode overrides over the same
 published ports creates ambiguous data-governance semantics and is unsupported.
 
 ## Network boundaries
 
-Every host-published port in committed Compose is explicitly bound to `127.0.0.1`. By default,
-only the Collector (existing OTLP and health ports), Grafana, and Evaluation Phoenix publish to
-the host. Prometheus, Loki, Tempo, Postgres, and the source archive remain internal. An explicit
-`compose.debug.yaml` overlay can publish the Prometheus, Loki, and Tempo APIs on loopback for
-direct troubleshooting. Container-to-container communication uses the private `observability`
-bridge. The toolkit does not provide an authentication gateway or TLS for network exposure.
-Editing Compose to bind a service to `0.0.0.0`
-without adding those controls is a security exception, not a normal configuration change.
-
-Only the Collector publishes OTLP ports to the host. Tempo, Phoenix, and
-`source-archive:4320` receivers are internal to the Compose network. Host tools
-must use the Collector endpoint. The source service handles the unnormalized
-copy inside that private network and recursively redacts it before writing any
-archive record; the backend analysis routes retain their Collector transforms.
+All host-published ports bind to loopback. Only Collector is host-facing OTLP
+ingress. Grafana accesses internal backends; direct backend APIs require the
+explicit debug overlay. No multi-user gateway or network authentication is supplied.
 
 ## Storage and retention
 
 | Signal/system | Store | Default retention or lifecycle |
 | --- | --- | --- |
-| Source logs/metrics/traces (Core/Evaluation) | `collector-source-data`, OTLP JSONL | Append on restart; no automatic expiration, rotation, or deletion |
 | Metrics | Prometheus TSDB | 14 days (`PROMETHEUS_RETENTION`) |
 | Logs | Loki filesystem TSDB | 14 days (`336h`) |
 | Traces | Tempo local blocks/WAL | 14 days (`336h`) |
@@ -135,11 +90,6 @@ them only when the caller supplies the exact Compose project name.
 Prometheus labels and Loki index labels must remain low-cardinality. Session, prompt, conversation,
 request, trace/span, tool-call, workflow UUID, validation fingerprint, commit, branch, path, and user
 identifiers are removed from metric datapoint attributes before export.
-
-These index restrictions apply to backend projections, not the source archive.
-The archive keeps safe unknown dimensions and original histogram points so a
-future analysis does not depend on today's metric allowlist or mapping. Privacy
-redaction still removes sensitive attributes before any source file is written.
 
 Loki indexes only:
 
@@ -158,20 +108,6 @@ protects short backend restarts but is not a durable message queue. A workstatio
 buffered telemetry. Durable offline corporate export is a roadmap item and must use a separately
 reviewed, versioned feedback-bundle contract.
 
-The internal source service preserves data before backend-specific transformations
-and appends privacy-filtered JSONL with filesystem sync. It does not provide
-a durable ingestion acknowledgement protocol or unlimited storage. Disk full,
-memory pressure, privacy transform errors, transport failures, and process
-crashes can still prevent retention. Source files have no TTL or automatic
-rotation; monitor disk use and explicitly export or maintain them. The source
-exporter's sending queue is disabled; it does not persist unredacted pending
-requests. A backend retention window does not prune this volume.
-
-The source service bounds individual requests to 16 MiB, recursive processing to
-64 levels, and active ingestion to eight requests. Invalid or oversized
-requests fail rather than bypass redaction. Collector retries are bounded; an
-archive failure is not an unlimited offline spool.
-
 ## Telemetry contract layers
 
 The Collector separates three layers:
@@ -187,23 +123,23 @@ categories without permitting raw model, tool, content, identifier, or path
 fields to escape. Native and canonical metrics are both retained, but
 dashboards never use fallback expressions across contract layers.
 
-In Core/Evaluation a separate source archive sits beside these analysis layers.
-It requires no known provider or canonical mapping and receives the OTLP input
-before normalization. Additive provenance metadata precedes the private source
-service, whose recursive sanitizer runs before file append. The source and canonical views are independent
-copies; adding a mapping later does not require changing the archive's accepted
-signal names. The archive is forward-only and cannot restore previously dropped
-or never-sent data.
-
-The only host-facing telemetry ingress remains the OpenTelemetry Collector.
-Phoenix is not an ingress and receives already-redacted, OpenInference-compatible
-Evaluation spans under the default-on routing contract. Tempo remains the general
-minimized trace query backend; the source archive also retains generic and
-Phoenix-opted-out spans after its privacy transform.
-
 ## Why not one all-in-one backend
 
 The first objective is to retain the known Grafana operating model while adding a small Phoenix
 experiment surface. Replacing LGTM with SigNoz, ClickStack, or OpenObserve would combine a backend
 migration with the telemetry-contract experiment and make improvements difficult to attribute. The
 Collector boundary keeps those comparisons possible later without changing every sender.
+
+
+## v0.2.0 storage and resource boundary
+
+No source archive or JSONL duplication runs in any mode. Historical archive
+volumes are preserved until separately reviewed for export/deletion. Collector
+privacy and native/canonical analytical pipelines remain in place. Corporate
+uses five services with bounded memory, 7-day/1GB Prometheus block retention,
+and 72-hour log/trace retention; see [company operation](COMPANY-LOW-RESOURCE.md).
+
+Core/Evaluation bound Claude `skill.name` to `none`, `code-reviewer`, or `other`
+and MCP server/tool names to `none` or `custom` before canonical copying.
+Corporate removes these attribution dimensions. Unknown skill names become
+`other`; arbitrary MCP names become `custom`, including on native metrics.

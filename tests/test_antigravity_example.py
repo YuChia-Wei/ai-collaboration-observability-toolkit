@@ -157,7 +157,7 @@ class AntigravityExampleTests(unittest.TestCase):
             self.assertIn('"stringValue": "ai-collaboration-fixture"', rendered)
             self.assertIn('"ai_agent.evidence.class"', rendered)
             self.assertIn('"stringValue": "observed"', rendered)
-            self.assertIn('"version": "0.1.5"', rendered)
+            self.assertIn('"version": "0.2.0"', rendered)
             self.assertNotIn("ai_context.export.phoenix", rendered)
 
     def test_corporate_statusline_omits_session_identifier(self) -> None:

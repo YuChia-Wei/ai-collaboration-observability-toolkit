@@ -8,7 +8,7 @@ class instead.
 
 For each mode:
 
-1. Reset volumes or record current data size.
+1. Record current data size; use a fresh isolated project for disposable benchmarks.
 2. Start the stack and wait five minutes.
 3. Capture `resource-snapshot` at idle.
 4. Send the smoke fixture 100 times over a controlled interval.
@@ -35,7 +35,7 @@ timestamp and duration
 
 ## Decision guidance
 
-- Core is the default for resource-constrained workstations.
+- Corporate is the company low-resource profile; see [company budgets](COMPANY-LOW-RESOURCE.md).
 - Evaluation can be started only while performing trace review/experiments.
 - Corporate endpoints can run core storage locally, but a future metadata-only file/bundle mode may
   be preferable where Docker resources are constrained.

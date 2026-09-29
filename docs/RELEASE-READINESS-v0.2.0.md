@@ -1,37 +1,58 @@
-# v0.2.0 preparation and issue review
+# v0.2.0 release readiness
 
-Review date: 2026-09-29. Status: preparation complete only after the accompanying
-local commits; publication and release freeze remain pending.
+Review date: 2026-09-29. Local implementation and runtime acceptance are complete.
+The release commit, hosted CI result, and remote annotated tag readback are recorded
+in [release tracker #8](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/8).
+This document does not claim a GitHub Release was published.
 
-## Candidate boundary
+## Candidate scope
 
-The reviewed remote baseline is `f01f21b6d6400bf0231c4ef4820af8d1b3047709`,
-15 commits after v0.1.5. Local commit `a2ae304` adds restricted default backend
-ports, Grafana proxy operations, tests, and synchronized documentation.
-The release documentation commit is the commit containing this report. It is
-not yet a hosted release candidate; no tag or Release has been created.
+Restricted backend ports, provider usage/accounting and dashboards, a five-service
+Corporate profile with a 1664 MiB aggregate container memory limit, shorter retention,
+pinned patch upgrades, finite attribution values, and removal of source archive.
+Phoenix/PostgreSQL remain optional in Evaluation; Corporate includes neither.
+See [dependency assessment](DEPENDENCY-REVIEW-v0.2.0.md) and
+[company deployment guide](COMPANY-LOW-RESOURCE.md).
 
-## Evidence and remaining gates
+## Observed validation
 
-| Check | Observed result | Scope / remaining work |
+| Check | Result | Scope |
 | --- | --- | --- |
-| Repository policy / Compose | PASS on 2026-09-29 | All three modes, with and without debug overlay |
-| Unit tests | PASS: 86 passed, 1 skipped out of 87 | Windows POSIX executable-bit check is not applicable; sandbox permission failure cleared on host rerun |
-| Evaluation quick smoke | PASS on 2026-09-29 | Existing stack; Grafana proxy, privacy, accounting, dashboards, Phoenix routing; local report `artifacts/smoke/20260929T141408Z-evaluation.json` |
-| Current main hosted Core gate | PASS at `f01f21b` | [Run 36028779246](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/actions/runs/36028779246); does not cover later local commits |
-| Native backend validators locally | NOT EXECUTED | Required binaries were not configured; Compose parsing is not native validation |
-| New default topology applied | NOT EXECUTED | Current stack still publishes 9090/3100/3200; maintenance rollout remains deferred |
-| Final candidate Core/Corporate runtime | NOT EXECUTED | Must run against the eventual clean candidate |
-| Final candidate restart persistence | NOT EXECUTED | Quick smoke deliberately did not restart existing services |
-| Final candidate source-archive persistence | NOT EXECUTED | Historical implementation/unit evidence is not new candidate runtime acceptance |
-| Representative role/accounting observation | OPEN (#22) | Record a representative 24–48h real-data window; elapsed calendar time and fixture smoke do not prove it |
-| Claude attribution bounds | OPEN (#24) | Core/Evaluation copy provider skill/MCP names into labels; finite value enforcement is not demonstrated |
+| Repository policy / Compose | PASS | All three modes, with and without debug overlay |
+| Unit tests | PASS: 57 passed, 1 skipped out of 58 | Windows POSIX executable-bit check skipped; archive-only tests removed with the retired component |
+| Native configuration validators | PASS | Pinned Collector image validates all modes; pinned Prometheus, Loki and Tempo images validate normal and Corporate configs |
+| Core, Corporate, Evaluation runtime | PASS | Actual isolated Docker stacks; ingestion, privacy, accounting, dashboards and mode-specific routing assertions |
+| Restart persistence | PASS in all three modes | Backend data survives actual container restart |
+| Arbitrary attribution negative checks | PASS in all three modes | Sensitive synthetic skill/MCP names absent from raw/canonical labels; 4720-token totals preserved; Corporate removes attribution |
+| Actual container topology | PASS | Five services in Core/Corporate, seven in Evaluation; no archive, no backend host bindings, no observed OOM |
+| Corporate resource constraints | PASS | Docker inspect confirms memory/swap limits; fresh synthetic workload snapshot approximately 344 MiB across five services |
+| Existing personal deployment upgrade | NOT EXECUTED | Existing containers and volumes retained; isolated tests do not deploy the new profile to personal or company systems |
 
-Before tagging: resolve #24's accepted-input/value-bound policy and regression
-evidence, complete #22 observation, validate the final clean commit in all
-required modes (including persistence/native checks), and attach that evidence
-to #8. Tag/Release publication is a separate action. Do not turn skipped checks
-or a previous commit's successful CI into a current-candidate pass.
+Runtime reports are local ignored artifacts: `artifacts/v020-{mode}-smoke.json`,
+`artifacts/v020-{mode}-resources.json`, and the corresponding run logs. Hosted CI
+uploads its own independently produced runtime evidence. Docker/WSL overhead is
+excluded from the memory figures; small synthetic data is not a representative
+company workload or a controlled before/after performance comparison.
+
+## Real-data accounting observation (#22)
+
+A read-only query of the existing personal stack at 2026-09-29T14:45:53Z examined
+a 48-hour window excluding fixture namespaces. Available samples span about
+46.9 hours. Primary/reviewer token classes were present; current accounting keys
+had at most one series, no negative token classes or priced unknown models were
+observed, and recording-rule failures did not increase in the queried window.
+The local summary is `artifacts/v020-accounting-observation.json`.
+This is sampled real usage, not proof of uninterrupted 48-hour uptime or company
+workload coverage. Deterministic token reconciliation additionally passed in each
+isolated mode. Exact Claude client/version provenance remains follow-up #9.
+
+## Migration limits
+
+The old source archive volume (about 18.8 GiB in the observed personal deployment)
+was not deleted and no disk space is claimed reclaimed. Shorter retention can
+expire existing data after deployment; back up needed data and merge existing
+`.env` image overrides with the new pinned defaults before upgrading. Evaluation
+PostgreSQL stays on major 18; read its patch migration notes before reusing data.
 
 ## Issue disposition
 
@@ -45,13 +66,13 @@ delivered implementation from obsolete planning and outstanding acceptance.
 | [#5](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/5) | Close, not planned | Full evaluator/experiment loop depends on unavailable #4 evidence; Hooks/routing do not satisfy it. Reopen with a curated dataset, deterministic evaluator, budget, and owner. |
 | [#6](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/6) | Keep, conditional post-0.2.0 | Aggregate feedback export / official CSV reconciliation may be useful; require data authority and a bounded slice. Remove obsolete version reservations. |
 | [#7](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/7) | Keep, deferred proposal | Compare only if measured resource/query pain justifies it; retaining LGTM is valid. No dependency on an assumed v0.3.0 loop. |
-| [#8](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/8) | Keep, release tracking | Refresh scope to usage/source evidence and retain open candidate gates. |
+| [#8](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/8) | Release tracking | Corporate low-resource profile, source archive removal, exact release commit CI and tag readback. |
 | [#9](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/9) | Keep, first follow-up | Mapping exists; capture exact Claude CLI/Desktop versions and sanitized provenance, reconcile real input with fixture semantics. Do not repeat baseline implementation. |
 | [#10](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/10) | Keep, follow-up | Choose a supported Copilot surface, acquire authorized fixture, then decide adapter. Missing signals remain unavailable. |
 | [#21](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/21) | Close, completed baseline | Phoenix 20.0.0 nonroot pin/docs/tests are in main; #22 records prior isolated upgrade/persistence evidence. This does not assert it is today's newest upstream release. |
-| [#22](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/22) | Keep, release acceptance | Implementation is present and fixture smoke passes; representative production observation remains unverified. |
+| [#22](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/22) | Acceptance completed | Real-data observation spans approximately 46.9 hours; fixture accounting and restart persistence pass in all three modes. See limits below. |
 | [#23](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/23) | Close, completed | `7edac47`, size-only opt-in, default no-read, UTF-8 measurement, Corporate rejection, privacy and wire tests. |
-| [#24](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/24) | Keep, acceptance gap | `cffd3e5` delivers mapping/dashboard/Hooks; arbitrary provider skill/MCP values are copied without an explicit finite allowlist. Keep bounding/negative tests open before publication. |
+| [#24](https://github.com/YuChia-Wei/ai-collaboration-observability-toolkit/issues/24) | Acceptance completed | Finite skill/MCP values are enforced before raw/canonical export; adversarial runtime checks pass in all three modes. Exact-client provenance remains #9. |
 
 Issue closure is not publication, and not-planned closure is not implementation
 completion. No follow-up minor/patch version is reserved by this review.

@@ -28,6 +28,8 @@ jobs:
         run: python scripts/toolkit.py up --mode ${{ matrix.mode }}
       - name: Run smoke tests
         run: python scripts/toolkit.py smoke --mode ${{ matrix.mode }} --persistence-check --report artifacts/smoke-${{ matrix.mode }}.json
+      - name: Check arbitrary attribution values
+        run: python scripts/check_attribution_bounds.py --mode ${{ matrix.mode }}
       - name: Capture runtime evidence
         if: always()
         shell: bash

@@ -18,9 +18,9 @@ Claude/Copilot client versions requires a real, version-pinned privacy-safe
 capture and defensible usage contract. Claude has
 an implemented, synthetic-fixture-tested metrics mapping; Issue #9 tracks
 exact-client capture provenance. Copilot has no repository adapter. Neither
-provider has an exact-model cost estimate here. Issue #24 remains open for
-explicit bounding and negative tests of Claude skill/MCP label values; provider
-redaction defaults alone do not establish a Collector-enforced finite value set.
+provider has an exact-model cost estimate here. Collector-enforced finite skill/MCP value sets now apply before copying native
+metrics into canonical labels; arbitrary values map to other/custom. Runtime
+negative checks verify totals and label exclusion in all modes.
 
 Codex `agent_role` and `model_id` are independent. The current
 `codex-auto-review` source value proves `approval_reviewer`, but not the exact
