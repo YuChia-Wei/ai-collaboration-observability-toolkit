@@ -231,6 +231,16 @@ producer-supplied role is retained, otherwise ordinary Codex usage defaults to
 credits use `official_codex_pricing`. Older cards and stored data remain
 unchanged. New mappings apply only to newly ingested data.
 
+Exact `gpt-6.1-sol` also uses canonical family `gpt-6`, retaining a valid
+producer role and otherwise defaulting ordinary Codex usage to `primary`.
+Its separate `openai-api-2026-10-01` card uses the official model page's USD
+rates per million tokens: $2 input, $0.10 cached input, $2.50 cache write,
+and $10 output. `openai-codex-credits-2026-10-01` uses the separately published
+Standard credits rates: 50 input, 2.5 cached input, and 250 output. Cache-write
+tokens remain outside the three-class credits estimate. Sources:
+[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and
+[Codex token rates](https://learn.chatgpt.com/docs/pricing#token-rates).
+
 No estimate is guessed for an `unmapped` model, including current
 `approval_reviewer` telemetry, or for Antigravity, Claude, or Copilot. The API
 estimate does not represent Codex subscriptions, credits, Enterprise contracts,

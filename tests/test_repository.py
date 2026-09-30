@@ -472,12 +472,14 @@ class RepositoryTests(unittest.TestCase):
             "gpt-5.6-luna": "gpt-5.6-luna",
             "gpt-6-astra": "gpt-6-astra",
             "gpt-6-sol": "gpt-6-sol",
+            "gpt-6.1-sol": "gpt-6.1-sol",
             "gpt-6-luna": "gpt-6-luna",
         }
         expected_families = {
             "gpt-5.6": "gpt-5.6",
             "gpt-6-astra": "gpt-6",
             "gpt-6-sol": "gpt-6",
+            "gpt-6.1-sol": "gpt-6",
             "gpt-6-luna": "gpt-6",
         }
         for path in sorted((ROOT / "config/otel-collector").glob("*.yaml")):
@@ -495,7 +497,7 @@ class RepositoryTests(unittest.TestCase):
                 statement = f'set(attributes["model_family"], "{family}")'
                 self.assertIn(statement, text, (path.name, source))
                 self.assertLess(text.index(statement), delete_index, (path.name, source))
-                if source.startswith("gpt-6-"):
+                if family == "gpt-6":
                     self.assertTrue(
                         any(
                             statement in line
@@ -515,7 +517,7 @@ class RepositoryTests(unittest.TestCase):
                 if primary in line and 'resource.attributes["service.name"] == "codex-app-server"' in line
             )
             self.assertIn('attributes["agent_role"] == "unknown"', primary_mapping)
-            for model in ("gpt-6-sol", "gpt-6-luna"):
+            for model in ("gpt-6-sol", "gpt-6.1-sol", "gpt-6-luna"):
                 self.assertIn(f'attributes["model"] == "{model}"', primary_mapping)
             self.assertNotRegex(text, r'IsMatch\(attributes\["model"\], "\^gpt-6')
             self.assertNotIn(
@@ -538,7 +540,7 @@ class RepositoryTests(unittest.TestCase):
         config = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-cost.yml")
         rules = config["groups"][0]["rules"]
         prices = [rule for rule in rules if rule["record"] == "ai_agent_token_price_usd_per_million"]
-        self.assertEqual(len(prices), 24)
+        self.assertEqual(len(prices), 28)
         expected = {
             ("gpt-5.6-sol", "input_uncached"): 5.0,
             ("gpt-5.6-sol", "input_cached"): 0.5,
@@ -560,6 +562,10 @@ class RepositoryTests(unittest.TestCase):
             ("gpt-6-sol", "input_cached"): 0.2,
             ("gpt-6-sol", "input_cache_write"): 2.5,
             ("gpt-6-sol", "output"): 10.0,
+            ("gpt-6.1-sol", "input_uncached"): 2.0,
+            ("gpt-6.1-sol", "input_cached"): 0.1,
+            ("gpt-6.1-sol", "input_cache_write"): 2.5,
+            ("gpt-6.1-sol", "output"): 10.0,
             ("gpt-6-luna", "input_uncached"): 0.1,
             ("gpt-6-luna", "input_cached"): 0.01,
             ("gpt-6-luna", "input_cache_write"): 0.125,
@@ -571,6 +577,7 @@ class RepositoryTests(unittest.TestCase):
             "gpt-5.6-luna": "openai-api-2026-08-12",
             "gpt-6-astra": "openai-api-2026-09-07",
             "gpt-6-sol": "openai-api-2026-09-23",
+            "gpt-6.1-sol": "openai-api-2026-10-01",
             "gpt-6-luna": "openai-api-2026-09-23",
         }
         observed = {}
@@ -596,7 +603,7 @@ class RepositoryTests(unittest.TestCase):
         credit_rates = [
             rule for rule in rules if rule["record"] == "ai_agent_token_credit_per_million"
         ]
-        self.assertEqual(len(credit_rates), 18)
+        self.assertEqual(len(credit_rates), 21)
         expected_credits = {
             ("gpt-5.6-sol", "input_uncached"): 125.0,
             ("gpt-5.6-sol", "input_cached"): 12.5,
@@ -613,6 +620,9 @@ class RepositoryTests(unittest.TestCase):
             ("gpt-6-sol", "input_uncached"): 50.0,
             ("gpt-6-sol", "input_cached"): 5.0,
             ("gpt-6-sol", "output"): 250.0,
+            ("gpt-6.1-sol", "input_uncached"): 50.0,
+            ("gpt-6.1-sol", "input_cached"): 2.5,
+            ("gpt-6.1-sol", "output"): 250.0,
             ("gpt-6-luna", "input_uncached"): 2.5,
             ("gpt-6-luna", "input_cached"): 0.25,
             ("gpt-6-luna", "output"): 12.5,
@@ -623,6 +633,7 @@ class RepositoryTests(unittest.TestCase):
             "gpt-5.6-luna": "openai-codex-credits-2026-08-12",
             "gpt-6-astra": "openai-codex-credits-2026-09-07",
             "gpt-6-sol": "openai-codex-credits-2026-09-23",
+            "gpt-6.1-sol": "openai-codex-credits-2026-10-01",
             "gpt-6-luna": "openai-codex-credits-2026-09-23",
         }
         observed_credits = {}
@@ -804,11 +815,12 @@ class RepositoryTests(unittest.TestCase):
             }
             self.assertNotIn("agent_role", attributes)
             tokens_by_model.setdefault(attributes["model"], {})[attributes["token_type"]] = point["sum"]
-        self.assertEqual(set(tokens_by_model), {"gpt-6-sol", "gpt-6-luna"})
-        self.assertEqual(len(points), 12)
+        self.assertEqual(set(tokens_by_model), {"gpt-6-sol", "gpt-6.1-sol", "gpt-6-luna"})
+        self.assertEqual(len(points), 18)
         rules = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-cost.yml")["groups"][0]["rules"]
         for model, expected_cost, expected_credits in (
             ("gpt-6-sol", 0.0297, 0.68),
+            ("gpt-6.1-sol", 0.0291, 0.665),
             ("gpt-6-luna", 0.001485, 0.034),
         ):
             with self.subTest(model=model):
@@ -851,9 +863,11 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(attributes["token_type"], "output")
             self.assertEqual(point["sum"], 200)
             observed_roles[attributes["model"]] = attributes.get("agent_role")
-        self.assertEqual(len(role_points), 3)
+        self.assertEqual(len(role_points), 5)
         self.assertEqual(observed_roles, {
-            "gpt-6-sol": "subagent", "gpt-6-luna": "subagent", "gpt-6-future": None,
+            "gpt-6-sol": "subagent", "gpt-6.1-sol": "subagent",
+            "gpt-6-luna": "subagent", "gpt-6-future": None,
+            "gpt-6.1-sol-future": "subagent",
         })
 
     def test_loki_only_indexes_approved_low_cardinality_attributes(self) -> None:

@@ -78,7 +78,8 @@ new `agent_role` label and therefore applies only to newly normalized data.
 
 The `openai-api-2026-08-12` card was read back from the official GPT-5.6 model
 pages. Astra uses `openai-api-2026-09-07`; GPT-6 Sol and Luna use
-`openai-api-2026-09-23` from the official API pricing page. These are dated
+`openai-api-2026-09-23` from the official API pricing page. GPT-6.1 Sol uses
+`openai-api-2026-10-01` from its official model page. These are dated
 snapshots; adding a new model does not revise older cards:
 
 | Model | Uncached input | Cached input | Cache write | Output |
@@ -89,6 +90,7 @@ snapshots; adding a new model does not revise older cards:
 | `gpt-6-astra` | $10.00 | $1.00 | $12.50 | $50.00 |
 | `gpt-6-sol` | $2.00 | $0.20 | $2.50 | $10.00 |
 | `gpt-6-luna` | $0.10 | $0.01 | $0.125 | $0.50 |
+| `gpt-6.1-sol` | $2.00 | $0.10 | $2.50 | $10.00 |
 
 Values are USD per one million tokens at standard speed and base context
 (at most 272K input tokens). The sources list cache writes at 1.25 times
@@ -103,12 +105,14 @@ Sources:
 - [GPT-5.6 Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 - [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)
 - [API pricing: GPT-6 Sol and Luna, read 2026-09-23](https://developers.openai.com/api/docs/pricing)
+- [GPT-6.1 Sol, read 2026-10-01](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
 
 ## Codex credits rate card
 
 The GPT-5.6 rows retain `openai-codex-credits-2026-08-12`; Astra uses
 `openai-codex-credits-2026-09-07`; GPT-6 Sol and Luna use
-`openai-codex-credits-2026-09-23` from the public Codex token-based table.
+`openai-codex-credits-2026-09-23`; GPT-6.1 Sol uses
+`openai-codex-credits-2026-10-01` from the public Codex token-based table.
 Older cards remain historical snapshots; they do not automatically adopt
 promotional rates appearing after their read-back dates:
 
@@ -120,19 +124,21 @@ promotional rates appearing after their read-back dates:
 | `gpt-6-astra` | 250 | 25 | 1,250 |
 | `gpt-6-sol` | 50 | 5 | 250 |
 | `gpt-6-luna` | 2.5 | 0.25 | 12.5 |
+| `gpt-6.1-sol` | 50 | 2.5 | 250 |
 
 Values are credits per one million tokens. Cached input has a lower rate; it is
-not free. The Codex pricing page read on 2026-09-23 states that cache writes
+not free. The Codex pricing page read on 2026-10-01 states that cache writes
 have no separate charge and publishes only input, cached-input, and output
 rates. This estimate retains those three classes; `input_cache_write` stays
 visible in `ai_agent_unpriced_credit_token_usage_total` because it is outside
 this accounting estimate, not because an additional charge is expected. No
 API cache-write multiplier or inferred credit rate is applied.
 
-All GPT-6 estimates use published standard rates. The Codex page lists a 2.5x
-Fast-mode credit multiplier, but the canonical accounting contract does not
-infer that mode from a model name or token series. API Fast pricing is a
-separate schedule and is not derived from that credit multiplier.
+All GPT-6 estimates use published standard rates. The Codex page read on
+2026-10-01 lists a 2x Fast multiplier for purchased credits and Enterprise
+pay-as-you-go usage, and 2.5x for included subscription usage. The canonical
+accounting contract does not infer that mode from a model name or token series.
+API Fast pricing is a separate schedule and is not derived from those multipliers.
 
 This metric is a public rate-card equivalent, not a statement that the user's
 included weekly allowance was reduced by exactly that value. Model choice,

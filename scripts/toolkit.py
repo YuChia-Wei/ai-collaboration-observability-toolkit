@@ -2116,14 +2116,14 @@ def _check_backend_data(
         lambda value: abs(value - 1000.0) < 0.000001,
     )
     price_series = prometheus_query("ai_agent_token_price_usd_per_million")
-    if len(price_series) != 24:
+    if len(price_series) != 28:
         raise RuntimeError(
-            f"expected 24 exact rate-card series, found {len(price_series)}"
+            f"expected 28 exact rate-card series, found {len(price_series)}"
         )
     credit_series = prometheus_query("ai_agent_token_credit_per_million")
-    if len(credit_series) != 18:
+    if len(credit_series) != 21:
         raise RuntimeError(
-            f"expected 18 published Codex credit-rate series, found {len(credit_series)}"
+            f"expected 21 published Codex credit-rate series, found {len(credit_series)}"
         )
     report.pass_(
         prefix + "codex role/token accounting and estimates",
@@ -2142,9 +2142,10 @@ def _check_backend_data(
             lambda value: abs(value - expected) < 0.000000001,
         )
 
-    for model, expected_cost, expected_credits in (
-        ("gpt-6-sol", 0.0297, 0.68),
-        ("gpt-6-luna", 0.001485, 0.034),
+    for model, expected_cost, expected_credits, rate_card_date in (
+        ("gpt-6-sol", 0.0297, 0.68, "2026-09-23"),
+        ("gpt-6.1-sol", 0.0291, 0.665, "2026-10-01"),
+        ("gpt-6-luna", 0.001485, 0.034, "2026-09-23"),
     ):
         cost_labels = (
             'ai_agent_provider="openai",ai_agent_product="codex",'
@@ -2159,12 +2160,12 @@ def _check_backend_data(
             )
         checked_total(
             "ai_agent_estimated_cost_usd_total",
-            cost_labels + ',accounting_schema="v2",rate_card_version="openai-api-2026-09-23"',
+            cost_labels + f',accounting_schema="v2",rate_card_version="openai-api-{rate_card_date}"',
             expected_cost,
         )
         checked_total(
             "ai_agent_estimated_credit_usage_total",
-            cost_labels + ',accounting_schema="v2",rate_card_version="openai-codex-credits-2026-09-23"',
+            cost_labels + f',accounting_schema="v2",rate_card_version="openai-codex-credits-{rate_card_date}"',
             expected_credits,
         )
         checked_total(
@@ -2204,30 +2205,36 @@ def _check_backend_data(
             "unpriced_cache_write=1000, subagent_output=200",
         )
 
-    unknown_labels = (
-        'model_id="unmapped",model_family="unmapped",agent_role="unknown",'
-        'service_namespace="ai-collaboration-role-fixture"'
-    )
-    checked_total(
-        "codex_turn_token_usage_sum",
-        'model="gpt-6-future",service_namespace="ai-collaboration-role-fixture",'
-        'token_type="output"',
-        200.0,
-    )
-    checked_total(
-        "ai_agent_turn_token_usage_sum", unknown_labels + ',token_type="output"', 200.0
-    )
-    for metric in (
-        "ai_agent_unpriced_api_token_usage_total",
-        "ai_agent_unpriced_credit_token_usage_total",
+    # Distinct valid roles keep unknown models from collapsing into one
+    # canonical series after their raw model labels are removed.
+    for model, role in (
+        ("gpt-6-future", "unknown"),
+        ("gpt-6.1-sol-future", "subagent"),
     ):
-        checked_total(metric, unknown_labels + ',accounting_schema="v2",usage_class="output"', 200.0)
-    for metric in (
-        "ai_agent_estimated_cost_usd_total",
-        "ai_agent_estimated_credit_usage_total",
-    ):
-        if prometheus_query(current_or_recent(f"{metric}{{{unknown_labels}}}")):
-            raise RuntimeError("unknown GPT-6 model was unexpectedly priced")
+        unknown_labels = (
+            f'model_id="unmapped",model_family="unmapped",agent_role="{role}",'
+            'service_namespace="ai-collaboration-role-fixture"'
+        )
+        checked_total(
+            "codex_turn_token_usage_sum",
+            f'model="{model}",service_namespace="ai-collaboration-role-fixture",'
+            'token_type="output"',
+            200.0,
+        )
+        checked_total(
+            "ai_agent_turn_token_usage_sum", unknown_labels + ',token_type="output"', 200.0
+        )
+        for metric in (
+            "ai_agent_unpriced_api_token_usage_total",
+            "ai_agent_unpriced_credit_token_usage_total",
+        ):
+            checked_total(metric, unknown_labels + ',accounting_schema="v2",usage_class="output"', 200.0)
+        for metric in (
+            "ai_agent_estimated_cost_usd_total",
+            "ai_agent_estimated_credit_usage_total",
+        ):
+            if prometheus_query(current_or_recent(f"{metric}{{{unknown_labels}}}")):
+                raise RuntimeError(f"unknown model {model} was unexpectedly priced")
     report.pass_(prefix + "unknown GPT-6 model remains unmapped and unpriced")
 
     claude_raw, claude_canonical = retry(

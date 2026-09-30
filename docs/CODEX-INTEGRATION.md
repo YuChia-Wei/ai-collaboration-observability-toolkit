@@ -124,8 +124,8 @@ substitutes provider activity for framework evidence.
 
 Exact Codex models are mapped to bounded `model_id` before the raw model label
 is removed from the canonical copy. The reviewed set includes GPT-5.6 Sol,
-Terra, Luna, and GPT-6 Astra, Sol, Luna; unknown models become `unmapped` and
-remain visible without a price. `agent_role` is a separate bounded dimension:
+Terra, Luna, and GPT-6 Astra, Sol, Luna, plus GPT-6.1 Sol; unknown models become
+`unmapped` and remain visible without a price. `agent_role` is a separate bounded dimension:
 `primary`, `approval_reviewer`, `subagent`, or `unknown`. A producer-supplied
 subagent role is retained. The current `codex-auto-review` pseudo-model maps to
 `approval_reviewer`, but because it does not reveal the actual model, its
@@ -137,6 +137,11 @@ allowance or actual debit. Cached input is discounted rather than free. The
 public credits table states no separate cache-write charge; cache-write tokens
 remain visible as credits-unpriced, outside this three-class estimate. GPT-6
 Sol and Luna use separately versioned API and credits cards dated 2026-09-23.
+GPT-6.1 Sol maps to exact `model_id=gpt-6.1-sol` and bounded family `gpt-6`,
+with separate API and credits cards dated 2026-10-01. Its cached-input rates
+are $0.10 USD and 2.5 credits per million tokens. Sources:
+[official model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
+and [Codex token rates](https://learn.chatgpt.com/docs/pricing#token-rates).
 Raw `token_type` panels remain available to reconcile the non-overlapping
 accounting classes. The API estimate
 does not apply the greater-than-272K premium because aggregated telemetry cannot
