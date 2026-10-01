@@ -2851,6 +2851,8 @@ def session_command(args: argparse.Namespace) -> None:
             report = usage.collect_report(
                 args.source_root, key, session_id=args.session_id,
                 include_subagents=args.include_subagents, rate_card=card,
+                include_account_usage=args.include_account_usage, official_usage=args.official_usage,
+                codex_bin=args.codex_bin, official_timeout=args.official_timeout,
             )
         else:
             if not args.reports_root.is_dir() or args.reports_root.is_symlink():
@@ -2932,6 +2934,13 @@ def main() -> int:
     session_parser.add_argument("--source-root", type=Path, required=True)
     session_parser.add_argument("--session-id", help="Raw local session selector; never exported.")
     session_parser.add_argument("--include-subagents", action="store_true")
+    session_parser.add_argument("--include-account-usage", action="store_true",
+                                help="Include offline credit/quota observations in a signed v2 report.")
+    session_parser.add_argument("--official-usage", action="store_true",
+                                help="Opt in to read-only account and thread usage via the installed Codex CLI.")
+    session_parser.add_argument("--codex-bin", help="Codex executable for --official-usage.")
+    session_parser.add_argument("--official-timeout", type=float, default=20.0,
+                                help="Per official request deadline in seconds (1-60; default 20).")
     merge_parser = sub.add_parser("session-usage-merge", help="Merge signed company JSON reports.")
     merge_parser.add_argument("--reports-root", type=Path, required=True)
     for command in (session_parser, merge_parser):

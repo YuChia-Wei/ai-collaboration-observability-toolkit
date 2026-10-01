@@ -133,6 +133,7 @@ def merge_reports(
     diagnostics: dict[str, int] = {}
     includes_subagents = False
     report_count = 0
+    metric_sources = []
 
     for path in paths:
         report_path = Path(path)
@@ -152,6 +153,10 @@ def merge_reports(
         ):
             raise usage.ReportError("rate_card_mismatch")
         report_count += 1
+        if report["schema_version"] == "session-usage/v2":
+            from scripts.session_usage_metrics import validate_metrics
+            validate_metrics(report["usage_metrics"], {row["session_key"] for row in report["sessions"]}, key)
+            metric_sources.append(report["usage_metrics"])
         includes_subagents = includes_subagents or report["scope"]["includes_subagents"]
         for name, count in report["diagnostics"].items():
             diagnostics[name] = max(diagnostics.get(name, 0), count)
@@ -185,6 +190,9 @@ def merge_reports(
         list(responses.values()), list(descriptors.values()), diagnostics, key, card,
         selection="merged_reports", includes_subagents=includes_subagents,
     )
+    if metric_sources:
+        from scripts.session_usage_metrics import attach_metrics, merge_metrics
+        result = attach_metrics(result, merge_metrics(metric_sources, key), key)
     _validate_report(result, validator)
     return result
 
@@ -193,7 +201,16 @@ def render_csv(report: dict) -> str:
     """Render approved group columns only, retaining unsupported session rows."""
     _validate_report(report, _validator())
     output = io.StringIO(newline="")
-    writer = csv.DictWriter(output, fieldnames=CSV_COLUMNS, lineterminator="\n")
+    metric_columns = (
+        "record_type", "observed_at", "observation_key", "metric_source", "metric_scope",
+        "plan_type", "has_credits", "unlimited_credits", "credit_balance", "ordinary_usage_allowed",
+        "primary_used_percent", "primary_window_minutes", "primary_resets_at",
+        "secondary_used_percent", "secondary_window_minutes", "secondary_resets_at",
+        "official_estimate_status", "official_estimated_credits", "estimated_usage_credits_micros",
+        "estimated_usage_usd_micros", "official_speed", "net_new_input_tokens",
+    ) if "usage_metrics" in report else ()
+    columns = (*CSV_COLUMNS, *metric_columns)
+    writer = csv.DictWriter(output, fieldnames=columns, lineterminator="\n")
     writer.writeheader()
     descriptors = {item["session_key"]: item for item in report["sessions"]}
     rows: list[dict[str, Any]] = []
@@ -204,6 +221,8 @@ def render_csv(report: dict) -> str:
         row = {column: group.get(column, "") for column in CSV_COLUMNS}
         row["rate_card_version"] = report["rate_card_version"]
         row["session_status"] = descriptors.get(session_key, {}).get("status", "partial")
+        if metric_columns:
+            row["record_type"] = "local_estimate"
         for field in TOKEN_FIELDS:
             row[field] = group["tokens"][field]
         rows.append(row)
@@ -215,7 +234,38 @@ def render_csv(report: dict) -> str:
             "session_key": descriptor["session_key"],
             "session_status": descriptor["status"],
             "agent_role": descriptor["agent_role"],
+            **({"record_type": "local_unavailable"} if metric_columns else {}),
         })
+    if metric_columns:
+        from decimal import Decimal
+        for snapshot in report["usage_metrics"]["account_snapshots"]:
+            credits = snapshot["credits"] or {}
+            row = {"record_type": "account_snapshot", "session_key": snapshot["observed_in_session_key"],
+                   "observed_at": snapshot["observed_at"], "observation_key": snapshot["observation_key"],
+                   "metric_source": snapshot["source"], "metric_scope": snapshot["scope"],
+                   "plan_type": snapshot["plan_type"], "has_credits": credits.get("has_credits"),
+                   "unlimited_credits": credits.get("unlimited"), "credit_balance": credits.get("balance"),
+                   "ordinary_usage_allowed": snapshot["ordinary_usage_allowed"]}
+            for period in ("primary", "secondary"):
+                window = snapshot[period] or {}
+                for name in ("used_percent", "window_minutes", "resets_at"):
+                    row[f"{period}_{name}"] = window.get(name)
+            rows.append(row)
+        for estimate in report["usage_metrics"]["thread_estimates"]:
+            base = {"session_key": estimate["session_key"], "observed_at": estimate["observed_at"],
+                    "observation_key": estimate["observation_key"], "metric_source": estimate["source"],
+                    "metric_scope": estimate["scope"], "official_estimate_status": estimate["status"]}
+            micros = estimate["estimated_usage_credits_micros"]
+            rows.append({**base, "record_type": "official_thread_total" if micros is not None else "official_thread_unavailable",
+                         "estimated_usage_credits_micros": micros,
+                         "estimated_usage_usd_micros": estimate["estimated_usage_usd_micros"],
+                         "official_estimated_credits": usage._number(Decimal(micros) / Decimal(1_000_000)) if micros is not None else None})
+            for group in estimate["groups"]:
+                rows.append({**base, "record_type": "official_thread_group", "model_id": group["model_id"],
+                             "reasoning_effort": group["reasoning_effort"], "official_speed": group["speed"],
+                             **{name: group[name] for name in ("net_new_input_tokens", "cached_input_tokens", "input_tokens", "output_tokens", "total_tokens")},
+                             "estimated_usage_credits_micros": group["estimated_usage_credits_micros"],
+                             "official_estimated_credits": usage._number(Decimal(group["estimated_usage_credits_micros"]) / Decimal(1_000_000))})
     for row in sorted(rows, key=lambda item: tuple(str(item.get(column) or "") for column in CSV_COLUMNS)):
         writer.writerow(row)
     return output.getvalue()

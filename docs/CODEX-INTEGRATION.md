@@ -113,7 +113,15 @@ Configured values do not prove the actual routed model or honored speed tier.
 
 `session-usage-merge` validates JSON reports and deduplicates overlapping
 response keys for company totals. Both commands work offline and require no
-Collector change, daemon, or restart. They do not establish desktop OTLP
+Collector change, daemon, or restart by default. `--include-account-usage`
+adds allowlisted local account-limit snapshots offline. `--official-usage`
+starts an ephemeral installed Codex app-server to read current account limits
+and available per-thread server estimates; it implies local snapshots and
+requires Codex service access with existing authentication. Either option uses
+the separate `session-usage/v2` file contract. Balances are never summed or
+delta-attributed; official estimates do not become actual billed debits or add
+to the local response ledger. Unavailable estimates remain visible, and
+provider parent/subagent rollup scope is unverified. These reports do not establish desktop OTLP
 compatibility. See [session usage](SESSION-USAGE.md) for exact commands,
 selection/subagent scope, coverage, pricing assumptions, and company key policy.
 

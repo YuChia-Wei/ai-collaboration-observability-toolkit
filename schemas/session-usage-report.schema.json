@@ -21,7 +21,10 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "session-usage/v1"
+      "enum": [
+        "session-usage/v1",
+        "session-usage/v2"
+      ]
     },
     "key_id": {
       "type": "string",
@@ -208,6 +211,447 @@
     "signature": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "usage_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_snapshots",
+        "thread_estimates",
+        "diagnostics"
+      ],
+      "properties": {
+        "account_snapshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "observed_at",
+              "plan_type",
+              "credits",
+              "primary",
+              "secondary",
+              "ordinary_usage_allowed",
+              "source",
+              "scope",
+              "observed_in_session_key",
+              "observation_key"
+            ],
+            "properties": {
+              "observed_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+              },
+              "plan_type": {
+                "enum": [
+                  "free",
+                  "go",
+                  "plus",
+                  "pro",
+                  "prolite",
+                  "team",
+                  "self_serve_business_prolite",
+                  "self_serve_business_usage_based",
+                  "business",
+                  "ent26",
+                  "enterprise_cbp_automation",
+                  "enterprise_cbp_usage_based",
+                  "enterprise",
+                  "edu",
+                  "edu_plus",
+                  "edu_pro",
+                  "unknown"
+                ]
+              },
+              "credits": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "has_credits",
+                      "unlimited",
+                      "balance"
+                    ],
+                    "properties": {
+                      "has_credits": {
+                        "type": "boolean"
+                      },
+                      "unlimited": {
+                        "type": "boolean"
+                      },
+                      "balance": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 128,
+                            "pattern": "^\\d+(?:\\.\\d+)?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "primary": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "used_percent",
+                      "window_minutes",
+                      "resets_at"
+                    ],
+                    "properties": {
+                      "used_percent": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      "window_minutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647
+                      },
+                      "resets_at": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9223372036854775807
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "secondary": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "used_percent",
+                      "window_minutes",
+                      "resets_at"
+                    ],
+                    "properties": {
+                      "used_percent": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      "window_minutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647
+                      },
+                      "resets_at": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9223372036854775807
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ordinary_usage_allowed": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "enum": [
+                  "rollout",
+                  "app_server"
+                ]
+              },
+              "scope": {
+                "const": "account_quota"
+              },
+              "observed_in_session_key": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "observation_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "thread_estimates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "session_key",
+              "source",
+              "scope",
+              "estimate_kind",
+              "observed_at",
+              "status",
+              "estimated_usage_credits_micros",
+              "estimated_usage_usd_micros",
+              "groups",
+              "observation_key"
+            ],
+            "properties": {
+              "session_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "source": {
+                "const": "app_server"
+              },
+              "scope": {
+                "const": "thread_scope_unverified"
+              },
+              "estimate_kind": {
+                "const": "provider_estimated_usage"
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+              },
+              "status": {
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
+              },
+              "estimated_usage_credits_micros": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9223372036854775807
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "estimated_usage_usd_micros": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9223372036854775807
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "model_id",
+                    "reasoning_effort",
+                    "speed",
+                    "net_new_input_tokens",
+                    "cached_input_tokens",
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                    "estimated_usage_credits_micros"
+                  ],
+                  "properties": {
+                    "model_id": {
+                      "enum": [
+                        "gpt-5.6-sol",
+                        "gpt-5.6-terra",
+                        "gpt-5.6-luna",
+                        "gpt-6-astra",
+                        "gpt-6-sol",
+                        "gpt-6-luna",
+                        "gpt-6.1-sol",
+                        "unmapped"
+                      ]
+                    },
+                    "reasoning_effort": {
+                      "enum": [
+                        "none",
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max",
+                        "ultra",
+                        "unknown"
+                      ]
+                    },
+                    "speed": {
+                      "enum": [
+                        "standard",
+                        "fast",
+                        "ultrafast",
+                        "unknown"
+                      ]
+                    },
+                    "net_new_input_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cached_input_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "total_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "estimated_usage_credits_micros": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9223372036854775807
+                    }
+                  }
+                }
+              },
+              "observation_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "invalid_snapshot_records",
+            "inherited_snapshot_records_ignored",
+            "duplicate_snapshot_records",
+            "sessions_without_snapshots",
+            "official_requests",
+            "official_unavailable",
+            "official_thread_usage_missing",
+            "official_invalid_records"
+          ],
+          "properties": {
+            "invalid_snapshot_records": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "inherited_snapshot_records_ignored": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "duplicate_snapshot_records": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "sessions_without_snapshots": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_requests": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_unavailable": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_thread_usage_missing": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_invalid_records": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            }
+          }
+        }
+      }
     }
   },
   "additionalProperties": false,
@@ -644,5 +1088,28 @@
       },
       "additionalProperties": false
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "session-usage/v2"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "usage_metrics"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "usage_metrics"
+          ]
+        }
+      }
+    }
+  ]
 }

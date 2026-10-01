@@ -96,6 +96,10 @@ public credit equivalents; actual routed model, honored tier, and credit debit
 remain distinct. Company JSON merging validates and deduplicates response
 keys using the same private HMAC key. This offline workflow requires no
 service restart and adds no session identifiers to backend index labels.
+Use `--include-account-usage` for offline credit/quota snapshots, or
+`--official-usage` for optional read-only account and thread usage requests.
+Signed v2 exports keep account balances, provider estimates, and local
+equivalents separate, with explicit missing-data status.
 
 - Collector 健康狀態 (Collector Health)
 - Codex 原生 Telemetry (Codex Native Telemetry)

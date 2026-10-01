@@ -207,7 +207,7 @@ def _price(response: dict[str, Any], card: dict[str, Any]) -> None:
     )
 
 
-def _scan(path: Path, diagnostics: dict[str, int]) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
+def _scan(path: Path, diagnostics: dict[str, int], *, include_account_usage: bool = False) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
     """Retain only approved metadata, never complete input payloads."""
     events: list[dict[str, Any]] = []
     meta = None
@@ -245,6 +245,13 @@ def _scan(path: Path, diagnostics: dict[str, int]) -> tuple[dict[str, Any] | Non
                     meta = {"id": identity,
                             "parent": _identity(payload.get("parent_thread_id")) or _identity(spawn.get("parent_thread_id")),
                             "role": "subagent" if isinstance(subagent, dict) else "primary"}
+                elif (include_account_usage and kind == "event_msg"
+                      and payload.get("type") == "token_count" and payload.get("rate_limits") is not None):
+                    from scripts.codex_account_usage import normalize_rate_limits
+                    timestamp = _timestamp(record.get("timestamp"))
+                    snapshot = normalize_rate_limits(payload["rate_limits"], timestamp) if timestamp else None
+                    events.append({"kind": "account_snapshot", "owner": meta["id"] if meta else None,
+                                   "snapshot": snapshot})
                 elif kind == "turn_context":
                     mode = payload.get("collaboration_mode")
                     settings = mode.get("settings") if isinstance(mode, dict) else None
@@ -359,7 +366,9 @@ def _assemble_report(responses: list[dict[str, Any]], descriptors: list[dict[str
 
 
 def collect_report(source_root: Path, key: bytes, *, session_id: str | None = None,
-                   include_subagents: bool = False, rate_card: dict[str, Any] | None = None) -> dict[str, Any]:
+                   include_subagents: bool = False, rate_card: dict[str, Any] | None = None,
+                   include_account_usage: bool = False, official_usage: bool = False,
+                   codex_bin: str | None = None, official_timeout: float = 20.0) -> dict[str, Any]:
     _key_id(key)
     card = _validate_card(rate_card) if rate_card is not None else load_rate_card()
     if not source_root.is_dir() or source_root.is_symlink():
@@ -372,9 +381,11 @@ def collect_report(source_root: Path, key: bytes, *, session_id: str | None = No
     candidates: list[dict[str, Any]] = []
     routed: set[tuple[str, str]] = set()
     thread_totals: dict[str, tuple[str, dict[str, int]]] = {}
+    include_account_usage = include_account_usage or official_usage
+    account_events: list[dict[str, Any]] = []
     for path in paths:
         diagnostics["files_scanned"] += 1
-        meta, events, partial = _scan(path, diagnostics)
+        meta, events, partial = _scan(path, diagnostics, include_account_usage=include_account_usage)
         if meta is None:
             continue
         owner = meta["id"]
@@ -390,7 +401,9 @@ def collect_report(source_root: Path, key: bytes, *, session_id: str | None = No
         turn_tiers: dict[str, str] = {}
         for event in events:
             kind = event["kind"]
-            if kind == "settings" and event["thread"] == owner:
+            if kind == "account_snapshot":
+                account_events.append({**event, "file_owner": owner})
+            elif kind == "settings" and event["thread"] == owner:
                 current_tier = event["tier"]
             elif kind == "start" and event["turn"]:
                 turn_tiers[event["turn"]] = current_tier
@@ -487,8 +500,14 @@ def collect_report(source_root: Path, key: bytes, *, session_id: str | None = No
                             "parent_session_key": _pseudonym(key, "session", meta["parent"]) if meta["parent"] else None,
                             "agent_role": meta["role"], "status": meta["status"]})
     selection = "all_sessions" if session_id is None else "session_with_subagents" if include_subagents else "single_session"
-    return _assemble_report(responses, descriptors, diagnostics, key, card,
-                            selection=selection, includes_subagents=session_id is None or include_subagents)
+    report = _assemble_report(responses, descriptors, diagnostics, key, card,
+                              selection=selection, includes_subagents=session_id is None or include_subagents)
+    if include_account_usage:
+        from scripts.session_usage_metrics import collect_metrics, attach_metrics
+        metrics = collect_metrics(account_events, selected, key, official_usage=official_usage,
+                                  codex_bin=codex_bin, timeout=official_timeout)
+        report = attach_metrics(report, metrics, key)
+    return report
 
 
 def merge_reports(paths: Iterable[Path], key: bytes, *, rate_card: dict[str, Any] | None = None) -> dict[str, Any]:
