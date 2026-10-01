@@ -101,6 +101,30 @@ sends company telemetry to a personal or Internet endpoint.
 Codex CLI telemetry support does not prove ChatGPT Desktop Codex mode uses the same configuration or
 event schema. Treat the desktop surface as unsupported until its data path is independently verified.
 
+## Opt-in local session usage reports
+
+`py -3 scripts/toolkit.py session-usage` reads an explicitly selected local
+Codex rollout directory and produces metadata-only JSON/CSV with configured
+model/effort, native response usage, and public credit equivalents. It requires
+a private HMAC key file and preserves no raw IDs, source paths, or transcript
+content. Only top-level `token_usage_record.payload.usage` is supported;
+cumulative snapshots are ignored and unsupported old formats remain partial.
+Configured values do not prove the actual routed model or honored speed tier.
+
+`session-usage-merge` validates JSON reports and deduplicates overlapping
+response keys for company totals. Both commands work offline and require no
+Collector change, daemon, or restart by default. `--include-account-usage`
+adds allowlisted local account-limit snapshots offline. `--official-usage`
+starts an ephemeral installed Codex app-server to read current account limits
+and available per-thread server estimates; it implies local snapshots and
+requires Codex service access with existing authentication. Either option uses
+the separate `session-usage/v2` file contract. Balances are never summed or
+delta-attributed; official estimates do not become actual billed debits or add
+to the local response ledger. Unavailable estimates remain visible, and
+provider parent/subagent rollup scope is unverified. These reports do not establish desktop OTLP
+compatibility. See [session usage](SESSION-USAGE.md) for exact commands,
+selection/subagent scope, coverage, pricing assumptions, and company key policy.
+
 ## Version 0.1.3 tested contract
 
 Version 0.1.3 is verified against Codex CLI 0.146.1 (rust-v0.146.1, commit

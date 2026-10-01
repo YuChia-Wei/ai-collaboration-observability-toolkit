@@ -68,6 +68,43 @@ A production company rollout additionally requires security/data-owner approval,
 backend access controls, audit logging, retention/deletion rules, pseudonym key management, and a
 reviewed redacted-feedback export process. This Repository is a technical baseline, not that approval.
 
+## Opt-in session usage files
+
+The default offline [session usage report](SESSION-USAGE.md) reads an explicitly
+selected local Codex rollout directory and retains only reviewed metadata.
+Raw session/response IDs support local selection, ancestry, and HMAC
+pseudonym generation; they are excluded from output. Prompt/assistant/reasoning
+text, tool payloads, command output, source code, paths, identities, account
+identifiers, credentials, and unknown source fields are not copied to reports.
+
+`--include-account-usage` separately opts into reviewed numeric quota/credit
+snapshots already present in the selected local source. `--official-usage`
+also starts an ephemeral installed Codex app-server to read current account
+limits and optional estimates for selected threads using existing Codex
+authentication. This contacts Codex services; raw selected thread IDs are used
+only for those requests and HMAC linkage. Authentication secrets, account
+identity, raw service payloads, reset-detail IDs/titles, paths, and free-text
+errors are excluded from the report. It does not execute turns, send emails,
+or redeem reset credits. Missing or failed reads produce bounded diagnostics.
+
+Company JSON reports use HMAC-SHA-256 session/response/observation keys and authenticated
+metadata. CSV is a review view with optional source rows. Export and merge require a private key file;
+the key value is excluded from `.env`, CLI literals, reports, and repository
+files. Merging validates the schema, HMAC, key identity, and reviewed rate card
+and rejects conflicting response copies. Shared-key integrity does not prove
+provider billing or prevent an authorized key holder from creating a report.
+Optional v2 usage records are signed and deduplicated independently by source.
+Account snapshots are not aggregated or used to infer per-session debits;
+official thread estimates are kept distinct from local cost equivalents.
+
+Pseudonymous session/response/observation keys remain high-cardinality identifiers. They
+must never become Prometheus labels or Loki index labels. This separate file
+workflow does not loosen the Collector allowlist or enable a source archive.
+The default path remains offline; the official read opt-in sends selected
+thread identifiers to Codex services and does not upload local transcripts
+or report files. Access, retention, deletion, key distribution, and
+rotation remain company controls.
+
 ## Sentinel test
 
 `AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D` is embedded in synthetic OTLP fixtures inside fields that

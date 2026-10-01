@@ -1,0 +1,1115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-collaboration-observability/session-usage-report.schema.json",
+  "title": "Pseudonymous Codex session usage report",
+  "description": "Local metadata-only export. HMAC pseudonyms remain linkable under the same shared key. Credit amounts are public-rate equivalents, not actual debits.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "key_id",
+    "rate_card_version",
+    "rate_card_sha256",
+    "estimate_kind",
+    "billing_status",
+    "scope",
+    "sessions",
+    "responses",
+    "groups",
+    "summary",
+    "diagnostics",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "session-usage/v1",
+        "session-usage/v2"
+      ]
+    },
+    "key_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$"
+    },
+    "rate_card_version": {
+      "type": "string",
+      "pattern": "^openai-codex-credits-[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "rate_card_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "estimate_kind": {
+      "const": "public_codex_credit_equivalent"
+    },
+    "billing_status": {
+      "const": "actual_debit_unavailable"
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "selection",
+        "includes_subagents"
+      ],
+      "properties": {
+        "selection": {
+          "enum": [
+            "all_sessions",
+            "single_session",
+            "session_with_subagents",
+            "merged_reports"
+          ]
+        },
+        "includes_subagents": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/session"
+      }
+    },
+    "responses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/response"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "session_count",
+        "response_count",
+        "tokens",
+        "estimated_credits",
+        "unpriced_tokens",
+        "metadata_complete",
+        "pricing_complete"
+      ],
+      "properties": {
+        "session_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "response_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens": {
+          "$ref": "#/$defs/tokens"
+        },
+        "estimated_credits": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unpriced_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metadata_complete": {
+          "type": "boolean"
+        },
+        "pricing_complete": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnostics": {
+      "type": "object",
+      "required": [
+        "files_scanned",
+        "invalid_json_lines",
+        "invalid_usage_records",
+        "inherited_usage_records_ignored",
+        "duplicate_response_records",
+        "unsupported_sessions",
+        "missing_context_records",
+        "unknown_model_records",
+        "unknown_effort_records",
+        "unknown_tier_records",
+        "routing_ambiguous_records",
+        "invalid_session_metadata",
+        "orphan_parent_sessions",
+        "unverified_thread_totals"
+      ],
+      "properties": {
+        "files_scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_json_lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_usage_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inherited_usage_records_ignored": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicate_response_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_context_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_model_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_effort_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_tier_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "routing_ambiguous_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_session_metadata": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "orphan_parent_sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unverified_thread_totals": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "usage_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_snapshots",
+        "thread_estimates",
+        "diagnostics"
+      ],
+      "properties": {
+        "account_snapshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "observed_at",
+              "plan_type",
+              "credits",
+              "primary",
+              "secondary",
+              "ordinary_usage_allowed",
+              "source",
+              "scope",
+              "observed_in_session_key",
+              "observation_key"
+            ],
+            "properties": {
+              "observed_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+              },
+              "plan_type": {
+                "enum": [
+                  "free",
+                  "go",
+                  "plus",
+                  "pro",
+                  "prolite",
+                  "team",
+                  "self_serve_business_prolite",
+                  "self_serve_business_usage_based",
+                  "business",
+                  "ent26",
+                  "enterprise_cbp_automation",
+                  "enterprise_cbp_usage_based",
+                  "enterprise",
+                  "edu",
+                  "edu_plus",
+                  "edu_pro",
+                  "unknown"
+                ]
+              },
+              "credits": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "has_credits",
+                      "unlimited",
+                      "balance"
+                    ],
+                    "properties": {
+                      "has_credits": {
+                        "type": "boolean"
+                      },
+                      "unlimited": {
+                        "type": "boolean"
+                      },
+                      "balance": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 128,
+                            "pattern": "^\\d+(?:\\.\\d+)?$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "primary": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "used_percent",
+                      "window_minutes",
+                      "resets_at"
+                    ],
+                    "properties": {
+                      "used_percent": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      "window_minutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647
+                      },
+                      "resets_at": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9223372036854775807
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "secondary": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "used_percent",
+                      "window_minutes",
+                      "resets_at"
+                    ],
+                    "properties": {
+                      "used_percent": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      "window_minutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 2147483647
+                      },
+                      "resets_at": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9223372036854775807
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "ordinary_usage_allowed": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "enum": [
+                  "rollout",
+                  "app_server"
+                ]
+              },
+              "scope": {
+                "const": "account_quota"
+              },
+              "observed_in_session_key": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "observation_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "thread_estimates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "session_key",
+              "source",
+              "scope",
+              "estimate_kind",
+              "observed_at",
+              "status",
+              "estimated_usage_credits_micros",
+              "estimated_usage_usd_micros",
+              "groups",
+              "observation_key"
+            ],
+            "properties": {
+              "session_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "source": {
+                "const": "app_server"
+              },
+              "scope": {
+                "const": "thread_scope_unverified"
+              },
+              "estimate_kind": {
+                "const": "provider_estimated_usage"
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+              },
+              "status": {
+                "enum": [
+                  "available",
+                  "unavailable"
+                ]
+              },
+              "estimated_usage_credits_micros": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9223372036854775807
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "estimated_usage_usd_micros": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9223372036854775807
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "groups": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "model_id",
+                    "reasoning_effort",
+                    "speed",
+                    "net_new_input_tokens",
+                    "cached_input_tokens",
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                    "estimated_usage_credits_micros"
+                  ],
+                  "properties": {
+                    "model_id": {
+                      "enum": [
+                        "gpt-5.6-sol",
+                        "gpt-5.6-terra",
+                        "gpt-5.6-luna",
+                        "gpt-6-astra",
+                        "gpt-6-sol",
+                        "gpt-6-luna",
+                        "gpt-6.1-sol",
+                        "unmapped"
+                      ]
+                    },
+                    "reasoning_effort": {
+                      "enum": [
+                        "none",
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max",
+                        "ultra",
+                        "unknown"
+                      ]
+                    },
+                    "speed": {
+                      "enum": [
+                        "standard",
+                        "fast",
+                        "ultrafast",
+                        "unknown"
+                      ]
+                    },
+                    "net_new_input_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cached_input_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "total_tokens": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9223372036854775807
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "estimated_usage_credits_micros": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9223372036854775807
+                    }
+                  }
+                }
+              },
+              "observation_key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "invalid_snapshot_records",
+            "inherited_snapshot_records_ignored",
+            "duplicate_snapshot_records",
+            "sessions_without_snapshots",
+            "official_requests",
+            "official_unavailable",
+            "official_thread_usage_missing",
+            "official_invalid_records"
+          ],
+          "properties": {
+            "invalid_snapshot_records": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "inherited_snapshot_records_ignored": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "duplicate_snapshot_records": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "sessions_without_snapshots": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_requests": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_unavailable": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_thread_usage_missing": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "official_invalid_records": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "tokens": {
+      "type": "object",
+      "required": [
+        "input_tokens",
+        "cached_input_tokens",
+        "cache_write_input_tokens",
+        "output_tokens",
+        "reasoning_output_tokens",
+        "total_tokens"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cached_input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cache_write_input_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reasoning_output_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "required": [
+        "session_key",
+        "parent_session_key",
+        "agent_role",
+        "status",
+        "response_count",
+        "tokens",
+        "estimated_credits",
+        "unpriced_tokens",
+        "first_seen",
+        "last_seen"
+      ],
+      "properties": {
+        "session_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "parent_session_key": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "agent_role": {
+          "enum": [
+            "primary",
+            "subagent",
+            "approval_reviewer",
+            "unknown"
+          ]
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "unsupported_source",
+            "partial"
+          ]
+        },
+        "response_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/tokens"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "estimated_credits": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unpriced_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "first_seen": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "(?:Z|\\+00:00)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_seen": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "(?:Z|\\+00:00)$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": [
+        "session_key",
+        "root_session_key",
+        "parent_session_key",
+        "turn_key",
+        "response_key",
+        "timestamp",
+        "agent_role",
+        "configured_model_id",
+        "actual_model_id",
+        "model_id",
+        "model_basis",
+        "reasoning_effort",
+        "configured_service_tier",
+        "tier_basis",
+        "tokens",
+        "estimated_credits",
+        "unpriced_tokens",
+        "pricing_status",
+        "credit_multiplier"
+      ],
+      "properties": {
+        "session_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "root_session_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "parent_session_key": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "turn_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "response_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "(?:Z|\\+00:00)$"
+        },
+        "agent_role": {
+          "enum": [
+            "primary",
+            "subagent",
+            "approval_reviewer",
+            "unknown"
+          ]
+        },
+        "configured_model_id": {
+          "enum": [
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6-luna",
+            "unmapped"
+          ]
+        },
+        "actual_model_id": {
+          "const": "unmapped"
+        },
+        "model_id": {
+          "enum": [
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6-luna",
+            "unmapped"
+          ]
+        },
+        "model_basis": {
+          "enum": [
+            "configured",
+            "routing_ambiguous",
+            "unknown"
+          ]
+        },
+        "reasoning_effort": {
+          "enum": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra",
+            "unknown"
+          ]
+        },
+        "configured_service_tier": {
+          "enum": [
+            "standard",
+            "fast",
+            "ultrafast",
+            "unknown"
+          ]
+        },
+        "tier_basis": {
+          "enum": [
+            "configured",
+            "standard_assumption"
+          ]
+        },
+        "tokens": {
+          "$ref": "#/$defs/tokens"
+        },
+        "estimated_credits": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unpriced_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pricing_status": {
+          "enum": [
+            "priced",
+            "partial",
+            "unpriced"
+          ]
+        },
+        "credit_multiplier": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "group": {
+      "type": "object",
+      "required": [
+        "session_key",
+        "root_session_key",
+        "agent_role",
+        "configured_model_id",
+        "actual_model_id",
+        "model_id",
+        "model_basis",
+        "reasoning_effort",
+        "configured_service_tier",
+        "tier_basis",
+        "response_count",
+        "tokens",
+        "estimated_credits",
+        "unpriced_tokens",
+        "pricing_status"
+      ],
+      "properties": {
+        "session_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "root_session_key": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "agent_role": {
+          "enum": [
+            "primary",
+            "subagent",
+            "approval_reviewer",
+            "unknown"
+          ]
+        },
+        "configured_model_id": {
+          "enum": [
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6-luna",
+            "unmapped"
+          ]
+        },
+        "actual_model_id": {
+          "const": "unmapped"
+        },
+        "model_id": {
+          "enum": [
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6-luna",
+            "unmapped"
+          ]
+        },
+        "model_basis": {
+          "enum": [
+            "configured",
+            "routing_ambiguous",
+            "unknown"
+          ]
+        },
+        "reasoning_effort": {
+          "enum": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra",
+            "unknown"
+          ]
+        },
+        "configured_service_tier": {
+          "enum": [
+            "standard",
+            "fast",
+            "ultrafast",
+            "unknown"
+          ]
+        },
+        "tier_basis": {
+          "enum": [
+            "configured",
+            "standard_assumption"
+          ]
+        },
+        "response_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens": {
+          "$ref": "#/$defs/tokens"
+        },
+        "estimated_credits": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unpriced_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pricing_status": {
+          "enum": [
+            "priced",
+            "partial",
+            "unpriced"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "session-usage/v2"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "usage_metrics"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "usage_metrics"
+          ]
+        }
+      }
+    }
+  ]
+}

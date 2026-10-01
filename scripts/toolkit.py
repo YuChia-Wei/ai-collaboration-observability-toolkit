@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Operate and validate the AI Collaboration Observability Toolkit.
 
-The script intentionally uses the Python standard library plus PyYAML. It does
-not inspect source code, prompts, tool output, or host files outside this repo.
+Default operations are repository-scoped. Opt-in session commands read only
+usage metadata from an explicit local rollout directory and export no transcript
+content. Dependencies are the Python standard library, PyYAML, and jsonschema.
 """
 from __future__ import annotations
 
@@ -2826,6 +2827,49 @@ def validate(mode: str, *, static_only: bool) -> None:
     print("PASS: repository configuration and policy validation")
 
 
+def session_command(args: argparse.Namespace) -> None:
+    """Keep opt-in host metadata access separate from telemetry operations."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from scripts import session_usage as usage
+
+    try:
+        if args.command == "session-key":
+            usage.create_key(args.output)
+            print("KEY: created")
+            return
+        key = usage.read_key(args.key_file)
+        card_path = args.rate_card or usage.DEFAULT_RATE_CARD
+        card = usage.load_rate_card(card_path)
+        output = args.output.resolve() if args.output is not None else None
+        if output in (args.key_file.resolve(), card_path.resolve()):
+            raise usage.ReportError("protected_output_path")
+        if args.command == "session-usage":
+            source = args.source_root.resolve()
+            if output is not None and output.is_relative_to(source):
+                raise usage.ReportError("protected_output_path")
+            report = usage.collect_report(
+                args.source_root, key, session_id=args.session_id,
+                include_subagents=args.include_subagents, rate_card=card,
+                include_account_usage=args.include_account_usage, official_usage=args.official_usage,
+                codex_bin=args.codex_bin, official_timeout=args.official_timeout,
+            )
+        else:
+            if not args.reports_root.is_dir() or args.reports_root.is_symlink():
+                raise usage.ReportError("invalid_reports_root")
+            paths = sorted(path for path in args.reports_root.rglob("*.json")
+                           if output is None or path.resolve() != output)
+            report = usage.merge_reports(paths, key, rate_card=card)
+        rendered = usage.write_report(report, output, format=args.format)
+        if output is None:
+            sys.stdout.write(rendered)
+        else:
+            print(f"REPORT: sessions={report['summary']['session_count']} "
+                  f"responses={report['summary']['response_count']}")
+    except OSError:
+        raise usage.ReportError("session_command_io_failed") from None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -2884,9 +2928,32 @@ def main() -> int:
     reset_parser.add_argument("--mode", choices=sorted(MODES), default="core")
     reset_parser.add_argument("--confirm")
 
+    key_parser = sub.add_parser("session-key", help="Create a local company reporting key.")
+    key_parser.add_argument("--output", type=Path, required=True)
+    session_parser = sub.add_parser("session-usage", help="Report local session usage metadata.")
+    session_parser.add_argument("--source-root", type=Path, required=True)
+    session_parser.add_argument("--session-id", help="Raw local session selector; never exported.")
+    session_parser.add_argument("--include-subagents", action="store_true")
+    session_parser.add_argument("--include-account-usage", action="store_true",
+                                help="Include offline credit/quota observations in a signed v2 report.")
+    session_parser.add_argument("--official-usage", action="store_true",
+                                help="Opt in to read-only account and thread usage via the installed Codex CLI.")
+    session_parser.add_argument("--codex-bin", help="Codex executable for --official-usage.")
+    session_parser.add_argument("--official-timeout", type=float, default=20.0,
+                                help="Per official request deadline in seconds (1-60; default 20).")
+    merge_parser = sub.add_parser("session-usage-merge", help="Merge signed company JSON reports.")
+    merge_parser.add_argument("--reports-root", type=Path, required=True)
+    for command in (session_parser, merge_parser):
+        command.add_argument("--key-file", type=Path, required=True)
+        command.add_argument("--rate-card", type=Path)
+        command.add_argument("--format", choices=["json", "csv"], default="json")
+        command.add_argument("--output", type=Path, help="Omit to write only the report to stdout.")
+
     args = parser.parse_args()
     try:
-        if args.command == "validate":
+        if args.command in {"session-key", "session-usage", "session-usage-merge"}:
+            session_command(args)
+        elif args.command == "validate":
             validate(args.mode, static_only=args.static_only)
         elif args.command == "up":
             up(args.mode)

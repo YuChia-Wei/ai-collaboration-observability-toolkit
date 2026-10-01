@@ -117,6 +117,21 @@ Codex 設定只合併 examples/codex/config.toml.example 的 [otel] 區段，
 必須指向 loopback Collector，且 log_user_prompt=false。變更後由 Owner
 重新啟動 Codex。
 
+## Session 用量報表與公司彙總
+
+Opt-in 的 `session-usage` 可從明確指定的本機 Codex rollout 目錄，產生
+metadata-only JSON／CSV，依 pseudonymous session、設定的 model／reasoning
+effort 檢視原生 response token 與公開 credits equivalent。設定值與實際
+reroute／扣款分開呈現；不支援的舊格式保留 partial／null。
+公司可用同一私密 HMAC key 的 JSON 報表透過 `session-usage-merge` 驗證與去重。
+預設報表與合併離線執行。`--include-account-usage` 可另行保留本機帳戶額度
+快照；`--official-usage` 透過已安裝 Codex 的短暫 app-server 查詢官方帳戶
+餘額與可取得的 thread 估算，並使用 v2 報表。餘額不加總或差額歸因到
+session；官方估算與本機 credits equivalent 分開，缺失保留明確狀態，
+都不宣稱實際扣款。此流程不需重啟服務，也不把 session ID 或 HMAC 識別碼放入
+Prometheus／Loki index labels。操作與隱私界線見
+[Session usage](docs/SESSION-USAGE.md)。
+
 ## Dashboard
 
 - Collector 健康狀態（Collector Health）
