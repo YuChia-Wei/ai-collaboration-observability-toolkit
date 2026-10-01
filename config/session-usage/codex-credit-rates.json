@@ -1,0 +1,52 @@
+{
+  "schema_version": "codex-credit-rate-card/v1",
+  "version": "openai-codex-credits-2026-10-01",
+  "source": "https://learn.chatgpt.com/docs/pricing#token-rates",
+  "verified_on": "2026-10-01",
+  "scope": "published_token_classes",
+  "models": {
+    "gpt-5.6-sol": {
+      "input_uncached": "100",
+      "input_cached": "10",
+      "output": "500"
+    },
+    "gpt-5.6-terra": {
+      "input_uncached": "50",
+      "input_cached": "5",
+      "output": "300"
+    },
+    "gpt-5.6-luna": {
+      "input_uncached": "5",
+      "input_cached": "0.5",
+      "output": "30"
+    },
+    "gpt-6-astra": {
+      "input_uncached": "250",
+      "input_cached": "25",
+      "output": "1250"
+    },
+    "gpt-6-sol": {
+      "input_uncached": "50",
+      "input_cached": "5",
+      "output": "250"
+    },
+    "gpt-6-luna": {
+      "input_uncached": "2.5",
+      "input_cached": "0.25",
+      "output": "12.5"
+    },
+    "gpt-6.1-sol": {
+      "input_uncached": "50",
+      "input_cached": "2.5",
+      "output": "250"
+    }
+  },
+  "speed_multipliers": {
+    "standard": "1",
+    "fast": "2",
+    "ultrafast": "6"
+  },
+  "ultrafast_models": [
+    "gpt-6-astra"
+  ]
+}

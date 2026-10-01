@@ -145,6 +145,29 @@ included weekly allowance was reduced by exactly that value. Model choice,
 context, reasoning, tools, caching, speed settings, and plan rules can affect
 actual allowance consumption. Source: [Codex pricing and credits](https://learn.chatgpt.com/docs/pricing).
 
+## Session credit reports
+
+The opt-in [session usage command](SESSION-USAGE.md) creates offline JSON/CSV
+from native per-response usage records. It groups by pseudonymous session and
+configured model/effort and keeps actual model attribution unknown;
+explicit reroutes make affected records unpriced.
+Effort is metadata and has no guessed price multiplier. Company merging
+authenticates reports and deduplicates response keys before totaling credits.
+
+Its separate current card,
+[`config/session-usage/codex-credit-rates.json`](../config/session-usage/codex-credit-rates.json),
+was read on 2026-10-01. It uses the currently published GPT-5.6 Sol rates of
+100/10/500 credits per million input/cached/output tokens. Historical
+Prometheus cards above keep their original snapshots. A read-back date is not
+an inferred historical effective date; the current file card must not be used
+to silently reinterpret old estimates.
+
+Configured Fast/priority uses the published 2x purchased-credit/Enterprise
+pay-as-you-go multiplier; Astra Ultrafast uses 6x. A missing or unrecognized tier is explicitly
+a Standard-equivalent assumption. Honored tier, actual debit, and remaining
+included allowance are unavailable. These report equivalents and aggregate
+Prometheus estimates overlap in purpose and must not be summed together.
+
 ## Auto-review boundary
 
 The Auto-review dashboard can reliably show reviewer turns, token classes,

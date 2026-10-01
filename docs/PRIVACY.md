@@ -68,6 +68,28 @@ A production company rollout additionally requires security/data-owner approval,
 backend access controls, audit logging, retention/deletion rules, pseudonym key management, and a
 reviewed redacted-feedback export process. This Repository is a technical baseline, not that approval.
 
+## Opt-in session usage files
+
+The offline [session usage report](SESSION-USAGE.md) reads an explicitly
+selected local Codex rollout directory and retains only reviewed metadata.
+Raw session/response IDs support local selection, ancestry, and HMAC
+pseudonym generation; they are excluded from output. Prompt/assistant/reasoning
+text, tool payloads, command output, source code, paths, identities, account
+fields, credentials, and unknown source fields are not copied to reports.
+
+Company JSON reports use HMAC-SHA-256 session/response keys and authenticated
+metadata. CSV is a summary view. Export and merge require a private key file;
+the key value is excluded from `.env`, CLI literals, reports, and repository
+files. Merging validates the schema, HMAC, key identity, and reviewed rate card
+and rejects conflicting response copies. Shared-key integrity does not prove
+provider billing or prevent an authorized key holder from creating a report.
+
+Pseudonymous session/response keys remain high-cardinality identifiers. They
+must never become Prometheus labels or Loki index labels. This separate file
+workflow does not loosen the Collector allowlist, enable a source archive,
+or upload company data. Access, retention, deletion, key distribution, and
+rotation remain company controls.
+
 ## Sentinel test
 
 `AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D` is embedded in synthetic OTLP fixtures inside fields that

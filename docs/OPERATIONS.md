@@ -10,6 +10,14 @@
 
 Containers do not require a host Python environment.
 
+## Offline session reports
+
+The `session-key`, `session-usage`, and `session-usage-merge` commands use host
+Python and run without Docker or network access. They read explicitly selected
+local files and write sanitized usage artifacts; they do not modify a running
+stack. See [session usage](SESSION-USAGE.md) for commands, private key handling,
+company report validation/deduplication, coverage, and pricing assumptions.
+
 ## Environment preparation
 
     Copy-Item .env.example .env

@@ -89,6 +89,14 @@ See the [provider support matrix](docs/PROVIDER-SUPPORT.md),
 
 ## Dashboards
 
+Opt-in [session usage reports](docs/SESSION-USAGE.md) read an explicitly
+selected local Codex rollout directory and export metadata-only JSON/CSV by
+pseudonymous session and configured model/effort. Native response usage feeds
+public credit equivalents; actual routed model, honored tier, and credit debit
+remain distinct. Company JSON merging validates and deduplicates response
+keys using the same private HMAC key. This offline workflow requires no
+service restart and adds no session identifiers to backend index labels.
+
 - Collector 健康狀態 (Collector Health)
 - Codex 原生 Telemetry (Codex Native Telemetry)
 - Codex Auto-review 用量 (Approval Reviewer)

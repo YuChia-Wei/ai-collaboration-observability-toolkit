@@ -2,7 +2,7 @@
 
 ## Contract boundaries
 
-The v0.2.0 forward contract keeps four deliberately separate contracts:
+The toolkit keeps five deliberately separate contracts:
 
 | Contract | Purpose | Producer/normalizer | Dashboard |
 |---|---|---|---|
@@ -10,6 +10,7 @@ The v0.2.0 forward contract keeps four deliberately separate contracts:
 | \`ai_agent.*\` | Compare bounded usage and runtime behavior across AI coding agents | Collector normalization from verified provider fixtures | AI Agent 用量 / Codex Auto-review 用量 |
 | metadata events + trace IDs | Inspect prompt submission, tool/API/sandbox events, and correlate to Tempo | Provider logs after Collector privacy transforms | AI Agent 活動 |
 | \`ai_context.*\` | Reserve framework/workflow evidence: skills, rules, validation, waits, retries, outcomes | Future runtime/orchestrator instrumentation at a real execution boundary | None until a real producer exists |
+| Session usage files | Review configured model/effort, response usage, and public credit equivalents by pseudonymous session | Opt-in local Codex rollout reader | Offline JSON/CSV; no session labels in Grafana backends |
 
 Native provider telemetry is not framework evidence. A Codex turn or tool call
 must never be presented as proof that an AI Context skill, rule, or validation
@@ -66,6 +67,28 @@ Canonical metric datapoints may use only reviewed bounded dimensions:
 Never use session, prompt, conversation, task UUID, validation fingerprint,
 commit SHA, branch, path, user identity, account ID, call ID, trace ID, span
 ID, or unrestricted raw tool name as a Prometheus or Loki index label.
+
+## Session usage artifact contract
+
+`session-usage/v1` is an opt-in file contract, separate from OTLP and
+`accounting_schema=v2`. It keeps authenticated HMAC session/response keys,
+UTC timestamps, reviewed configuration/status fields, provider usage numbers,
+coverage, and versioned credit estimates. Raw identifiers, paths, identity,
+content, tool payloads, and unknown source fields are excluded. CSV provides
+summaries; company merging consumes validated JSON and deduplicates response
+keys, rejecting conflicting copies.
+
+Usage comes only from native top-level `token_usage_record.payload.usage`;
+cumulative snapshots are ignored and unsupported formats remain partial/null.
+Native thread checkpoints are reconciliation-only; missing/mismatched totals
+produce partial coverage instead of a fabricated fallback.
+Model and effort are configured evidence. `actual_model_id=unmapped` is kept
+distinct; an explicit reroute makes affected attribution ambiguous/unpriced.
+Configured speed or a documented Standard assumption affects only a public
+credit equivalent, never a claim of actual debit or honored service tier.
+HMAC session/response pseudonyms are prohibited in Prometheus and Loki index
+labels just like raw session IDs. See [session usage](SESSION-USAGE.md) for CLI, rate-card, and
+company key boundaries.
 
 ## Canonical AI-agent metrics
 
