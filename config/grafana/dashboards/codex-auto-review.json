@@ -20,7 +20,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### Auto-review 是執行角色，不是實際模型\n\nCodex 目前以 `model=codex-auto-review` 回報 approval review；toolkit 將它正規化為 `agent_role=approval_reviewer`，但在 upstream 沒提供 exact model 時保留 `model_id=unmapped`。因此 token 與 cached ratio 可直接統計，API USD／Codex credits 則維持未估價，不能套用 primary model 猜價。Cached input 依公開 rate card 通常較便宜，**不是免費**；此 dashboard 的 Auto-review 指本機 approval requests review，不等同 GitHub PR Code Review。"
+        "content": "### 自動審核器尚未提供實際模型\n\nCodex 以 `codex-auto-review` 識別自動審核角色，目前沒有提供實際模型名稱。圖表以「未提供實際模型」顯示這類資料；仍可統計 Review 次數、Token 與 cached input 比例。缺少模型或適用費率時，公開 API 費用與 Codex Credits 顯示「未估價」，不代表零成本。Cached input 通常依適用公開費率折價，**不是免費**。此儀表板統計本機操作核准的自動審核，不等同 GitHub PR Code Review。"
       }
     },
     {
@@ -221,7 +221,7 @@
     {
       "id": 6,
       "title": "所選範圍 API 預估費用",
-      "description": "只有 approval reviewer exact model 可對到版本化公開 API rate card 時才出現；目前 unmapped 預期為無資料，不是零成本。",
+      "description": "缺少實際模型或適用 API 費率時顯示「未估價」；不代表零成本。只有可對應公開費率的用量才有估算。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -236,7 +236,8 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyUSD",
-          "decimals": 4
+          "decimals": 4,
+          "noValue": "未估價"
         },
         "overrides": []
       },
@@ -250,7 +251,7 @@
         },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "value",
+        "colorMode": "none",
         "graphMode": "area",
         "justifyMode": "auto"
       },
@@ -266,7 +267,7 @@
     {
       "id": 7,
       "title": "所選範圍 Codex 預估 Credits",
-      "description": "只有 exact model 且公開 Codex credits token class 有 rate 時才出現；不是官方剩餘額度或實際扣款。",
+      "description": "缺少實際模型或適用 Codex Credits 費率時顯示「未估價」；不是官方剩餘額度或實際扣款。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -281,7 +282,8 @@
       "fieldConfig": {
         "defaults": {
           "unit": "suffix: credits",
-          "decimals": 2
+          "decimals": 2,
+          "noValue": "未估價"
         },
         "overrides": []
       },
@@ -295,7 +297,7 @@
         },
         "orientation": "auto",
         "textMode": "auto",
-        "colorMode": "value",
+        "colorMode": "none",
         "graphMode": "area",
         "justifyMode": "auto"
       },
@@ -398,8 +400,8 @@
     },
     {
       "id": 10,
-      "title": "Reviewer Exact model 覆蓋率",
-      "description": "approval reviewer token 中具 exact model_id 的比例；為零表示只能統計使用量、不能可靠估價。",
+      "title": "Reviewer 實際模型已知比例",
+      "description": "所選範圍 Reviewer Token 中具已知模型的比例。全部未提供模型時為 0%；沒有 Reviewer 用量時不顯示比例。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -432,7 +434,8 @@
                 "value": 0.98
               }
             ]
-          }
+          },
+          "noValue": "無 Reviewer 用量"
         },
         "overrides": []
       },
@@ -450,8 +453,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",model_id!=\"unmapped\"}[$__range])) / clamp_min(sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])), 1)",
-          "legendFormat": "Exact model",
+          "expr": "(sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",model_id!=\"unmapped\"}[$__range])) or (0 * sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])))) / (sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) > 0)",
+          "legendFormat": "實際模型已知比例",
           "instant": true
         }
       ]
@@ -459,7 +462,7 @@
     {
       "id": 11,
       "title": "Reviewer Token 分類",
-      "description": "所選範圍 reviewer token 依 model_id 與互不重疊 usage class 分組。",
+      "description": "所選範圍 Reviewer Token 依實際模型與互不重疊 Token 分類分組；未提供模型時顯示「未提供實際模型」。",
       "type": "bargauge",
       "datasource": {
         "type": "prometheus",
@@ -498,8 +501,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model_id, usage_class)",
-          "legendFormat": "{{model_id}} / {{usage_class}}",
+          "expr": "label_replace(label_replace(sum(increase(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",agent_role=\"approval_reviewer\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model_id, usage_class), \"model_display\", \"$1\", \"model_id\", \"(.+)\"), \"model_display\", \"未提供實際模型\", \"model_id\", \"^unmapped$\")",
+          "legendFormat": "{{model_display}} / {{usage_class}}",
           "instant": true
         }
       ]
@@ -548,7 +551,7 @@
     {
       "id": 13,
       "title": "API 未估價 Reviewer Token",
-      "description": "沒有 exact API model／usage-class rate 的 reviewer 累積 token；unmapped model 預期出現在此處。",
+      "description": "無法依實際模型及 Token 分類套用 API 費率的累積用量；上游未提供模型時顯示「未提供實際模型」。",
       "type": "table",
       "datasource": {
         "type": "prometheus",
@@ -565,7 +568,65 @@
           "unit": "short",
           "decimals": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "model_id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "實際模型"
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "unmapped": {
+                        "text": "未提供實際模型"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "usage_class"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Token 分類"
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Token 數"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true,
@@ -579,12 +640,28 @@
           "format": "table",
           "instant": true
         }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "model_id": 0,
+              "usage_class": 1,
+              "Value": 2
+            },
+            "renameByName": {}
+          }
+        }
       ]
     },
     {
       "id": 14,
       "title": "Codex Credits 未估價 Reviewer Token",
-      "description": "公開 Codex credits rate card 未涵蓋的 reviewer 累積 token；包含 unmapped model 與未公布 credits rate 的 cache-write。",
+      "description": "沒有適用 Codex Credits 費率的累積用量；包含未提供實際模型，以及未公布費率的 cache-write。",
       "type": "table",
       "datasource": {
         "type": "prometheus",
@@ -601,7 +678,65 @@
           "unit": "short",
           "decimals": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "model_id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "實際模型"
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "unmapped": {
+                        "text": "未提供實際模型"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "usage_class"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Token 分類"
+              },
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Token 數"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true,
@@ -614,6 +749,22 @@
           "legendFormat": "{{model_id}} / {{usage_class}}",
           "format": "table",
           "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "model_id": 0,
+              "usage_class": 1,
+              "Value": 2
+            },
+            "renameByName": {}
+          }
         }
       ]
     }
@@ -639,6 +790,6 @@
   "timezone": "browser",
   "title": "Codex Auto-review 用量（Approval Reviewer）",
   "uid": "ai-codex-auto-review",
-  "version": 1,
+  "version": 2,
   "description": "專門檢查 Codex approval Auto-review 的次數、角色、token 類型、cached ratio、占比與 API／Codex credits 未估價邊界。"
 }
