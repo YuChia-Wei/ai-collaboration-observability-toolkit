@@ -24,12 +24,20 @@ negative checks verify totals and label exclusion in all modes.
 
 Codex `agent_role` and `model_id` are independent. The current
 `codex-auto-review` source value proves `approval_reviewer`, but not the exact
-model, so reviewer tokens remain `model_id=unmapped` and unpriced. Cached input
+model, so reviewer tokens remain `model_id=unmapped` and API-unpriced. The
+reviewed ChatGPT credit-equivalent v3 policy separates qualifying approval
+safety operations as non-billable; role alone, ordinary unknown models,
+GitHub PR review, and local `/review` do not receive that exemption. The scope
+does not establish API-key or Enterprise USD agreement charges. See
+[official pricing verification](PRICING-REVIEW-2026-10-07.md).
+Cached input
 is discounted according to the matching public rate card, not free. The public
 Codex credits table states no separate cache-write charge; that class remains
 visible as credits-unpriced, outside the three-class estimate. GPT-6 Sol/Luna
-cards are dated 2026-09-23 and use standard rates; Fast and long-context rates
-are not inferred from aggregated telemetry.
+legacy v2 cards are dated 2026-09-23 and use standard rates; v3 uses separate
+2026-10-07 snapshots and stored rate samples. Fast and long-context rates
+are not inferred from aggregated telemetry. The new policy/rules do not by
+themselves establish a new real-client capture or a container runtime pass.
 
 Provider telemetry can establish usage, timing, tool activity, and trace events.
 It cannot independently establish that a prompt-framework rule or governance

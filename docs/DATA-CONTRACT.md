@@ -63,6 +63,11 @@ Canonical metric datapoints may use only reviewed bounded dimensions:
   explicitly documented local measurement. Codex Hook size-only metrics use
   \`user_prompt\` or \`hook_tool_response\` plus \`utf8_bytes\`; neither field
   carries content, a request identifier, or a token estimate.
+- `billing_category`: Collector-derived `standard`, `auto_review`, or
+  `unknown`. The Collector overwrites incoming values. Only trusted
+  `service.name=codex-app-server` plus the original exact
+  `model=codex-auto-review` signal produces `auto_review`; a caller-supplied
+  role or billing category cannot grant the policy exemption.
 
 Never use session, prompt, conversation, task UUID, validation fingerprint,
 commit SHA, branch, path, user identity, account ID, call ID, trace ID, span
@@ -70,13 +75,21 @@ ID, or unrestricted raw tool name as a Prometheus or Loki index label.
 
 ## Session usage artifact contract
 
-`session-usage/v1` is the default opt-in file contract, separate from OTLP and
-`accounting_schema=v2`. It keeps authenticated HMAC session/response keys,
+`session-usage/v3` is the default opt-in file contract with the reviewed
+2026-10-07 card, separate from OTLP accounting schemas. It keeps authenticated HMAC session/response keys,
 UTC timestamps, reviewed configuration/status fields, provider usage numbers,
 coverage, and versioned credit estimates. Raw identifiers, paths, identity,
 content, tool payloads, and unknown source fields are excluded. CSV provides
 summaries; company merging consumes validated JSON and deduplicates response
-keys, rejecting conflicting copies.
+keys, rejecting conflicting copies. V3 additionally signs the pricing policy
+and its digest, plus per-response/group operation, evidence basis, charge
+class, pricing basis, and non-billable token coverage. Exact
+`codex-auto-review` source evidence identifies the approval safety operation;
+role alone does not qualify. Within the reviewed ChatGPT personal/enterprise
+credits-equivalent scope, its usage at/after the policy's local activation
+becomes non-billable. Official effective date remains unknown, earlier usage
+is not repriced, and actual-model metadata remains unknown. See
+[the pricing review](PRICING-REVIEW-2026-10-07.md).
 
 Local response usage comes only from native top-level `token_usage_record.payload.usage`;
 cumulative token counts are ignored and unsupported formats remain partial/null.
@@ -91,12 +104,14 @@ credit equivalent, never a claim of actual debit or honored service tier.
 `token_count.payload.rate_limits` snapshots; cumulative token counts remain
 excluded from the local ledger. `--official-usage` also requests account limits
 and optional thread estimates through an ephemeral installed Codex app-server.
-Either flag uses `session-usage/v2` and adds authenticated `usage_metrics`
-source records for account snapshots, thread estimates, and diagnostics.
+Either flag adds authenticated `usage_metrics` source records for account
+snapshots, thread estimates, and diagnostics while retaining v3 with the
+current card; legacy v2 reports retain their prior optional-source contract.
 Account balances, quota windows, and earned resets are never summed or
 delta-attributed to sessions. Provider thread estimates retain exact micro-unit
 values and optional model/effort/speed groups; they are not actual billed usage.
-Missing estimates are explicit gaps. Merge validates v1/v2 and deduplicates
+Missing estimates are explicit gaps. Merge validates v1/v2/v3 with the matching
+reviewed card, rejecting different card/policy contracts, and deduplicates
 each source independently, without adding estimates across sources or assuming
 provider parent/child rollup scope. Snapshots deduplicate by `observation_key`;
 thread estimates retain their latest observation, including `unavailable`.
@@ -180,10 +195,11 @@ the new ingestion window:
 | \`ai_agent_unpriced_api_token_usage_total\` | Accounting token without an exact API rate |
 | \`ai_agent_unpriced_credit_token_usage_total\` | Codex accounting token without a published credits rate |
 
-Every new accounting and estimate series carries \`accounting_schema=v2\` and
+Legacy accounting and estimate series carry \`accounting_schema=v2\` and
 the bounded \`agent_role\`. The recording rules also retain the bounded
 \`service_namespace\`, so owner telemetry and runtime fixtures cannot collapse
-into the same Prometheus series. The supplied dashboards require schema v2 and
+into the same Prometheus series. The supplied dashboards select v3 history or
+the explicitly labelled legacy v2 view, and
 exclude \`ai-collaboration-fixture\`, \`ai-collaboration-cost-fixture\`, and
 \`ai-collaboration-role-fixture\` by default. Older v1 or unversioned series
 remain stored and queryable but are not rewritten or included in v2 totals.
@@ -195,11 +211,58 @@ explicit \`non_cached_input\`; otherwise it derives uncached input as
 once and does not add \`reasoning_output\` again. Raw provider token classes stay
 queryable for reconciliation.
 
-Selected-range token, API USD, and Codex credits panels use
-\`increase(...[$__range])\`; a cumulative last value must not be presented as a
-selected-range estimate. Because a first-ever counter sample has no preceding
-baseline, wait for a subsequent sample before treating an interval increase as
-complete.
+Selected-range token totals and the legacy v2 view use
+\`increase(...[$__range])\`. Legacy priced \`_total\` metrics are token-counter
+times price gauges, not stable monetary counters across rate changes. A
+cumulative last value must not be presented as a selected-range estimate.
+Because a first-ever counter sample has no preceding baseline, wait for a
+subsequent sample before treating an interval increase as complete.
+
+V3 records versioned token/cost/credit rate gauges at a fixed 30-second rule
+interval using a two-minute token-rate window. Cost and credit panels
+integrate stored rate samples at that fixed step; later immutable cards
+change later samples without repricing all old token counters. Non-billable
+credit coverage is separate from API-unpriced/model-unmapped coverage.
+No v3 history is backfilled. Transition/range boundaries can span one rate
+window, missing evaluations leave gaps, and retention can remove the samples
+needed for old ranges. Newly born counters have a two-minute rate warmup
+boundary; those samples do not establish usage before the counter existed.
+This sampled estimate is not actual billing.
+
+| V3 recording metric | Semantics |
+|---|---|
+| `ai_agent_token_usage_total{accounting_schema="v3"}` | Non-overlapping counter retaining Collector-derived `billing_category` |
+| `ai_agent_token_usage_per_second` | Two-minute token-rate estimate evaluated every 30 seconds |
+| `ai_agent_active_token_price_usd_per_million` | Immutable active 2026-10-07 API snapshot facts |
+| `ai_agent_active_token_credit_per_million` | Immutable active 2026-10-07 public credit snapshot facts |
+| `ai_agent_estimated_cost_usd_per_second` | Stored API cost-rate gauge; unknown reviewer model remains API-unpriced |
+| `ai_agent_estimated_credit_usage_per_second` | Stored credit-rate gauge, including policy-backed non-billable zero with observed usage |
+| `ai_agent_nonbillable_credit_token_usage_per_second` | Qualifying non-billable approval token rate |
+| `ai_agent_unpriced_api_token_usage_per_second` | Token rate without an exact API price |
+| `ai_agent_unpriced_credit_token_usage_per_second` | Codex token rate without a credit rate or qualifying exemption |
+| `ai_agent_accounting_sample_available` | Saved token-rate evaluations gated by the latest Collector scrape result |
+
+The `ai-agent-interval-estimates-v3` group in
+`config/prometheus/rules/ai-agent-interval-cost.yml` fixes its interval at 30 seconds.
+Active price joins require `timestamp(price) == time()` within that same rule
+group. This admits only current-evaluation price facts, preventing old/new
+card-version collisions before stale cleanup during a reload. It does not
+rewrite previously stored estimates.
+Rate samples retain `snapshot_read_at=2026-10-07` and
+`policy_applied_from=2026-10-07T13:21:21Z` where applicable. Non-billable
+credit samples carry `billing_status=non_billable`,
+`billing_scope=chatgpt_credits`,
+`credit_source=published_auto_review_policy`, and
+`rate_card_version=openai-codex-auto-review-credits-2026-10-07`.
+The policy activation is local provenance; its official historical effective
+date is unverified. The default dashboard accounting view is v3, with a
+separate collapsed legacy v2 row that retains the old queries/cards.
+The token-rate expression requires
+`max(up{job="otel-collector-exported"}) == 1`; absent/failed latest Collector
+scrapes produce no integral samples. This gate does not establish native
+provider freshness or completeness. On restoration the two-minute window
+can bridge preceding short gaps, so sample coverage is availability of the
+saved estimates, not exact scrape or provider-ingestion coverage.
 
 Antigravity status-line token/context/quota metrics remain instantaneous
 \`evidence_class=observed\` gauges. They are not transformed into
@@ -247,7 +310,7 @@ instrumentation must not emit provider usage under \`ai_context.*\`.
 
 ## API USD and Codex credits estimates
 
-API cost is an explicitly versioned estimate, not provider billing. The GPT-5.6
+API cost is an explicitly versioned estimate, not provider billing. Legacy v2 GPT-5.6
 rate card is `openai-api-2026-08-12`, denominated in USD per one million tokens,
 and covers only exact `gpt-5.6-sol`, `gpt-5.6-terra`, and `gpt-5.6-luna`
 accounting classes. Each output series retains `currency`,
@@ -283,10 +346,17 @@ tokens remain outside the three-class credits estimate. Sources:
 [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and
 [Codex token rates](https://learn.chatgpt.com/docs/pricing#token-rates).
 
-No estimate is guessed for an `unmapped` model, including current
+V3 uses new 2026-10-07 API and credits snapshots for all seven reviewed exact
+models. GPT-5.6 Sol uses API $4/$0.40/$5/$20 and credits 100/10/500; legacy
+v2 cards above remain unchanged. The separate approval safety policy applies
+only to the reviewed ChatGPT credits scope and preserves unknown actual-model
+attribution. It does not declare API-key or Enterprise USD usage free.
+
+No API estimate is guessed for an `unmapped` model, including current
 `approval_reviewer` telemetry, or for Antigravity, Claude, or Copilot. The API
 estimate does not represent Codex subscriptions, credits, Enterprise contracts,
-invoices, or internal showback. The credits estimate is a public rate-card
+invoices, or internal showback. The credits estimate, including policy-backed
+non-billable usage, is a public rate-card
 equivalent, not the official remaining plan allowance or actual debit.
 Aggregated telemetry cannot determine which individual requests exceeded the
 long-context threshold, so the API estimate does not apply the greater-than-272K
@@ -307,16 +377,19 @@ normalization, then apply the mode's final policy:
 
 ## Compatibility and migration
 
-- Core/Evaluation automatically begin archiving newly received, privacy-filtered
-  source signals after the updated configuration starts. Existing stored data is
-  not migrated or reconstructed, and prior dropped data cannot be recovered.
+- Core/Evaluation store newly received, privacy-filtered analytical signals in
+  the existing backends after configuration starts; no duplicate source archive
+  is created. Existing stored data is not migrated or reconstructed, and prior
+  dropped data cannot be recovered.
 - The Codex 原生 Telemetry dashboard keeps UID \`ai-codex-usage\`; human-facing text changes in
-  place while the PromQL contract remains stable, avoiding a duplicate dashboard.
+  place, with new default v3 estimate queries and separate legacy v2 queries.
+  Its stable UID avoids creating a duplicate dashboard.
 - The dedicated Codex Auto-review dashboard uses UID \`ai-codex-auto-review\`
   and treats approval review as a role, not a model.
 - Raw privacy-filtered \`codex.*\` and \`antigravity_*\` series remain available.
-- \`ai_agent.*\` remains provider-neutral; accounting schema v2 adds bounded
-  role attribution without rewriting v1 history.
+- \`ai_agent.*\` remains provider-neutral; accounting schema v2 retains bounded
+  role attribution, and v3 adds separate historical rate estimates and
+  non-billable policy coverage without rewriting v1/v2 history.
 - Existing stored series are not rewritten. \`agent_role\`, exact \`model_id\`,
   accounting, API USD, and Codex credits recording metrics apply to newly
   ingested/mapped data.

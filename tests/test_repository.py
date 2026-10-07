@@ -1099,15 +1099,20 @@ class RepositoryTests(unittest.TestCase):
             "ai_agent_token_price_usd_per_million",
             "ai_agent_provider",
             "ai_agent_product",
+            "ai_agent_active_token_price_usd_per_million",
+            "ai_agent_estimated_cost_usd_per_second",
+            "ai_agent_accounting_sample_available",
+            "ai_agent_priced_api_token_usage_per_second",
+            "ai_agent_token_usage_per_second",
         }
-        self.assertEqual(
+        self.assertLessEqual(
             set(re.findall(r"\bai_agent_[a-z0-9_]+", codex_expressions)),
             allowed_canonical,
         )
         fixture_exclusion = (
             'service_namespace!~"^ai-collaboration(-cost|-role)?-fixture$"'
         )
-        self.assertIn('accounting_schema="v2"', codex_expressions)
+        self.assertIn('accounting_schema="v3"', codex_expressions)
         self.assertIn(fixture_exclusion, codex_expressions)
 
         provider_neutral = json.loads(
@@ -1120,10 +1125,10 @@ class RepositoryTests(unittest.TestCase):
             for panel in provider_neutral["panels"]
             for target in panel.get("targets", [])
         )
-        self.assertIn('accounting_schema="v2"', provider_neutral_expressions)
+        self.assertIn('accounting_schema="v3"', provider_neutral_expressions)
         self.assertIn('agent_role=~"$agent_role"', provider_neutral_expressions)
-        self.assertIn("ai_agent_estimated_credit_usage_total", provider_neutral_expressions)
-        self.assertIn("ai_agent_unpriced_credit_token_usage_total", provider_neutral_expressions)
+        self.assertIn("ai_agent_estimated_credit_usage_per_second", provider_neutral_expressions)
+        self.assertIn("ai_agent_unpriced_credit_token_usage_per_second", provider_neutral_expressions)
         self.assertIn(fixture_exclusion, provider_neutral_expressions)
 
         extension_row = next(
@@ -1158,7 +1163,7 @@ class RepositoryTests(unittest.TestCase):
                 for panel in dashboard["panels"]
                 if panel["type"] == "stat"
                 and any(
-                    "ai_agent_estimated_cost_usd_total" in target.get("expr", "")
+                    "ai_agent_estimated_cost_usd_per_second" in target.get("expr", "")
                     for target in panel.get("targets", [])
                 )
             )
@@ -1170,11 +1175,11 @@ class RepositoryTests(unittest.TestCase):
             cost_target = cost_stat["targets"][0]
             self.assertTrue(cost_target.get("instant"), filename)
             self.assertIn(
-                "sum(increase(ai_agent_estimated_cost_usd_total",
+                "sum(sum_over_time(ai_agent_estimated_cost_usd_per_second",
                 cost_target["expr"],
                 filename,
             )
-            self.assertIn("[$__range]))", cost_target["expr"], filename)
+            self.assertIn("[$__range])) * 30", cost_target["expr"], filename)
             self.assertNotRegex(
                 cost_target["expr"],
                 r"sum\(ai_agent_estimated_cost_usd_total",
@@ -1209,7 +1214,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(variable["allValue"], ".+", filename)
             self.assertIn(fixture_exclusion, variable["definition"], filename)
             if filename == "ai-agent-usage.json":
-                self.assertIn('accounting_schema="v2"', variable["definition"])
+                self.assertIn('accounting_schema="v3"', variable["definition"])
 
         role_variable = next(
             item
@@ -1217,7 +1222,7 @@ class RepositoryTests(unittest.TestCase):
             if item["name"] == "agent_role"
         )
         self.assertEqual(role_variable["allValue"], ".+")
-        self.assertIn('accounting_schema="v2"', role_variable["definition"])
+        self.assertIn('accounting_schema="v3"', role_variable["definition"])
         self.assertIn(fixture_exclusion, role_variable["definition"])
 
         credit_stat = next(
@@ -1225,7 +1230,7 @@ class RepositoryTests(unittest.TestCase):
             for panel in provider_neutral["panels"]
             if panel["type"] == "stat"
             and any(
-                "ai_agent_estimated_credit_usage_total" in target.get("expr", "")
+                "ai_agent_estimated_credit_usage_per_second" in target.get("expr", "")
                 for target in panel.get("targets", [])
             )
         )
@@ -1234,7 +1239,7 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("未估價", credit_stat["description"])
         self.assertTrue(credit_stat["targets"][0].get("instant"))
         self.assertIn(
-            "sum(increase(ai_agent_estimated_credit_usage_total",
+            "sum(sum_over_time(ai_agent_estimated_credit_usage_per_second",
             credit_stat["targets"][0]["expr"],
         )
 
@@ -1249,14 +1254,14 @@ class RepositoryTests(unittest.TestCase):
             for target in panel.get("targets", [])
         )
         self.assertIn('agent_role="approval_reviewer"', reviewer_expressions)
-        self.assertIn('accounting_schema="v2"', reviewer_expressions)
-        self.assertIn("ai_agent_unpriced_api_token_usage_total", reviewer_expressions)
-        self.assertIn("ai_agent_unpriced_credit_token_usage_total", reviewer_expressions)
+        self.assertIn('accounting_schema="v3"', reviewer_expressions)
+        self.assertIn("ai_agent_unpriced_api_token_usage_per_second", reviewer_expressions)
+        self.assertIn("ai_agent_unpriced_credit_token_usage_per_second", reviewer_expressions)
         self.assertIn(fixture_exclusion, reviewer_expressions)
         reviewer_text = (ROOT / "config/grafana/dashboards/codex-auto-review.json").read_text(
             encoding="utf-8"
         )
-        self.assertIn("不是免費", reviewer_text)
+        self.assertIn("不計價", reviewer_text)
         self.assertIn("unmapped", reviewer_text)
 
         for filename in (
@@ -1273,6 +1278,87 @@ class RepositoryTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("目前不猜價", antigravity_text)
         self.assertNotIn("ai_agent_estimated_cost_usd_total", antigravity_text)
+
+    def test_v3_price_gauges_preserve_legacy_and_bound_auto_review(self) -> None:
+        legacy = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-cost.yml")
+        current = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-interval-cost.yml")
+        group = current["groups"][0]
+        self.assertEqual(group["interval"], "30s")
+        rules = group["rules"]
+        active = [r for r in rules if r["record"].startswith("ai_agent_active_token_")]
+        self.assertEqual(len(active), 49)
+        self.assertFalse(any(r["labels"]["model_id"] == "unmapped" for r in active))
+        old_sol = next(r for r in legacy["groups"][0]["rules"] if r["record"] == "ai_agent_token_price_usd_per_million" and r["labels"]["model_id"] == "gpt-5.6-sol" and r["labels"]["usage_class"] == "input_uncached")
+        new_sol = next(r for r in active if r["record"] == "ai_agent_active_token_price_usd_per_million" and r["labels"]["model_id"] == "gpt-5.6-sol" and r["labels"]["usage_class"] == "input_uncached")
+        self.assertEqual(old_sol["expr"], "vector(5)")
+        self.assertTrue(new_sol["expr"].startswith("vector(4)"))
+        for rule in active:
+            self.assertEqual(rule["labels"]["snapshot_read_at"], "2026-10-07")
+            self.assertEqual(rule["labels"]["policy_applied_from"], "2026-10-07T13:21:21Z")
+        credit = [r for r in rules if r["record"] == "ai_agent_estimated_credit_usage_per_second"]
+        self.assertEqual(len(credit), 2)
+        free = next(r for r in credit if r["labels"]["billing_status"] == "non_billable")
+        self.assertIn('billing_category="auto_review"', free["expr"])
+        self.assertEqual(free["labels"]["billing_scope"], "chatgpt_credits")
+        self.assertNotIn("or vector(0)", json.dumps(current))
+        rate = next(r for r in rules if r["record"] == "ai_agent_token_usage_per_second")
+        self.assertEqual(rate["expr"], 'rate(ai_agent_token_usage_total{accounting_schema="v3"}[2m]) and on() (max(up{job="otel-collector-exported"}) == 1)')
+        for rule in rules:
+            for name in ("ai_agent_active_token_price_usd_per_million", "ai_agent_active_token_credit_per_million"):
+                if name in rule["expr"]:
+                    self.assertIn(f'({name} and (timestamp({name}) == time()))', rule["expr"])
+        for mode in ("core", "evaluation", "corporate"):
+            config = toolkit.yaml_load(ROOT / f"config/otel-collector/{mode}.yaml")
+            initial = config["processors"]["transform/privacy_initial"]["metric_statements"]
+            datapoint = next(s for s in initial if s["context"] == "datapoint")
+            self.assertIn('delete_key(attributes, "billing_category")', datapoint["statements"])
+            statements = config["processors"]["transform/ai_agent"]["metric_statements"]
+            body = "\n".join(s for context in statements for s in context["statements"])
+            mapped = next(s for s in body.splitlines() if 'set(attributes["billing_category"], "auto_review")' in s)
+            self.assertIn('resource.attributes["service.name"] == "codex-app-server"', mapped)
+            self.assertIn('attributes["model"] == "codex-auto-review"', mapped)
+            self.assertIn('set(attributes["billing_category"], "unknown")', body)
+            self.assertIn('set(attributes["billing_category"], "standard")', body)
+
+    def test_v3_dashboard_integrals_and_explicit_legacy_rows(self) -> None:
+        for filename in ("ai-agent-usage.json", "codex-usage.json", "codex-auto-review.json"):
+            dashboard = json.loads((ROOT / "config/grafana/dashboards" / filename).read_text(encoding="utf-8"))
+            row = next(p for p in dashboard["panels"] if p["id"] == 950)
+            self.assertTrue(row["collapsed"])
+            self.assertTrue(row["panels"])
+            if filename == "codex-usage.json":
+                samples = next(p for p in dashboard["panels"] if p["id"] == 900)
+                self.assertIn('model_id=~"$model"', samples["targets"][0]["expr"])
+            for panel in row["panels"]:
+                expr = panel["targets"][0]["expr"]
+                self.assertIn('accounting_schema="v2"', expr)
+                self.assertIn("increase(", expr)
+                self.assertNotIn("_per_second", expr)
+            for panel in dashboard["panels"]:
+                for target in panel.get("targets", []):
+                    if "ai_agent_estimated_" in target.get("expr", ""):
+                        self.assertIn("sum_over_time(", target["expr"])
+                        self.assertTrue(target["expr"].endswith(" * 30"))
+                        self.assertIn('accounting_schema="v3"', target["expr"])
+        dashboard = json.loads((ROOT / "config/grafana/dashboards/ai-agent-usage.json").read_text(encoding="utf-8"))
+        coverage = next(p for p in dashboard["panels"] if p["title"] == "API 估價覆蓋率")
+        self.assertEqual(coverage["targets"][0]["expr"].count('agent_role=~"$agent_role"'), 2)
+
+    def test_v3_promql_fixture_tracks_production_rules(self) -> None:
+        production = toolkit.yaml_load(ROOT / "config/prometheus/rules/ai-agent-interval-cost.yml")["groups"][0]
+        fixture = toolkit.yaml_load(ROOT / "tests/prometheus/v3-interval-cost.rules.yml")["groups"][0]
+        expected = []
+        for rule in production["rules"]:
+            if rule["record"] == "ai_agent_token_usage_total" or rule["record"].startswith("ai_agent_active_token_"):
+                continue
+            copied = dict(rule)
+            # promtool time starts at Unix epoch; adoption is mapped to 120s.
+            # All other production semantics
+            # and labels stay identical to prevent a synthetic-only passing test.
+            copied["expr"] = copied["expr"].replace("1791379281", "120")
+            expected.append(copied)
+        self.assertEqual(production["interval"], fixture["interval"])
+        self.assertEqual(fixture["rules"], expected)
 
     def test_codex_fixture_preserves_metric_semantics_and_contains_privacy_inputs(self) -> None:
         root = ROOT / "fixtures/codex/0.146.1"

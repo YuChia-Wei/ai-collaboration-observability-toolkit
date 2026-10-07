@@ -22,7 +22,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### 原生訊號與 canonical accounting 分開閱讀\n\n原生 `codex_*` panels 保留 provider 的 `model` 與 `token_type`，適合核對 input、cached input、cache-write、output、reasoning 與 total。Canonical accounting 使用新資料 schema v2，將 `agent_role` 與 `model_id` 分離。Auto-review 的真實 model 未由 telemetry 提供時會成為 `approval_reviewer + unmapped`，因此不猜 API USD 或 Codex credits；請改看 **Codex Auto-review 用量** dashboard。Cached input 依 rate card 折價，**不是免費**。"
+        "content": "### 用量、公開 API 等值與 ChatGPT credits 分開閱讀\n\n預設使用 v3：保存每 30 秒的 token rate × 當時採用費率，再積分所選範圍。2 分鐘窗口會平滑突發與變價邊界；資料缺失與非整個 30 秒範圍可使結果 partial。只有 Codex app-server 原始 `codex-auto-review` 訊號可套用 **ChatGPT 個人／企業 credits 不計價**；不是一般 Code Review、GitHub PR Review、subagent 或未知模型免費，也不代表 API USD 或 Enterprise USD 合約免費。實際模型未知時 API 等值維持未估價；0 credits 是已知政策等值，不是实际扣款證明。下方 Legacy v2 保留凍結舊費率歷史，預设不重算舊資料。"
       }
     },
     {
@@ -62,7 +62,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
           "legendFormat": "Token"
         }
       ]
@@ -70,7 +70,7 @@
     {
       "id": 3,
       "title": "所選範圍預估費用（USD）",
-      "description": "所選時間範圍內 exact model 可估價部分的公開 API USD estimate；不是帳單、訂閱或 Codex credits，unmapped 用量維持未估價。",
+      "description": "所選範圍已保存的 v3 sampled rate × 固定 30 秒積分；2 分鐘窗口平滑突發與變價邊界。公開 API 等值／ChatGPT credits estimate，不是實際帳單或扣款；未知費率維持未估價；缺樣本代表 partial，不補零。",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -104,7 +104,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+          "expr": "sum(sum_over_time(ai_agent_estimated_cost_usd_per_second{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) * 30",
           "legendFormat": "Estimated cost",
           "instant": true
         }
@@ -113,7 +113,7 @@
     {
       "id": 4,
       "title": "估價覆蓋率",
-      "description": "所選模型在新資料 schema v2 中可對應 exact API rate 的 token 比例；unmapped reviewer usage 維持未估價。",
+      "description": "所選範圍已保存的 v3 exact API rate 覆蓋 token 速率積分／全部 token 速率積分；沒有用目前 rate 回溯判斷歷史。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -147,7 +147,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million) / sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "expr": "sum(sum_over_time(ai_agent_priced_api_token_usage_per_second{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) / sum(sum_over_time(ai_agent_token_usage_per_second{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
           "legendFormat": "Coverage"
         }
       ]
@@ -155,7 +155,7 @@
     {
       "id": 5,
       "title": "Cached input 比例",
-      "description": "所選時間範圍 cached input 占 input 類別比例；cached 依適用 rate card 折價，不代表免費。",
+      "description": "Cached input 占全部 input 類別的比例，用來觀測重用效率；計價由另列政策決定，已辨識 Auto-review 不計 ChatGPT credits。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -189,7 +189,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=\"input_cached\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) / sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=~\"input_.+\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
+          "expr": "sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=\"input_cached\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) / sum(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",usage_class=~\"input_.+\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"})",
           "legendFormat": "Cache ratio"
         }
       ]
@@ -237,7 +237,7 @@
     {
       "id": 7,
       "title": "所選時間範圍：按模型與分類統計預估費用",
-      "description": "只顯示成功對應 rate card 的用量，legend 保留 rate-card 版本。",
+      "description": "所選範圍已保存的 v3 sampled rate × 固定 30 秒積分；2 分鐘窗口平滑突發與變價邊界。公開 API 等值／ChatGPT credits estimate，不是實際帳單或扣款；未知費率維持未估價；缺樣本代表 partial，不補零。",
       "type": "barchart",
       "datasource": {
         "type": "prometheus",
@@ -270,7 +270,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model_id, usage_class, rate_card_version)",
+          "expr": "sum(sum_over_time(ai_agent_estimated_cost_usd_per_second{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model_id, usage_class, rate_card_version) * 30",
           "legendFormat": "{{model_id}} {{usage_class}} - {{rate_card_version}}"
         }
       ]
@@ -304,7 +304,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (model_id, usage_class) (last_over_time(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]) unless on (ai_agent_provider, model_id, usage_class) ai_agent_token_price_usd_per_million)",
+          "expr": "sum by (model_id, usage_class) (last_over_time(ai_agent_token_usage_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]) unless on (ai_agent_provider, model_id, usage_class) ai_agent_active_token_price_usd_per_million)",
           "legendFormat": "{{model_id}} {{usage_class}}",
           "format": "table",
           "instant": true
@@ -340,7 +340,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (model_id, usage_class, currency, rate_card_version, rate_card_source, pricing_scope) (ai_agent_token_price_usd_per_million{ai_agent_provider=\"openai\",model_id=~\"$model\"})",
+          "expr": "max by (model_id, usage_class, currency, rate_card_version, rate_card_source, pricing_scope) (ai_agent_active_token_price_usd_per_million{ai_agent_provider=\"openai\",model_id=~\"$model\"})",
           "legendFormat": "{{model_id}} {{usage_class}}",
           "format": "table",
           "instant": true
@@ -600,6 +600,167 @@
           "legendFormat": "Thread {{source}}"
         }
       ]
+    },
+    {
+      "id": 900,
+      "title": "V3 估算樣本覆蓋率",
+      "description": "各已觀測 token series 的 rule／rate 積分樣本數 × 30 秒／所選秒數之平均。最後一次 Collector scrape up=0 或不存在時不產生樣本；新 series、warmup、缺 rule samples 會降低比例。這不是 native producer 新鮮度、實際 scrape 完整率或帳務完整性；沒有資料保持缺失。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0,
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
+                "color": "green",
+                "value": 0.99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamp_max(avg(count_over_time(ai_agent_accounting_sample_available{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v3\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) * 30 / $__range_s, 1)",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 950,
+      "title": "Legacy v2 歷史（凍結舊牌價；展開檢視）",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 1003,
+          "title": "Legacy v2：所選範圍預估費用（USD）",
+          "description": "凍結舊牌價的 v2 累積 counter 等值估算；沒有套用目前費率或新免費政策。只回顧仍在 retention 內的已存歷史。",
+          "type": "stat",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 57,
+            "w": 12,
+            "h": 7
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "decimals": 4
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": ""
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range]))",
+              "legendFormat": "Estimated cost",
+              "instant": true
+            }
+          ]
+        },
+        {
+          "id": 1007,
+          "title": "Legacy v2：所選時間範圍：按模型與分類統計預估費用",
+          "description": "凍結舊牌價的 v2 累積 counter 等值估算；沒有套用目前費率或新免費政策。只回顧仍在 retention 內的已存歷史。",
+          "type": "barchart",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 57,
+            "w": 12,
+            "h": 7
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "decimals": 4
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(increase(ai_agent_estimated_cost_usd_total{ai_agent_provider=\"openai\",ai_agent_product=\"codex\",model_id=~\"$model\",accounting_schema=\"v2\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}[$__range])) by (model_id, usage_class, rate_card_version)",
+              "legendFormat": "{{model_id}} {{usage_class}} - {{rate_card_version}}"
+            }
+          ]
+        }
+      ],
+      "description": "保留 v2 原始累積 counter 與凍結費率，供 retention 內的舊歷史回顧；沒有重新估價。"
     }
   ],
   "refresh": "10s",
@@ -651,6 +812,6 @@
   "timezone": "browser",
   "title": "Codex 原生 Telemetry（Codex Native Telemetry）",
   "uid": "ai-codex-usage",
-  "version": 6,
-  "description": "Codex 原生 telemetry 與新資料 accounting schema v2 的診斷 dashboard；保留 raw token_type，API USD 與 Codex credits/Auto-review 角色則維持清楚邊界。"
+  "version": 7,
+  "description": "預設 v3 保存當時 rate 的 30 秒積分，分開呈現 API 等值、ChatGPT credits 政策與資料缺失；可展開 Legacy v2 凍結舊牌價歷史。"
 }

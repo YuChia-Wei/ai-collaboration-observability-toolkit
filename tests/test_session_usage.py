@@ -37,6 +37,9 @@ CSV_COLUMNS = (
     "model_basis", "reasoning_effort", "configured_service_tier", "tier_basis",
     "response_count", *TOKEN_FIELDS, "estimated_credits", "unpriced_tokens",
     "pricing_status",
+    "operation", "operation_basis", "charge_class", "pricing_basis", "non_billable_tokens",
+    "pricing_policy_version", "pricing_policy_sha256", "policy_scope", "policy_sources",
+    "policy_temporal_basis", "policy_local_activation", "policy_official_effective_from",
 )
 PRIVATE_TEXT = (
     PRIMARY_ID, CHILD_ID, GRANDCHILD_ID, "synthetic-turn-one", "synthetic-turn-two",
@@ -631,7 +634,7 @@ class SessionUsageTests(unittest.TestCase):
 
     def test_current_public_card_is_explicit_and_bad_rates_fail_closed(self) -> None:
         card = session_usage.load_rate_card()
-        self.assertEqual(card["version"], "openai-codex-credits-2026-10-01")
+        self.assertEqual(card["version"], "openai-codex-credits-2026-10-07")
         self.assertEqual(card["models"]["gpt-6.1-sol"], {
             "input_uncached": "50", "input_cached": "2.5", "output": "250",
         })
@@ -643,6 +646,185 @@ class SessionUsageTests(unittest.TestCase):
                 path = self.export(altered, "bad-rate-card.json")
                 with self.assertRaises(session_usage.ReportError):
                     session_usage.load_rate_card(path)
+
+    @staticmethod
+    def auto_review_rows(timestamp: str = "2026-10-07T13:21:21Z") -> list[dict]:
+        rows = SessionUsageTests.first_turn_rows()
+        rows[3]["payload"]["model"] = "codex-auto-review"
+        rows[5]["timestamp"] = timestamp
+        return rows
+
+    def test_auto_review_policy_prices_operation_but_keeps_model_unknown(self) -> None:
+        report = self.collect(self.auto_review_rows())
+        response = report["responses"][0]
+        self.assertEqual(report["schema_version"], "session-usage/v3")
+        self.assertEqual(response["operation"], "approval_auto_review")
+        self.assertEqual(response["operation_basis"], "codex_auto_review_signal")
+        self.assertEqual(response["agent_role"], "approval_reviewer")
+        self.assertEqual(response["pricing_status"], "non_billable")
+        self.assertEqual(response["estimated_credits"], "0")
+        self.assertEqual(response["unpriced_tokens"], 0)
+        self.assertEqual(response["non_billable_tokens"], 12000)
+        self.assertEqual(response["tokens"]["cache_write_input_tokens"], 1000)
+        self.assertEqual(response["model_id"], "unmapped")
+        self.assertEqual(response["actual_model_id"], "unmapped")
+        self.assertEqual(response["model_basis"], "unknown")
+        self.assertEqual(report["summary"]["non_billable_tokens"], 12000)
+        self.assertTrue(report["summary"]["pricing_complete"])
+        self.assertFalse(report["summary"]["metadata_complete"])
+        self.assertIsNone(report["pricing_policy"]["official_effective_from"])
+        self.assertEqual(report["pricing_policy"]["temporal_basis"], "local_activation")
+        self.assertEqual(report["pricing_policy_sha256"], session_usage._card_digest(report["pricing_policy"]))
+        merged = session_usage.merge_reports([self.export(report, "review.json")], KEY)
+        self.assertEqual(merged["summary"], report["summary"])
+        csv_row = next(csv.DictReader(io.StringIO(session_usage.render_csv(report))))
+        self.assertEqual(csv_row["non_billable_tokens"], "12000")
+        self.assertEqual(csv_row["policy_local_activation"], "2026-10-07T13:21:21Z")
+        self.assertEqual(csv_row["policy_official_effective_from"], "")
+
+    def test_local_activation_boundary_does_not_reprice_earlier_review_usage(self) -> None:
+        for timestamp, free in (("2026-10-07T13:21:20.999999Z", False),
+                                ("2026-10-07T13:21:21Z", True),
+                                ("2026-10-07T15:21:21+02:00", True)):
+            with self.subTest(timestamp=timestamp):
+                report = self.collect(self.auto_review_rows(timestamp))
+                row = report["responses"][0]
+                self.assertEqual(row["non_billable_tokens"], 12000 if free else 0)
+                self.assertEqual(row["estimated_credits"], "0" if free else None)
+                self.assertEqual(row["pricing_basis"], "operation_policy" if free else "before_local_activation")
+                self.assertEqual(report["summary"]["pricing_complete"], free)
+
+    def test_auto_review_signal_fallback_is_exact_and_unknown_models_are_not_free(self) -> None:
+        rows = self.auto_review_rows()
+        del rows[3]["payload"]["model"]
+        rows[3]["payload"]["collaboration_mode"] = {"settings": {"model": "codex-auto-review"}}
+        self.assertEqual(self.collect(rows)["responses"][0]["estimated_credits"], "0")
+        for model in ("codex-auto-review-future", "unreviewed-model", "approval_reviewer"):
+            with self.subTest(model=model):
+                rows = self.auto_review_rows()
+                rows[3]["payload"]["model"] = model
+                row = self.collect(rows)["responses"][0]
+                self.assertEqual(row["non_billable_tokens"], 0)
+                self.assertIsNone(row["estimated_credits"])
+                self.assertEqual(row["pricing_status"], "unpriced")
+
+    def test_reviewer_role_alone_does_not_exempt_an_ordinary_model_response(self) -> None:
+        report = self.collect(self.first_turn_rows())
+        report["responses"][0]["agent_role"] = "approval_reviewer"
+        merged = session_usage.merge_reports([self.export(self.resign(report), "role-only.json")], KEY)
+        self.assertEqual(merged["responses"][0]["operation"], "model_response")
+        self.assertEqual(merged["summary"]["non_billable_tokens"], 0)
+        self.assertEqual(merged["summary"]["estimated_credits"], "0.665")
+
+    def test_auto_review_reroute_remains_unpriced(self) -> None:
+        rows = self.auto_review_rows()
+        rows.append({"method": "model/rerouted", "params": {
+            "threadId": PRIMARY_ID, "turnId": "synthetic-turn-one"}})
+        row = self.collect(rows)["responses"][0]
+        self.assertEqual(row["model_basis"], "routing_ambiguous")
+        self.assertEqual(row["pricing_basis"], "routing_ambiguous")
+        self.assertEqual(row["non_billable_tokens"], 0)
+        self.assertIsNone(row["estimated_credits"])
+
+    def test_missing_context_and_reroute_export_still_merges_as_unknown_operation(self) -> None:
+        rows = [row for row in self.first_turn_rows() if row["type"] != "turn_context"]
+        rows.append({"method": "model/rerouted", "params": {
+            "threadId": PRIMARY_ID, "turnId": "synthetic-turn-one"}})
+        report = self.collect(rows)
+        row = report["responses"][0]
+        self.assertEqual(row["operation"], "unknown")
+        self.assertEqual(row["model_basis"], "routing_ambiguous")
+        self.assertIsNone(row["estimated_credits"])
+        merged = session_usage.merge_reports([self.export(report, "missing-context-reroute.json")], KEY)
+        self.assertEqual(merged["summary"], report["summary"])
+
+    def test_mixed_billable_review_and_unknown_usage_preserves_all_tokens(self) -> None:
+        rows = self.fixture()
+        rows[3]["payload"]["model"] = "codex-auto-review"
+        rows[5]["timestamp"] = "2026-10-07T13:21:21Z"
+        rows[11]["timestamp"] = "2026-10-07T13:21:22Z"
+        report = self.collect(rows)
+        self.assertEqual(report["summary"]["tokens"]["total_tokens"], 13100)
+        self.assertEqual(report["summary"]["non_billable_tokens"], 12000)
+        self.assertEqual(report["summary"]["estimated_credits"], "0.1025")
+        self.assertEqual(report["summary"]["unpriced_tokens"], 0)
+        self.assertTrue(report["summary"]["pricing_complete"])
+        rows[9]["payload"]["model"] = "future-model"
+        report = self.collect(rows)
+        self.assertEqual(report["summary"]["tokens"]["total_tokens"], 13100)
+        self.assertEqual(report["summary"]["estimated_credits"], "0")
+        self.assertEqual(report["summary"]["unpriced_tokens"], 1100)
+        self.assertEqual(report["summary"]["non_billable_tokens"], 12000)
+        self.assertFalse(report["summary"]["pricing_complete"])
+
+    def test_legacy_card_preserves_old_report_shape_pricing_and_csv(self) -> None:
+        card = session_usage.load_rate_card(session_usage.ARCHIVED_RATE_CARD)
+        report = self.collect(self.auto_review_rows(), rate_card=card)
+        self.assertEqual(report["schema_version"], "session-usage/v1")
+        self.assertNotIn("pricing_policy", report)
+        self.assertNotIn("operation", report["responses"][0])
+        self.assertIsNone(report["summary"]["estimated_credits"])
+        saved = self.export(report, "legacy.json")
+        merged = session_usage.merge_reports([saved, saved], KEY, rate_card=card)
+        self.assertEqual(merged["summary"], report["summary"])
+        self.assertNotIn("non_billable_tokens", session_usage.render_csv(report).splitlines()[0])
+        with self.assertRaisesRegex(session_usage.ReportError, "rate_card_mismatch"):
+            session_usage.merge_reports([saved], KEY)
+
+    def test_policy_provenance_and_signed_non_billable_calculations_are_verified(self) -> None:
+        report = self.collect(self.auto_review_rows())
+        for field, value in (("non_billable_tokens", 0), ("charge_class", "estimated"),
+                             ("pricing_basis", "no_applicable_rate"), ("estimated_credits", "1")):
+            with self.subTest(field=field):
+                changed = copy.deepcopy(report)
+                changed["responses"][0][field] = value
+                with self.assertRaisesRegex(session_usage.ReportError, "invalid_response_pricing"):
+                    session_usage.merge_reports([self.export(self.resign(changed), "forged.json")], KEY)
+        for name in ("pricing_policy_sha256", "pricing_policy"):
+            changed = copy.deepcopy(report)
+            if name == "pricing_policy_sha256":
+                changed[name] = "a" * 64
+            else:
+                changed[name]["version"] = "codex-auto-review-chatgpt-credits-2026-10-08"
+            with self.assertRaisesRegex(session_usage.ReportError, "pricing_policy_mismatch"):
+                session_usage.merge_reports([self.export(self.resign(changed), "policy.json")], KEY)
+        changed = copy.deepcopy(report)
+        changed["responses"][0]["operation_basis"] = "turn_context"
+        with self.assertRaisesRegex(session_usage.ReportError, "invalid_response_operation"):
+            session_usage.merge_reports([self.export(self.resign(changed), "operation.json")], KEY)
+
+    def test_different_policy_adoption_snapshots_cannot_silently_merge(self) -> None:
+        report = self.collect(self.auto_review_rows())
+        card = copy.deepcopy(session_usage.load_rate_card())
+        card["operation_policy"]["local_activation"] = "2026-10-08T00:00:00Z"
+        later = self.collect(rate_card=card)
+        self.assertIsNone(later["summary"]["estimated_credits"])
+        self.assertNotEqual(report["rate_card_sha256"], later["rate_card_sha256"])
+        with self.assertRaisesRegex(session_usage.ReportError, "rate_card_mismatch"):
+            session_usage.merge_reports([self.export(report, "first.json"), self.export(later, "later.json")], KEY)
+
+    def test_archives_keep_complete_snapshots_and_missing_models_remain_unpriced(self) -> None:
+        old = session_usage.load_rate_card(session_usage.ARCHIVED_RATE_CARD)
+        new = session_usage.load_rate_card()
+        self.assertEqual(old["models"], new["models"])
+        self.assertEqual(old["speed_multipliers"], new["speed_multipliers"])
+        archived_new = session_usage.load_rate_card(new_path := ROOT / "config/session-usage/archives/openai-codex-credits-2026-10-07.json")
+        self.assertEqual(session_usage._card_digest(new), session_usage._card_digest(archived_new))
+        self.assertEqual(new_path.read_bytes(), session_usage.DEFAULT_RATE_CARD.read_bytes())
+        del old["models"]["gpt-6.1-sol"]
+        report = self.collect(self.first_turn_rows(), rate_card=old)
+        self.assertIsNone(report["summary"]["estimated_credits"])
+        self.assertEqual(report["summary"]["unpriced_tokens"], 12000)
+
+    def test_unreviewed_policy_metadata_is_rejected(self) -> None:
+        for field, value in (("scope", "all_api_usage"), ("official_effective_from", "2026-10-07T00:00:00Z"),
+                             ("local_activation", "2026-10-06T23:00:00Z"),
+                             ("sources", ["https://example.invalid/private-source"])):
+            with self.subTest(field=field):
+                card = copy.deepcopy(session_usage.load_rate_card())
+                card["operation_policy"][field] = value
+                with self.assertRaisesRegex(session_usage.ReportError, "invalid_operation_policy"):
+                    self.collect(self.auto_review_rows(), rate_card=card)
 
     def test_direct_custom_rate_cards_are_validated_at_both_api_boundaries(self) -> None:
         self.write_source(self.fixture())

@@ -27,7 +27,8 @@ def _seal(row: dict, key: bytes, domain: str) -> dict:
 
 
 def attach_metrics(report: dict, metrics: dict, key: bytes) -> dict:
-    return usage._sign({**report, "schema_version": "session-usage/v2", "usage_metrics": metrics}, key)
+    version = "session-usage/v3" if report["schema_version"] == "session-usage/v3" else "session-usage/v2"
+    return usage._sign({**report, "schema_version": version, "usage_metrics": metrics}, key)
 
 
 def collect_metrics(events: list[dict], selected: set[str], key: bytes, *,

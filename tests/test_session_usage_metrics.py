@@ -52,13 +52,13 @@ class SessionUsageMetricsTests(unittest.TestCase):
             metrics.validate_metrics(report["usage_metrics"], {row["session_key"] for row in report["sessions"]}, KEY)
         return report
 
-    def merge(self, reports):
+    def merge(self, reports, **kwargs):
         paths = []
         for index, report in enumerate(reports):
             path = self.work / f"report-{index}.json"
             path.write_text(json.dumps(report))
             paths.append(path)
-        return usage.merge_reports(paths, KEY)
+        return usage.merge_reports(paths, KEY, **kwargs)
 
     @staticmethod
     def official_result():
@@ -74,8 +74,8 @@ class SessionUsageMetricsTests(unittest.TestCase):
         v1 = self.collect(rows)
         with patch("scripts.codex_account_usage.collect_account_usage", side_effect=AssertionError("network forbidden")):
             v2 = self.collect(rows, include_account_usage=True)
-        self.assertEqual(v1["schema_version"], "session-usage/v1")
-        self.assertEqual(v2["schema_version"], "session-usage/v2")
+        self.assertEqual(v1["schema_version"], "session-usage/v3")
+        self.assertEqual(v2["schema_version"], "session-usage/v3")
         for name in ("responses", "groups", "summary", "diagnostics"):
             self.assertEqual(v1[name], v2[name])
         snapshot = v2["usage_metrics"]["account_snapshots"][0]
@@ -132,6 +132,35 @@ class SessionUsageMetricsTests(unittest.TestCase):
         self.assertEqual(total["estimated_credits"], "")
         self.assertEqual(len([row for row in rows if row["record_type"] == "official_thread_group"]), 1)
 
+    def test_non_billable_local_review_keeps_provider_estimates_and_account_snapshot(self):
+        rows = copy.deepcopy(self.rows[:7])
+        rows[3]["payload"]["model"] = "codex-auto-review"
+        rows[5]["timestamp"] = "2026-10-07T13:21:21Z"
+        result = self.official_result()
+        with patch("scripts.codex_account_usage.collect_account_usage", return_value=result):
+            report = self.collect(rows + [self.snapshot_record()], official_usage=True)
+        self.assertEqual(report["schema_version"], "session-usage/v3")
+        self.assertEqual(report["summary"]["estimated_credits"], "0")
+        self.assertEqual(report["summary"]["non_billable_tokens"], 12000)
+        self.assertEqual(report["usage_metrics"]["thread_estimates"][0]["estimated_usage_credits_micros"], 9007199254740993)
+        self.assertEqual(report["usage_metrics"]["account_snapshots"][0]["credits"]["balance"], "123.45")
+        self.assertEqual(report["billing_status"], "actual_debit_unavailable")
+        csv_rows = list(csv.DictReader(io.StringIO(usage.render_csv(report))))
+        local = next(row for row in csv_rows if row["record_type"] == "local_estimate")
+        official = next(row for row in csv_rows if row["record_type"] == "official_thread_total")
+        self.assertEqual(local["estimated_credits"], "0")
+        self.assertEqual(official["estimated_credits"], "")
+        self.assertEqual(official["non_billable_tokens"], "")
+
+    def test_v3_metrics_survive_merge_without_schema_downgrade(self):
+        baseline = self.collect()
+        observed = self.collect(self.rows + [self.snapshot_record()], include_account_usage=True)
+        report = self.merge([baseline, observed, observed])
+        self.assertEqual(report["schema_version"], "session-usage/v3")
+        self.assertEqual(report["pricing_policy"], baseline["pricing_policy"])
+        self.assertEqual(report["usage_metrics"], observed["usage_metrics"])
+        self.assertEqual(report["summary"], baseline["summary"])
+
     def test_missing_thread_usage_is_explicit_not_zero(self):
         result = self.official_result()
         result["thread_estimates"] = []
@@ -145,9 +174,12 @@ class SessionUsageMetricsTests(unittest.TestCase):
         self.assertIn("official_thread_unavailable", usage.render_csv(report))
 
     def test_v1_and_v2_merge_preserve_metrics(self):
-        v1 = self.collect()
-        v2 = self.collect(self.rows + [self.snapshot_record()], include_account_usage=True)
-        report = self.merge([v1, v2])
+        card = usage.load_rate_card(usage.ARCHIVED_RATE_CARD)
+        v1 = self.collect(rate_card=card)
+        v2 = self.collect(self.rows + [self.snapshot_record()], include_account_usage=True, rate_card=card)
+        self.assertEqual(v1["schema_version"], "session-usage/v1")
+        self.assertEqual(v2["schema_version"], "session-usage/v2")
+        report = self.merge([v1, v2], rate_card=card)
         self.assertEqual(report["schema_version"], "session-usage/v2")
         self.assertEqual(report["summary"], v1["summary"])
         self.assertEqual(report["usage_metrics"], v2["usage_metrics"])
@@ -175,7 +207,7 @@ class SessionUsageMetricsTests(unittest.TestCase):
             self.merge([usage._sign(report, KEY)])
 
     def test_v1_rejects_metrics_and_v2_requires_metrics(self):
-        report = self.collect()
+        report = self.collect(rate_card=usage.load_rate_card(usage.ARCHIVED_RATE_CARD))
         report["usage_metrics"] = {"account_snapshots": [], "thread_estimates": [], "diagnostics": dict.fromkeys(metrics.DIAGNOSTICS, 0)}
         self.assertFalse(self.validator.is_valid(report))
         report["schema_version"] = "session-usage/v2"
@@ -197,7 +229,7 @@ class SessionUsageMetricsTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         report = json.loads(exported.read_text())
         self.validator.validate(report)
-        self.assertEqual(report["schema_version"], "session-usage/v2")
+        self.assertEqual(report["schema_version"], "session-usage/v3")
         merged = self.work / "summary.csv"
         completed = subprocess.run([sys.executable, str(ROOT / "scripts/toolkit.py"), "session-usage-merge",
                                    "--reports-root", str(reports), "--key-file", str(key_file),

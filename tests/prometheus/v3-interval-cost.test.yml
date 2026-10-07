@@ -1,0 +1,241 @@
+# Zero-born counter warmup: 2m rate at 30/60/90/120s = 2.5/5/7.5/10 tokens/s.
+# Policy activates at test time 120s; preactivation reviewer tokens remain unpriced.
+# Numeric tolerance 1e-12 absorbs float arithmetic only; rate/reset/policy/missing semantics remain asserted.
+rule_files:
+- v3-interval-cost.rules.yml
+evaluation_interval: 30s
+tests:
+- name: same-card-price-change-does-not-revalue-lifetime-counter
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="primary",model_id="gpt-5.6-sol",model_family="gpt-5.6",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 4+0x5 2+0x10
+  - series: ai_agent_active_token_credit_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 100+0x16
+  - series: up{job="otel-collector-exported"}
+    values: 1+0x16
+  promql_expr_test:
+  - expr: abs((sum(ai_agent_estimated_cost_usd_per_second)) - 4e-05) < bool 1e-12
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(ai_agent_estimated_cost_usd_per_second)) - 2e-05) < bool 1e-12
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(sum_over_time(ai_agent_estimated_cost_usd_per_second[4m])) * 30) - 0.006) < bool 1e-12
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(sum_over_time(ai_agent_estimated_cost_usd_per_second[2m])) * 30) - 0.003) < bool 1e-12
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: new-version-lookback-retains-old-price-but-current-timestamp-excludes-collision
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="primary",model_id="gpt-5.6-sol",model_family="gpt-5.6",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 4+0x5 _ _ _ _ _ _ _ _ _ _ _
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v2",rate_card_source="synthetic",pricing_scope="test"}
+    values: _ _ _ _ _ _ 2+0x10
+  - series: up{job="otel-collector-exported"}
+    values: 1+0x16
+  promql_expr_test:
+  - expr: abs((sum(ai_agent_estimated_cost_usd_per_second)) - 2e-05) < bool 1e-12
+    eval_time: 3m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(sum_over_time(ai_agent_estimated_cost_usd_per_second[4m])) * 30) - 0.006) < bool 1e-12
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(sum_over_time(ai_agent_estimated_cost_usd_per_second{rate_card_version="test-v1"}[4m])) * 30) - 0.0042)
+      < bool 1e-12
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(sum_over_time(ai_agent_estimated_cost_usd_per_second{rate_card_version="test-v2"}[4m])) * 30) - 0.0018)
+      < bool 1e-12
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(sum_over_time(ai_agent_estimated_cost_usd_per_second[2m])) * 30) - 0.003) < bool 1e-12
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ai_agent_active_token_price_usd_per_million)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 2
+- name: trusted-auto-review-is-free-in-credit-scope-but-api-model-still-unknown
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="approval_reviewer",model_id="unmapped",model_family="unmapped",billing_category="auto_review",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: up{job="otel-collector-exported"}
+    values: 1+0x16
+  promql_expr_test:
+  - expr: sum(ai_agent_estimated_credit_usage_per_second)
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: sum(ai_agent_estimated_cost_usd_per_second)
+    eval_time: 2m
+    exp_samples: []
+  - expr: sum(ai_agent_unpriced_credit_token_usage_per_second)
+    eval_time: 2m
+    exp_samples: []
+  - expr: abs((sum(ai_agent_unpriced_api_token_usage_per_second)) - 10) < bool 1e-12
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(ai_agent_nonbillable_credit_token_usage_per_second)) - 10) < bool 1e-12
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: sum(ai_agent_estimated_credit_usage_per_second)
+    eval_time: 1m
+    exp_samples: []
+  - expr: sum(ai_agent_nonbillable_credit_token_usage_per_second)
+    eval_time: 1m
+    exp_samples: []
+  - expr: abs((sum(ai_agent_unpriced_credit_token_usage_per_second)) - 5) < bool 1e-12
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: generic-reviewer-role-is-not-a-free-policy-signal
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="approval_reviewer",model_id="unmapped",model_family="unmapped",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: up{job="otel-collector-exported"}
+    values: 1+0x16
+  promql_expr_test:
+  - expr: sum(ai_agent_estimated_credit_usage_per_second)
+    eval_time: 2m
+    exp_samples: []
+  - expr: sum(ai_agent_nonbillable_credit_token_usage_per_second)
+    eval_time: 2m
+    exp_samples: []
+  - expr: abs((sum(ai_agent_unpriced_credit_token_usage_per_second)) - 10) < bool 1e-12
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: one-sample-is-missing-not-zero
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="primary",model_id="gpt-5.6-sol",model_family="gpt-5.6",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 4+0x16
+  - series: up{job="otel-collector-exported"}
+    values: 1+0x16
+  promql_expr_test:
+  - expr: sum(ai_agent_estimated_cost_usd_per_second)
+    eval_time: 0s
+    exp_samples: []
+  - expr: sum(ai_agent_accounting_sample_available)
+    eval_time: 0s
+    exp_samples: []
+- name: real-token-counter-reset-does-not-recharge-pre-reset-lifetime
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="primary",model_id="gpt-5.6-sol",model_family="gpt-5.6",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0 300 600 900 1200 1500 50 350 650 950
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 4+0x16
+  - series: up{job="otel-collector-exported"}
+    values: 1+0x16
+  promql_expr_test:
+  - expr: max(ai_agent_token_usage_per_second) <= bool 10
+    eval_time: 3m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: min(ai_agent_estimated_cost_usd_per_second) >= bool 0
+    eval_time: 3m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: missing-price-samples-remain-unpriced-and-integral-is-partial
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="primary",model_id="gpt-5.6-sol",model_family="gpt-5.6",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 4 4 4 4 4 stale stale stale 4 4
+  - series: up{job="otel-collector-exported"}
+    values: 1+0x16
+  promql_expr_test:
+  - expr: sum(ai_agent_estimated_cost_usd_per_second)
+    eval_time: 3m
+    exp_samples: []
+  - expr: abs((sum(ai_agent_unpriced_api_token_usage_per_second)) - 10) < bool 1e-12
+    eval_time: 3m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: abs((sum(sum_over_time(ai_agent_estimated_cost_usd_per_second[4m])) * 30) - 0.0042) < bool 1e-12
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: failed-exporter-scrapes-do-not-create-integral-samples
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="primary",model_id="gpt-5.6-sol",model_family="gpt-5.6",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 4+0x5 2+0x10
+  - series: ai_agent_active_token_credit_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 100+0x16
+  - series: up{job="otel-collector-exported"}
+    values: 1 1 1 1 1 0 0 0 1 1
+  promql_expr_test:
+  - expr: sum(ai_agent_estimated_cost_usd_per_second)
+    eval_time: 3m
+    exp_samples: []
+  - expr: sum(ai_agent_accounting_sample_available)
+    eval_time: 3m
+    exp_samples: []
+  - expr: abs((sum(ai_agent_estimated_cost_usd_per_second)) - 2e-05) < bool 1e-12
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: missing-exporter-status-is-missing-not-fabricated-zero
+  interval: 30s
+  input_series:
+  - series: ai_agent_token_usage_total{ai_agent_provider="openai",ai_agent_product="codex",agent_role="primary",model_id="gpt-5.6-sol",model_family="gpt-5.6",billing_category="standard",accounting_schema="v3",usage_class="input_uncached",service_namespace="ai-collaboration-cost-fixture"}
+    values: 0+300x16
+  - series: ai_agent_active_token_price_usd_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 4+0x5 2+0x10
+  - series: ai_agent_active_token_credit_per_million{ai_agent_provider="openai",model_id="gpt-5.6-sol",usage_class="input_uncached",rate_card_version="test-v1",rate_card_source="synthetic",pricing_scope="test"}
+    values: 100+0x16
+  promql_expr_test:
+  - expr: sum(ai_agent_estimated_cost_usd_per_second)
+    eval_time: 2m
+    exp_samples: []
+  - expr: sum(ai_agent_accounting_sample_available)
+    eval_time: 2m
+    exp_samples: []
+fuzzy_compare: false

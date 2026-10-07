@@ -122,11 +122,12 @@ pseudonyms and cannot be merged as one company dataset. Never send the key
 with a report, pass its value on the command line, place it in `.env`, or commit
 it to the repository. `--key-file` supplies a local file reference.
 
-Keep exported JSON reports in a company-controlled directory. Default JSON uses
-`session-usage/v1`, with HMAC authentication, pseudonymous session/response
-keys, response-level records, and group/session summaries. Either optional
-usage flag selects `session-usage/v2` and adds signed source-specific usage
-records. CSV includes summary rows and, when requested, the optional source
+Keep exported JSON reports in a company-controlled directory. The reviewed
+default card selects `session-usage/v3`, with HMAC authentication, pseudonymous
+session/response keys, response-level records, group/session summaries, and
+signed pricing-policy provenance. Either optional usage flag adds signed
+source-specific usage records while retaining v3. CSV includes summary rows
+and, when requested, the optional source
 records; retain JSON for validated merging and deduplication.
 
 ```powershell
@@ -140,9 +141,14 @@ It counts each response key once, including when a single-session export
 overlaps an all-session export. Conflicting copies fail closed instead of
 silently selecting a value. HMAC establishes integrity among holders of the
 shared key; it does not make a report provider-authenticated usage or billing.
-Merge accepts both v1 and v2 exports and deduplicates each optional source
-independently. It never adds account balances or official estimates to local
-response cost totals.
+Merge accepts v1, v2, and v3 exports with their matching reviewed card. The
+legacy card is archived at
+[`config/session-usage/archives/openai-codex-credits-2026-10-01.json`](../config/session-usage/archives/openai-codex-credits-2026-10-01.json).
+Use `--rate-card` with that card to merge old v1/v2 exports; their original
+unpriced-reviewer semantics remain unchanged. Different card digests or policy
+contracts cannot silently merge or reprice one another. Optional sources
+deduplicate independently. Merge never adds account balances or official
+estimates to local response cost totals.
 Account snapshots deduplicate by exact `observation_key`. For each thread,
 merge retains the newest official observation, including when that newest
 observation is `unavailable`; conflicting observations at the same timestamp
@@ -163,11 +169,14 @@ Unknown fields are rejected on merge.
 | `configured_model_id`, `reasoning_effort`, `model_basis` | Reviewed configuration evidence, routing ambiguity, or unknown attribution |
 | `actual_model_id` | Always `unmapped` in the local response ledger |
 | `configured_service_tier`, `tier_basis` | Configured speed or the explicit `standard_assumption` |
-| `estimated_credits`, `pricing_status`, `unpriced_tokens` | Decimal-string equivalent or null, with `priced`/`partial`/`unpriced` coverage |
+| `estimated_credits`, `pricing_status`, `unpriced_tokens` | Decimal-string equivalent or null, with `priced`/`partial`/`unpriced`/`non_billable` coverage |
+| `operation`, `operation_basis` | Bounded operation and its evidence; only exact `codex-auto-review` evidence identifies approval safety review |
+| `charge_class`, `pricing_basis`, `non_billable_tokens` | Applied charge category and basis; observed non-billable tokens remain distinct from unknown-price tokens |
+| `pricing_policy`, `pricing_policy_sha256` | Signed v3 policy, sources, verified date, scope, local activation, and digest |
 | `summary.metadata_complete`, `pricing_complete`, `diagnostics` | Gaps that prevent treating observed totals as complete usage |
 | `billing_status` | `actual_debit_unavailable` |
 
-For v2, the signed `usage_metrics` object has `account_snapshots`,
+For v2/v3, the signed `usage_metrics` object has `account_snapshots`,
 `thread_estimates`, and its own `diagnostics`. These do not change the local
 response ledger or its pricing/completeness calculations.
 
@@ -193,7 +202,7 @@ nullable token fields (`net_new_input_tokens`, `cached_input_tokens`,
 are the provider estimate's grouping fields; they do not overwrite configured
 local response attribution or prove an actual billed model or speed tier.
 
-V2 CSV adds `record_type` so each source is readable independently:
+V2/v3 CSV adds `record_type` so each source is readable independently:
 
 | Record type | Meaning |
 |---|---|
@@ -209,6 +218,9 @@ Official CSV rows keep `official_estimated_credits` separate from local
 million. Add `--format csv` to either optional export command for this view.
 Do not sum a thread total with its groups, or totals across unverified
 parent/child scope. CSV is not an import ledger and is not accepted by merge.
+V3 CSV also carries operation, charge class, non-billable tokens, pricing
+basis, and policy version/digest/scope/source/activation provenance. These
+fields do not turn provider estimates or balance rows into local billing.
 
 Summary token totals cover accepted records only. A partial total is not a
 complete session bill. Merged source diagnostic counters retain the maximum
@@ -251,11 +263,32 @@ fields. Reasoning effort has no separately inferred credit multiplier.
 
 The default reviewed card is
 [`config/session-usage/codex-credit-rates.json`](../config/session-usage/codex-credit-rates.json).
-Its version is `openai-codex-credits-2026-10-01`. It is a read-back snapshot of
-the [official public token rates](https://learn.chatgpt.com/docs/pricing#token-rates),
+Its version is `openai-codex-credits-2026-10-07` using card schema v2. It is a
+read-back snapshot of the
+[official public token rates](https://learn.chatgpt.com/docs/pricing#token-rates),
 not a claim about a historical effective date or an Enterprise agreement.
 Use `--rate-card <reviewed-json>` on export and merge to select another reviewed
 card; merged reports must match the selected card's digest.
+
+The reviewed [ChatGPT credit rate card](https://help.openai.com/en/articles/11481834-chatgpt-rate-card-business-enterpriseedu-credit-based-pricing)
+exempts approval safety auto-review when signed in with a ChatGPT account.
+V3 records `operation=approval_auto_review` only from the exact
+`codex-auto-review` source signal, with `operation_basis=codex_auto_review_signal`.
+An `approval_reviewer` role alone does not qualify. The supported policy scope
+is `chatgpt_personal_and_enterprise_credits`; it does not establish API-key or
+Enterprise USD contract billing, and the report performs no new sign-in probe.
+
+The policy has `verified_on=2026-10-07`, `official_effective_from=null`, and
+`local_activation=2026-10-07T13:21:21Z`. The local activation is the start of
+this toolkit's policy application, not an asserted OpenAI effective date.
+Only matching approval operations at or after that boundary become
+`charge_class=non_billable`, `pricing_status=non_billable`, with a `"0"`
+credit equivalent and their observed usage in `non_billable_tokens`. Earlier
+reviewer records remain unpriced. The actual model remains `unmapped`, and
+missing model metadata can still make metadata completeness partial even
+when non-billable pricing coverage is complete. No unknown model, generic
+subagent, local `/review`, or GitHub PR review receives this exemption.
+See [official verification and limitations](PRICING-REVIEW-2026-10-07.md).
 
 | Configured model | Input | Cached input | Output |
 |---|---:|---:|---:|
@@ -287,11 +320,18 @@ honored. Included subscription limits use different multipliers: Fast 2.5x
 and Astra Ultrafast 8x. The report does not estimate remaining included
 allowance, an actual credit debit, API USD, or a greater-than-272K API premium.
 
-The session report's current GPT-5.6 Sol row is 100/10/500. The older
+The session report's reviewed GPT-5.6 Sol row is 100/10/500. The older
 Prometheus rate cards retain their dated historical snapshots, including
 125/12.5/750 in `openai-codex-credits-2026-08-12`. Do not combine outputs with
 different cards or silently reinterpret old versions. See
 [cost attribution](COST-ATTRIBUTION.md) for the aggregate dashboard contract.
+
+Saved signed reports keep their selected card, policy, digest, and calculated
+equivalents when a later default card changes. Re-exporting old rollouts is a
+new estimate under the explicitly selected card; no per-response historical
+rate is inferred from the card's read-back date. Preserve the original report
+or select its archived card when reproducing an earlier estimate. The
+2026-10-07 default card is also archived as an immutable snapshot.
 
 ## Privacy and operation
 

@@ -1,8 +1,8 @@
 {
-  "schema_version": "codex-credit-rate-card/v2",
-  "version": "openai-codex-credits-2026-10-07",
+  "schema_version": "codex-credit-rate-card/v1",
+  "version": "openai-codex-credits-2026-10-01",
   "source": "https://learn.chatgpt.com/docs/pricing#token-rates",
-  "verified_on": "2026-10-07",
+  "verified_on": "2026-10-01",
   "scope": "published_token_classes",
   "models": {
     "gpt-5.6-sol": {
@@ -48,20 +48,5 @@
   },
   "ultrafast_models": [
     "gpt-6-astra"
-  ],
-  "operation_policy": {
-    "schema_version": "codex-operation-pricing-policy/v1",
-    "version": "codex-auto-review-chatgpt-credits-2026-10-07",
-    "operation": "approval_auto_review",
-    "charge_class": "non_billable",
-    "scope": "chatgpt_personal_and_enterprise_credits",
-    "sources": [
-      "https://help.openai.com/en/articles/11481834",
-      "https://help.openai.com/en/articles/11369540"
-    ],
-    "verified_on": "2026-10-07",
-    "official_effective_from": null,
-    "local_activation": "2026-10-07T13:21:21Z",
-    "temporal_basis": "local_activation"
-  }
+  ]
 }

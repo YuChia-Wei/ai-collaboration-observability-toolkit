@@ -98,8 +98,10 @@ keys using the same private HMAC key. This offline workflow requires no
 service restart and adds no session identifiers to backend index labels.
 Use `--include-account-usage` for offline credit/quota snapshots, or
 `--official-usage` for optional read-only account and thread usage requests.
-Signed v2 exports keep account balances, provider estimates, and local
-equivalents separate, with explicit missing-data status.
+Signed v3 exports retain operation/charge classifications and pricing-policy
+provenance while keeping account balances, provider estimates, and local
+equivalents separate, with explicit missing-data status. Legacy v1/v2 exports
+require their matching archived card when merged.
 
 - Collector 健康狀態 (Collector Health)
 - Codex 原生 Telemetry (Codex Native Telemetry)
@@ -120,9 +122,18 @@ available for a future explicit emitter.
 
 API USD and Codex public-credit equivalents are separate estimates; neither is
 the official remaining subscription allowance, enterprise contract, debit, or
-invoice. Cached input is discounted rather than free. Current Auto-review
-telemetry proves the approval-reviewer role but not the exact model, so those
-tokens remain unmapped and unpriced. Antigravity status-line
+invoice. Cached input follows its applicable discounted rate. The official
+ChatGPT credit policy exempts approval safety auto-review and excludes it from
+plan usage. The supported v3 credit-equivalent scope identifies non-billable
+approval operations separately; the actual model remains unmapped and its API
+equivalent remains unavailable. GitHub/local code review and ordinary subagents
+retain applicable pricing. API-key and Enterprise USD exemptions are not inferred.
+Historical v3 panels integrate stored rate samples at a fixed 30-second step;
+legacy v2 cards/views stay unchanged. Two-minute transition/range smoothing,
+missing samples, and retention still limit precision. No old usage is backfilled
+as free without an established official effective date. See
+[the official pricing review](docs/PRICING-REVIEW-2026-10-07.md).
+Antigravity status-line
 token/context/quota values remain unpriced observed snapshots. Claude has an
 implemented, synthetic-fixture-tested native metrics mapping; exact-client
 capture provenance remains a follow-up. Copilot has no repository adapter.

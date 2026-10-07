@@ -1,0 +1,114 @@
+# Production downstream v3 rules. Epoch-relative promtool clock maps local policy adoption to 120s.
+groups:
+- name: v3-numeric-test
+  interval: 30s
+  rules:
+  - record: ai_agent_token_usage_per_second
+    expr: rate(ai_agent_token_usage_total{accounting_schema="v3"}[2m]) and on() (max(up{job="otel-collector-exported"}) ==
+      1)
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+  - record: ai_agent_accounting_sample_available
+    expr: ai_agent_token_usage_per_second{accounting_schema="v3"} * 0 + 1
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+  - record: ai_agent_estimated_cost_usd_per_second
+    expr: |-
+      ai_agent_token_usage_per_second{accounting_schema="v3"}
+      * on (ai_agent_provider, model_id, usage_class) group_left (rate_card_version, rate_card_source, pricing_scope, snapshot_read_at, policy_applied_from)
+      ((ai_agent_active_token_price_usd_per_million and (timestamp(ai_agent_active_token_price_usd_per_million) == time())) / 1000000)
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+      cost_source: estimated_api_list_price
+      currency: USD
+  - record: ai_agent_estimated_credit_usage_per_second
+    expr: |-
+      ai_agent_token_usage_per_second{accounting_schema="v3",ai_agent_provider="openai",ai_agent_product="codex",billing_category!="auto_review"}
+      * on (ai_agent_provider, model_id, usage_class) group_left (rate_card_version, rate_card_source, pricing_scope, snapshot_read_at, policy_applied_from)
+      ((ai_agent_active_token_credit_per_million and (timestamp(ai_agent_active_token_credit_per_million) == time())) / 1000000)
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+      credit_source: estimated_public_codex_rate_card
+      credit_unit: credits
+      billing_status: estimated
+      billing_scope: chatgpt_credits
+  - record: ai_agent_estimated_credit_usage_per_second
+    expr: ai_agent_token_usage_per_second{accounting_schema="v3",ai_agent_provider="openai",ai_agent_product="codex",billing_category="auto_review"}
+      * 0 and on() (vector(time()) >= 120)
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+      credit_source: published_auto_review_policy
+      credit_unit: credits
+      billing_status: non_billable
+      billing_scope: chatgpt_credits
+      rate_card_version: openai-codex-auto-review-credits-2026-10-07
+      rate_card_source: official_auto_review_docs
+      pricing_scope: chatgpt_credits_auto_review
+      snapshot_read_at: '2026-10-07'
+      policy_applied_from: '2026-10-07T13:21:21Z'
+  - record: ai_agent_nonbillable_credit_token_usage_per_second
+    expr: ai_agent_token_usage_per_second{accounting_schema="v3",ai_agent_provider="openai",ai_agent_product="codex",billing_category="auto_review"}
+      and on() (vector(time()) >= 120)
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+      credit_source: published_auto_review_policy
+      credit_unit: credits
+      billing_status: non_billable
+      billing_scope: chatgpt_credits
+      rate_card_version: openai-codex-auto-review-credits-2026-10-07
+      rate_card_source: official_auto_review_docs
+      pricing_scope: chatgpt_credits_auto_review
+      snapshot_read_at: '2026-10-07'
+      policy_applied_from: '2026-10-07T13:21:21Z'
+  - record: ai_agent_unpriced_api_token_usage_per_second
+    expr: |-
+      ai_agent_token_usage_per_second{accounting_schema="v3"}
+      unless on (ai_agent_provider, model_id, usage_class)
+      (ai_agent_active_token_price_usd_per_million and (timestamp(ai_agent_active_token_price_usd_per_million) == time()))
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+      estimate_scope: api_usd
+  - record: ai_agent_unpriced_credit_token_usage_per_second
+    expr: |-
+      ai_agent_token_usage_per_second{accounting_schema="v3",ai_agent_provider="openai",ai_agent_product="codex"}
+      unless on (ai_agent_provider, ai_agent_product, agent_role, billing_category, model_id, model_family, evidence_class, service_namespace, usage_class)
+      ai_agent_nonbillable_credit_token_usage_per_second
+      unless on (ai_agent_provider, model_id, usage_class)
+      (ai_agent_active_token_credit_per_million and (timestamp(ai_agent_active_token_credit_per_million) == time()))
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'
+      estimate_scope: codex_credits
+  - record: ai_agent_priced_api_token_usage_per_second
+    expr: |-
+      ai_agent_token_usage_per_second{accounting_schema="v3"}
+      and on (ai_agent_provider, model_id, usage_class)
+      (ai_agent_active_token_price_usd_per_million and (timestamp(ai_agent_active_token_price_usd_per_million) == time()))
+    labels:
+      accounting_schema: v3
+      pricing_semantics: sampled_rate_integral
+      rate_window: 2m
+      integration_step_seconds: '30'

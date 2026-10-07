@@ -19,6 +19,11 @@ from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RATE_CARD = ROOT / "config/session-usage/codex-credit-rates.json"
+ARCHIVED_RATE_CARD = ROOT / "config/session-usage/archives/openai-codex-credits-2026-10-01.json"
+AUTO_REVIEW_SOURCES = (
+    "https://help.openai.com/en/articles/11481834",
+    "https://help.openai.com/en/articles/11369540",
+)
 TOKEN_FIELDS = (
     "input_tokens", "cached_input_tokens", "cache_write_input_tokens",
     "output_tokens", "reasoning_output_tokens", "total_tokens",
@@ -103,14 +108,20 @@ def _validate_card(card: Any) -> dict[str, Any]:
     """Validate approved, versioned metadata before it can enter a report."""
     keys = {"schema_version", "version", "source", "verified_on", "scope", "models",
             "speed_multipliers", "ultrafast_models"}
-    if not isinstance(card, dict) or set(card) != keys:
+    if not isinstance(card, dict):
         raise ReportError("invalid_rate_card")
-    if (card["schema_version"] != "codex-credit-rate-card/v1"
+    modern = card.get("schema_version") == "codex-credit-rate-card/v2"
+    if modern:
+        keys.add("operation_policy")
+    if set(card) != keys:
+        raise ReportError("invalid_rate_card")
+    if (card["schema_version"] not in ("codex-credit-rate-card/v1", "codex-credit-rate-card/v2")
             or not isinstance(card["version"], str)
             or not re.fullmatch(r"openai-codex-credits-\d{4}-\d{2}-\d{2}", card["version"])
             or card["source"] != "https://learn.chatgpt.com/docs/pricing#token-rates"
             or card["scope"] != "published_token_classes"
-            or not isinstance(card["models"], dict) or set(card["models"]) != MODELS
+            or not isinstance(card["models"], dict) or not card["models"]
+            or not set(card["models"]).issubset(MODELS)
             or card["ultrafast_models"] != ["gpt-6-astra"]):
         raise ReportError("invalid_rate_card")
     try:
@@ -124,7 +135,36 @@ def _validate_card(card: Any) -> dict[str, Any]:
             _decimal(value)
     if card["speed_multipliers"] != {"standard": "1", "fast": "2", "ultrafast": "6"}:
         raise ReportError("invalid_rate_card")
+    if modern:
+        _validate_operation_policy(card["operation_policy"])
     return card
+
+
+def _validate_operation_policy(policy: Any) -> dict[str, Any]:
+    """A local adoption boundary is never an inferred provider effective date."""
+    keys = {"schema_version", "version", "operation", "charge_class", "scope", "sources",
+            "verified_on", "official_effective_from", "local_activation", "temporal_basis"}
+    if not isinstance(policy, dict) or set(policy) != keys:
+        raise ReportError("invalid_operation_policy")
+    if (policy["schema_version"] != "codex-operation-pricing-policy/v1"
+            or not isinstance(policy["version"], str)
+            or not re.fullmatch(r"codex-auto-review-chatgpt-credits-\d{4}-\d{2}-\d{2}", policy["version"])
+            or policy["operation"] != "approval_auto_review"
+            or policy["charge_class"] != "non_billable"
+            or policy["scope"] != "chatgpt_personal_and_enterprise_credits"
+            or policy["sources"] != list(AUTO_REVIEW_SOURCES)
+            or policy["official_effective_from"] is not None
+            or policy["temporal_basis"] != "local_activation"
+            or _timestamp(policy["local_activation"]) is None):
+        raise ReportError("invalid_operation_policy")
+    try:
+        verified = dt.date.fromisoformat(policy["verified_on"])
+    except (TypeError, ValueError):
+        raise ReportError("invalid_operation_policy") from None
+    activation = dt.datetime.fromisoformat(_timestamp(policy["local_activation"]).replace("Z", "+00:00"))
+    if activation.date() < verified:
+        raise ReportError("invalid_operation_policy")
+    return policy
 
 
 def _card_digest(card: dict[str, Any]) -> str:
@@ -189,6 +229,22 @@ def _number(value: Decimal) -> str:
 def _price(response: dict[str, Any], card: dict[str, Any]) -> None:
     tokens = response["tokens"]
     model, tier = response["model_id"], response["configured_service_tier"]
+    policy = card.get("operation_policy")
+    if policy is not None:
+        response.update(non_billable_tokens=0, charge_class="unpriced", pricing_basis="no_applicable_rate")
+        if response["operation"] == "approval_auto_review":
+            # Exact operation evidence, not a role, authorizes this credit-only policy.
+            timestamp = _timestamp(response["timestamp"])
+            if (response["operation_basis"] == "codex_auto_review_signal"
+                    and response["model_basis"] != "routing_ambiguous"
+                    and timestamp is not None
+                    and timestamp >= _timestamp(policy["local_activation"])):
+                response.update(estimated_credits="0", unpriced_tokens=0, pricing_status="non_billable",
+                                credit_multiplier=None, non_billable_tokens=tokens["total_tokens"],
+                                charge_class="non_billable", pricing_basis="operation_policy")
+                return
+            response["pricing_basis"] = ("routing_ambiguous" if response["model_basis"] == "routing_ambiguous"
+                                         else "before_local_activation")
     if model not in card["models"] or (tier == "ultrafast" and model not in card["ultrafast_models"]):
         response.update(estimated_credits=None, unpriced_tokens=tokens["total_tokens"],
                         pricing_status="unpriced", credit_multiplier=None)
@@ -205,6 +261,8 @@ def _price(response: dict[str, Any], card: dict[str, Any]) -> None:
         pricing_status="partial" if tokens["cache_write_input_tokens"] else "priced",
         credit_multiplier=multiplier,
     )
+    if policy is not None:
+        response.update(charge_class="estimated", pricing_basis="public_token_rates")
 
 
 def _scan(path: Path, diagnostics: dict[str, int], *, include_account_usage: bool = False) -> tuple[dict[str, Any] | None, list[dict[str, Any]], bool]:
@@ -258,7 +316,7 @@ def _scan(path: Path, diagnostics: dict[str, int], *, include_account_usage: boo
                     settings = settings if isinstance(settings, dict) else {}
                     events.append({"kind": kind, "turn": _identity(payload.get("turn_id")),
                                    "model": _model(payload.get("model", settings.get("model"))),
-                                   "reviewer": payload.get("model") == "codex-auto-review",
+                                   "reviewer": payload.get("model", settings.get("model")) == "codex-auto-review",
                                    "effort": _effort(payload.get("effort", settings.get("reasoning_effort")))})
                 elif kind == "token_usage_record":
                     events.append({"kind": kind,
@@ -302,6 +360,8 @@ def _credits(records: Iterable[dict[str, Any]]) -> str | None:
 def _pricing_status(records: list[dict[str, Any]]) -> str:
     if not records or all(record["estimated_credits"] is None for record in records):
         return "unpriced"
+    if all(record["pricing_status"] == "non_billable" for record in records):
+        return "non_billable"
     return "partial" if any(record["unpriced_tokens"] or record["estimated_credits"] is None
                             for record in records) else "priced"
 
@@ -314,6 +374,9 @@ def _assemble_report(responses: list[dict[str, Any]], descriptors: list[dict[str
     by_session: dict[str, list[dict[str, Any]]] = defaultdict(list)
     group_keys = ("session_key", "root_session_key", "agent_role", "model_id", "configured_model_id",
                   "actual_model_id", "model_basis", "reasoning_effort", "configured_service_tier", "tier_basis")
+    modern = "operation_policy" in rate_card
+    if modern:
+        group_keys += ("operation", "operation_basis", "charge_class", "pricing_basis")
     grouped: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
     for response in responses:
         by_session[response["session_key"]].append(response)
@@ -324,6 +387,8 @@ def _assemble_report(responses: list[dict[str, Any]], descriptors: list[dict[str
                        "tokens": _total(rows), "estimated_credits": _credits(rows),
                        "unpriced_tokens": sum(row["unpriced_tokens"] for row in rows),
                        "pricing_status": _pricing_status(rows)})
+        if modern:
+            groups[-1]["non_billable_tokens"] = sum(row["non_billable_tokens"] for row in rows)
     sessions = []
     for descriptor in sorted(descriptors, key=lambda row: row["session_key"]):
         rows = by_session[descriptor["session_key"]]
@@ -342,14 +407,16 @@ def _assemble_report(responses: list[dict[str, Any]], descriptors: list[dict[str
                          "unpriced_tokens": sum(row["unpriced_tokens"] for row in rows),
                          "first_seen": min((row["timestamp"] for row in rows), default=None),
                          "last_seen": max((row["timestamp"] for row in rows), default=None)})
+        if modern:
+            sessions[-1]["non_billable_tokens"] = sum(row["non_billable_tokens"] for row in rows)
     diagnostics["unsupported_sessions"] = sum(row["status"] == "unsupported_source" for row in sessions)
     incomplete = ("invalid_json_lines", "invalid_usage_records", "unsupported_sessions",
                   "missing_context_records", "unknown_model_records", "unknown_effort_records",
                   "unknown_tier_records",
                   "routing_ambiguous_records", "invalid_session_metadata", "orphan_parent_sessions",
                   "unverified_thread_totals")
-    return _sign({
-        "schema_version": "session-usage/v1", "key_id": _key_id(key),
+    report = {
+        "schema_version": "session-usage/v3" if modern else "session-usage/v1", "key_id": _key_id(key),
         "rate_card_version": rate_card["version"], "rate_card_sha256": _card_digest(rate_card),
         "estimate_kind": "public_codex_credit_equivalent", "billing_status": "actual_debit_unavailable",
         "scope": {"selection": selection, "includes_subagents": includes_subagents},
@@ -362,7 +429,12 @@ def _assemble_report(responses: list[dict[str, Any]], descriptors: list[dict[str
                     "pricing_complete": bool(responses) and not any(row["unpriced_tokens"]
                                                                       or row["estimated_credits"] is None for row in responses)},
         "diagnostics": diagnostics,
-    }, key)
+    }
+    if modern:
+        report["pricing_policy"] = json.loads(_canonical(rate_card["operation_policy"]))
+        report["pricing_policy_sha256"] = _card_digest(rate_card["operation_policy"])
+        report["summary"]["non_billable_tokens"] = sum(row["non_billable_tokens"] for row in responses)
+    return _sign(report, key)
 
 
 def collect_report(source_root: Path, key: bytes, *, session_id: str | None = None,
@@ -441,6 +513,9 @@ def collect_report(source_root: Path, key: bytes, *, session_id: str | None = No
                     "_owner": owner, "_root": event["session_id"], "_turn": event["turn_id"],
                     "_missing_context": context is None,
                 }
+                if "operation_policy" in card:
+                    response["operation"] = "approval_auto_review" if context and context["reviewer"] else "model_response" if context else "unknown"
+                    response["operation_basis"] = "codex_auto_review_signal" if context and context["reviewer"] else "turn_context" if context else "missing_context"
                 candidates.append(response)
                 total = event["thread_total"]
                 if total is not None and (owner not in thread_totals or event["timestamp"] >= thread_totals[owner][0]):

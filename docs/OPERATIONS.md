@@ -120,28 +120,53 @@ Unavailable checks are SKIP/not-executed, never PASS.
 
 ### Token accounting and estimated-cost rules
 
-Prometheus loads `config/prometheus/rules/ai-agent-cost.yml` from a read-only
-Compose mount. After changing the mapping or rate card:
+Prometheus loads legacy `config/prometheus/rules/ai-agent-cost.yml` and v3
+`config/prometheus/rules/ai-agent-interval-cost.yml` from read-only Compose
+mounts. After changing the mapping or rate card:
 
-1. run `promtool check rules config/prometheus/rules/ai-agent-cost.yml` (the
-   pinned Prometheus container is an acceptable validator);
+1. run `promtool check rules config/prometheus/rules/ai-agent-cost.yml config/prometheus/rules/ai-agent-interval-cost.yml`
+   (the pinned Prometheus container is an acceptable validator);
 2. run `docker compose ... up -d` without `-v` so named volumes are retained;
-3. confirm the `ai-agent-token-accounting-and-estimates` rule group is healthy;
+3. confirm both `ai-agent-token-accounting-and-estimates` (legacy v2) and
+   `ai-agent-interval-estimates-v3` are healthy; the v3 interval must be
+   exactly 30 seconds because its dashboard integrals use that fixed step;
 4. query `ai_agent_token_usage_total`,
    `ai_agent_token_price_usd_per_million`, and
    `ai_agent_estimated_cost_usd_total`, then separately query
    `ai_agent_token_credit_per_million`,
    `ai_agent_estimated_credit_usage_total`, and both `ai_agent_unpriced_*`
-   token metrics;
-5. confirm new accounting/estimate series carry `accounting_schema="v2"`, a
-   bounded `agent_role`, and their bounded `service_namespace`;
+   token metrics for the legacy view. Separately query v3
+   `ai_agent_token_usage_per_second`,
+   `ai_agent_active_token_price_usd_per_million`,
+   `ai_agent_active_token_credit_per_million`,
+   `ai_agent_estimated_cost_usd_per_second`,
+   `ai_agent_estimated_credit_usage_per_second`, and
+   `ai_agent_accounting_sample_available`;
+5. confirm v3 series carry `accounting_schema="v3"`, bounded `agent_role`,
+   `billing_category`, and `service_namespace`, plus applicable card/policy
+   provenance. Only exact trusted approval-operation evidence should create
+   non-billable credit samples; API-unknown reviewer coverage stays visible;
 6. confirm dashboard queries exclude
    `^ai-collaboration(-cost|-role)?-fixture$`, while unknown real models and
    unpublished credits classes appear as unpriced usage rather than disappearing.
 
-The v2 rules apply only to newly mapped data and do not rewrite existing stored
-series. API USD and Codex credits are separate estimates. Neither is an official
-subscription allowance, debit, Enterprise contract, or invoice.
+Keep v2 cards/rules immutable and retain named volumes; v3 does not backfill or
+rewrite history. Update future rates or policy with new versions after reading
+the exact official table and scope. A review date does not establish an
+official effective date. V3 totals integrate stored rate gauges at 30 seconds;
+do not change that interval without changing the contract and its queries.
+Verify sample availability and the latest
+`up{job="otel-collector-exported"}` result. A failed/absent latest Collector
+scrape suppresses new integral samples. This does not verify upstream provider
+completeness; after restoration, `rate()` can bridge short gaps within its
+two-minute window. Allow that window around deployment, new-counter warmup,
+scrape restoration, and price transitions before interpreting stable estimates.
+Missing evaluations are not fabricated as zeros. Corporate's 7-day/1GB retention can remove older
+estimate samples. See [the pricing review](PRICING-REVIEW-2026-10-07.md) for
+the scope and historical risks. API USD and Codex credits remain separate
+estimates; neither is an official subscription allowance, debit, Enterprise
+contract, or invoice. A static/native validator pass alone is not a runtime
+deployment or observed smoke pass.
 
 ### 3. Runtime smoke and persistence
 

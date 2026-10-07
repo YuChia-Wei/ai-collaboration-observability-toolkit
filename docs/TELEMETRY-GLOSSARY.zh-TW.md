@@ -48,6 +48,7 @@ query 中把它們翻譯成中文。
 | `ai_agent.product` | 工具產品，例如 Codex；不是 project 名稱 |
 | `agent_role` | 執行角色：primary、approval_reviewer、subagent 或 unknown；不是模型名稱 |
 | `model_id` | 可供 rate-card join 的 exact model；不可得時為 unmapped |
+| `billing_category` | Collector 推導的 standard／auto_review／unknown；只接受可信 Codex app-server 的 exact approval 訊號，不由 role 或上游自行宣告免費 |
 | `model_family` | 受限模型家族，不應包含 request/session ID |
 | `token_type` | input、output、cached 等 token 類型 |
 | `usage_class` | Accounting 使用的互不重疊 token 類別；不可和 raw input 重複相加 |
@@ -63,6 +64,20 @@ query 中把它們翻譯成中文。
 | `ai_agent_estimated_cost_usd_total` | 公開 API USD 牌價估算；不是帳單或訂閱扣款 |
 | `ai_agent_estimated_credit_usage_total` | 公開 Codex credits rate-card 等值估算；不是官方剩餘額度 |
 | `ai_agent_unpriced_credit_token_usage_total` | 沒有公開 Codex credits rate 的 token；未知不等於免費 |
+| `ai_agent_token_usage_per_second` | v3 每 30 秒保存的兩分鐘 token rate；不是單筆請求帳務 |
+| `ai_agent_estimated_cost_usd_per_second` | v3 當時 API USD rate 估算 gauge；固定 30 秒積分取得範圍估算，不能套 increase |
+| `ai_agent_estimated_credit_usage_per_second` | v3 當時 credits rate 估算 gauge；包含政策核准的 non-billable 零等值，不代表實際扣款 |
+| `ai_agent_accounting_sample_available` | v3 已保存且最新 Collector scrape 成功的 rate 樣本覆蓋率依據；不證明所有原生用量已收到、整段 scrape 全成功或官方帳務相符 |
+| `billing_status=non_billable` | 在核准的 ChatGPT credits 範圍中，approval safety auto-review 依官方政策不計價；actual model 仍可未知 |
+| `pricing_status=non_billable` | v3 session 報表的已知不計價 coverage；與 unpriced 分開，不能把 metadata partial 改為完整 |
+| `non_billable_tokens` | session 報表保留的不計價 token；保留執行量但不加入未估價 token |
+
+新版儀表板預設使用 v3 的已保存費用／credit rate，舊 v2 row 保留原卡與
+原查詢。未來改卡只影響之後樣本，不重新計算全部累積 token；兩分鐘 rate
+窗口、範圍邊界、樣本缺漏與 retention 仍會影響精度。官方不計價政策限
+ChatGPT 帳號登入的 approval safety review，生效日期未確認，不回填舊資料；
+GitHub PR code review、本機 `/review`、API-key 與未確認的 Enterprise USD
+合約不能直接套用。來源與例子見 [計價評估](PRICING-REVIEW-2026-10-07.md)。
 
 ## AI Context identifiers
 

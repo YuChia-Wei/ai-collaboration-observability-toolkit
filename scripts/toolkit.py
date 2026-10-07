@@ -1128,7 +1128,7 @@ def static_validate() -> list[str]:
         "ai-agent-usage.json": {
             "required": (
                 "ai_agent_",
-                "Estimated cost",
+                "sampled rate",
                 "公開 API",
                 "Telemetry 距今",
                 "所選範圍 Token",
@@ -1143,7 +1143,7 @@ def static_validate() -> list[str]:
                 "ai_agent_",
                 "approval_reviewer",
                 "Codex Credits 未估價",
-                "不是免費",
+                "不計價",
             ),
             "forbidden": ("codex_", "ai_context_", "antigravity_"),
         },
@@ -1191,6 +1191,11 @@ def static_validate() -> list[str]:
                 "ai_agent_token_usage_total",
                 "ai_agent_token_price_usd_per_million",
                 "ai_agent_estimated_cost_usd_total",
+                "ai_agent_active_token_price_usd_per_million",
+                "ai_agent_estimated_cost_usd_per_second",
+                "ai_agent_accounting_sample_available",
+                "ai_agent_priced_api_token_usage_per_second",
+                "ai_agent_token_usage_per_second",
                 "ai_agent_provider",
                 "ai_agent_product",
             }
@@ -2102,6 +2107,35 @@ def _check_backend_data(
         'service_namespace="ai-collaboration-role-fixture"}'
     ):
         raise RuntimeError("unmapped Codex auto-review usage unexpectedly consumed credits")
+    reviewer_v3 = retry(
+        "Codex auto-review v3 preserves trusted non-billable classification",
+        lambda: prometheus_query(
+            'ai_agent_token_usage_total{agent_role="approval_reviewer",'
+            'billing_category="auto_review",accounting_schema="v3",'
+            'service_namespace="ai-collaboration-role-fixture"}'
+        ),
+        lambda value: bool(value),
+    )
+    reviewer_credit_rates = retry(
+        "Codex auto-review ChatGPT credit policy yields observed zero rate",
+        lambda: prometheus_query(
+            'ai_agent_estimated_credit_usage_per_second{agent_role="approval_reviewer",'
+            'billing_category="auto_review",accounting_schema="v3",'
+            'billing_status="non_billable",billing_scope="chatgpt_credits",'
+            'service_namespace="ai-collaboration-role-fixture"}'
+        ),
+        lambda value: bool(value) and all(float(item["value"][1]) == 0 for item in value),
+    )
+    if prometheus_query(
+        'ai_agent_estimated_cost_usd_per_second{billing_category="auto_review",'
+        'service_namespace="ai-collaboration-role-fixture"}'
+    ):
+        raise RuntimeError("unknown reviewer API model unexpectedly received a v3 USD rate")
+    if prometheus_query(
+        'ai_agent_unpriced_credit_token_usage_per_second{billing_category="auto_review",'
+        'service_namespace="ai-collaboration-role-fixture"}'
+    ):
+        raise RuntimeError("known non-billable reviewer was classified as credit-unpriced")
     unpriced_cache_write = retry(
         "Codex credits unpriced cache-write boundary",
         lambda: prometheus_scalar(

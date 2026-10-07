@@ -4,6 +4,31 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Reviewed 2026-10-07 official API and ChatGPT credit-rate snapshots for all
+  seven supported exact models, with scope and unknown effective dates recorded
+  in [the pricing review](docs/PRICING-REVIEW-2026-10-07.md).
+- Separate v3 sampled cost/credit rate estimates at a fixed 30-second step,
+  plus non-billable approval safety-review coverage for the reviewed ChatGPT
+  personal/enterprise credit-equivalent scope. Actual-model attribution stays
+  unknown when the producer omits it.
+- Signed `session-usage/v3` operation/charge/policy provenance and archived
+  immutable cards; legacy v1/v2 reports retain their original meaning and
+  require their matching card when merged.
+
+### Changed
+
+- Usage dashboards distinguish known non-billable safety auto-review from
+  unknown-price usage, and integrate stored v3 rate samples for historical
+  estimates. Legacy v2 cards/views stay available without history backfill.
+- Recorded two-minute rate-window transition limits, missing-sample and
+  retention boundaries, and the distinction between saved reports and newly
+  selected-card exports. Estimates do not establish actual debit or runtime
+  deployment. GitHub/local code review and ordinary subagents keep their
+  applicable pricing; API-key and Enterprise USD contract exemptions are not
+  inferred.
+
 ## [0.2.0] - 2026-09-29
 
 Privacy-first agent usage with a bounded company workstation profile.

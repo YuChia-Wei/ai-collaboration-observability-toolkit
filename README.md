@@ -126,7 +126,9 @@ reroute／扣款分開呈現；不支援的舊格式保留 partial／null。
 公司可用同一私密 HMAC key 的 JSON 報表透過 `session-usage-merge` 驗證與去重。
 預設報表與合併離線執行。`--include-account-usage` 可另行保留本機帳戶額度
 快照；`--official-usage` 透過已安裝 Codex 的短暫 app-server 查詢官方帳戶
-餘額與可取得的 thread 估算，並使用 v2 報表。餘額不加總或差額歸因到
+餘額與可取得的 thread 估算。新預設為 v3 報表，包含 operation、
+不計價分類與簽章政策來源；舊 v1/v2 可用相符 archived rate card 合併。
+餘額不加總或差額歸因到
 session；官方估算與本機 credits equivalent 分開，缺失保留明確狀態，
 都不宣稱實際扣款。此流程不需重啟服務，也不把 session ID 或 HMAC 識別碼放入
 Prometheus／Loki index labels。操作與隱私界線見
@@ -144,10 +146,18 @@ Prometheus／Loki index labels。操作與隱私界線見
 
 Codex Native 保留既有 UID ai-codex-usage；Auto-review 以獨立 UID
 ai-codex-auto-review 呈現 `approval_reviewer` 的次數、token 類型、cached
-比例與未估價邊界。AI Agent Usage 依 provider／product／role／model 查詢
+比例與不計價／未估價邊界。AI Agent Usage 依 provider／product／role／model 查詢
 ai_agent_*，並把公開 API USD 與 Codex credits estimate 分開。Cached token
-依適用 rate card 折價，並非免費；Auto-review exact model 不可得時維持
-unmapped/unpriced。Activity 從 Loki 查 metadata-only events，並以 trace_id
+依適用 rate card 折價。官方確認 ChatGPT 帳號登入的 approval safety
+Auto-review 免費且不算方案用量；v3 在核准的個人／企業 credits 等值範圍
+分開呈現 non-billable，actual model 仍為 unmapped，API USD 仍未估價。
+本機 `/review`、GitHub PR code review、一般 subagent 與未知模型不套用此政策。
+v3 以固定 30 秒保存當時的費用／credit rate，再積分選定範圍；價格更新
+不重新套用全部歷史 token。舊 v2 view 保留原卡；兩分鐘估算邊界、缺漏
+與 retention 仍限制歷史精度，所有等值估算都不是實際扣款。
+官方生效日期未確認，不回填舊資料。完整來源與限制見
+[計價與歷史資料評估](docs/PRICING-REVIEW-2026-10-07.md)。
+Activity 從 Loki 查 metadata-only events，並以 trace_id
 關聯 Tempo；Antigravity dashboard 維持 provider-native observed gauges。因
 目前沒有真實 AI Context emitter，原先兩張 ai_context_* dashboards 已移除，
 避免把設計中的 contract 呈現成已可觀測能力。

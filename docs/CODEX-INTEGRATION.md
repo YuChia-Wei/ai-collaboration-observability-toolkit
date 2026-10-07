@@ -117,8 +117,10 @@ Collector change, daemon, or restart by default. `--include-account-usage`
 adds allowlisted local account-limit snapshots offline. `--official-usage`
 starts an ephemeral installed Codex app-server to read current account limits
 and available per-thread server estimates; it implies local snapshots and
-requires Codex service access with existing authentication. Either option uses
-the separate `session-usage/v2` file contract. Balances are never summed or
+requires Codex service access with existing authentication. The reviewed
+default card uses `session-usage/v3`; either option preserves its signed
+pricing-policy contract. Legacy v1/v2 exports remain readable with their
+matching archived card. Balances are never summed or
 delta-attributed; official estimates do not become actual billed debits or add
 to the local response ledger. Unavailable estimates remain visible, and
 provider parent/subagent rollup scope is unverified. These reports do not establish desktop OTLP
@@ -153,14 +155,17 @@ Terra, Luna, and GPT-6 Astra, Sol, Luna, plus GPT-6.1 Sol; unknown models become
 `primary`, `approval_reviewer`, `subagent`, or `unknown`. A producer-supplied
 subagent role is retained. The current `codex-auto-review` pseudo-model maps to
 `approval_reviewer`, but because it does not reveal the actual model, its
-canonical `model_id` remains `unmapped` and both estimates remain absent.
+canonical `model_id` remains `unmapped`. The API USD estimate remains absent.
+The reviewed ChatGPT credit-equivalent policy separately marks matching
+approval safety operations non-billable; a reviewer role alone does not
+qualify. An unknown model is not otherwise treated as free.
 
 API USD uses a versioned public API card. Codex credits use a separate public
 token-based rate card and are an estimate, not the official remaining plan
 allowance or actual debit. Cached input is discounted rather than free. The
 public credits table states no separate cache-write charge; cache-write tokens
 remain visible as credits-unpriced, outside this three-class estimate. GPT-6
-Sol and Luna use separately versioned API and credits cards dated 2026-09-23.
+Sol and Luna retain legacy v2 API and credits cards dated 2026-09-23.
 GPT-6.1 Sol maps to exact `model_id=gpt-6.1-sol` and bounded family `gpt-6`,
 with separate API and credits cards dated 2026-10-01. Its cached-input rates
 are $0.10 USD and 2.5 credits per million tokens. Sources:
@@ -170,7 +175,22 @@ Raw `token_type` panels remain available to reconcile the non-overlapping
 accounting classes. The API estimate
 does not apply the greater-than-272K premium because aggregated telemetry cannot
 identify affected requests. Both estimates use standard rates and do not infer
-Fast mode from the model name. Existing stored data is not backfilled.
+Fast mode from the model name. V3 uses separately reviewed 2026-10-07 cards
+and records token-priced rates at fixed 30-second evaluations. Dashboards
+integrate stored rate samples to preserve the active estimate across future
+card changes, with two-minute boundary smoothing and gap/retention limits.
+The accounting selector keeps an explicitly labelled legacy v2 view.
+Existing stored data is not backfilled. See
+[official pricing and historical limits](PRICING-REVIEW-2026-10-07.md).
+
+The [official credit rate card](https://help.openai.com/en/articles/11481834-chatgpt-rate-card-business-enterpriseedu-credit-based-pricing)
+exempts safety auto-review when signed in with a ChatGPT account and excludes
+it from plan usage. This supported policy does not extend to local `/review`,
+GitHub PR code review, ordinary subagents, API-key pricing, or unconfirmed
+Enterprise USD agreements. There is no verified official effective date;
+v3 applies only from the toolkit policy activation, while old estimates retain
+their original meaning. No sign-in configuration or account credentials are
+changed to apply this estimate policy.
 
 Before changing a live Codex configuration, create a same-directory backup.
 For this toolkit, change only the [otel] block, keep all three endpoints on the

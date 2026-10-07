@@ -30,6 +30,11 @@ CSV_COLUMNS = (
     "response_count", *TOKEN_FIELDS, "estimated_credits", "unpriced_tokens",
     "pricing_status",
 )
+POLICY_CSV_COLUMNS = (
+    "operation", "operation_basis", "charge_class", "pricing_basis", "non_billable_tokens",
+    "pricing_policy_version", "pricing_policy_sha256", "policy_scope", "policy_sources",
+    "policy_temporal_basis", "policy_local_activation", "policy_official_effective_from",
+)
 _DESCRIPTOR_METADATA = ("parent_session_key", "agent_role")
 
 
@@ -103,11 +108,24 @@ def _validate_response(response: dict[str, Any], card: dict[str, Any]) -> None:
             != (response["configured_service_tier"] != "unknown"))
     ):
         raise usage.ReportError("invalid_response_metadata")
+    modern = "operation_policy" in card
+    if modern:
+        bases = {"approval_auto_review": "codex_auto_review_signal", "model_response": "turn_context",
+                 "unknown": "missing_context"}
+        if (response["operation_basis"] != bases[response["operation"]]
+                or (response["operation"] == "approval_auto_review" and (
+                    response["agent_role"] != "approval_reviewer"
+                    or response["configured_model_id"] != "unmapped"
+                    or response["model_id"] != "unmapped"
+                    or response["model_basis"] == "configured"))
+                or (response["operation"] == "unknown" and response["model_basis"] == "configured")):
+            raise usage.ReportError("invalid_response_operation")
     expected = dict(response)
     usage._price(expected, card)
-    if any(response[field] != expected[field] for field in (
-        "estimated_credits", "unpriced_tokens", "pricing_status", "credit_multiplier",
-    )):
+    pricing_fields = ("estimated_credits", "unpriced_tokens", "pricing_status", "credit_multiplier")
+    if modern:
+        pricing_fields += ("non_billable_tokens", "charge_class", "pricing_basis")
+    if any(response[field] != expected[field] for field in pricing_fields):
         raise usage.ReportError("invalid_response_pricing")
 
 
@@ -152,8 +170,15 @@ def merge_reports(
             or report["rate_card_sha256"] != expected_digest
         ):
             raise usage.ReportError("rate_card_mismatch")
+        if "operation_policy" in card:
+            if (report["schema_version"] != "session-usage/v3"
+                    or report["pricing_policy"] != card["operation_policy"]
+                    or report["pricing_policy_sha256"] != usage._card_digest(card["operation_policy"])):
+                raise usage.ReportError("pricing_policy_mismatch")
+        elif report["schema_version"] == "session-usage/v3":
+            raise usage.ReportError("pricing_policy_mismatch")
         report_count += 1
-        if report["schema_version"] == "session-usage/v2":
+        if "usage_metrics" in report:
             from scripts.session_usage_metrics import validate_metrics
             validate_metrics(report["usage_metrics"], {row["session_key"] for row in report["sessions"]}, key)
             metric_sources.append(report["usage_metrics"])
@@ -209,7 +234,16 @@ def render_csv(report: dict) -> str:
         "official_estimate_status", "official_estimated_credits", "estimated_usage_credits_micros",
         "estimated_usage_usd_micros", "official_speed", "net_new_input_tokens",
     ) if "usage_metrics" in report else ()
-    columns = (*CSV_COLUMNS, *metric_columns)
+    policy_columns = POLICY_CSV_COLUMNS if report["schema_version"] == "session-usage/v3" else ()
+    local_columns = (*CSV_COLUMNS, *policy_columns)
+    columns = (*local_columns, *metric_columns)
+    policy_metadata = {}
+    if policy_columns:
+        policy = report["pricing_policy"]
+        policy_metadata = dict(pricing_policy_version=policy["version"], pricing_policy_sha256=report["pricing_policy_sha256"],
+                               policy_scope=policy["scope"], policy_sources=";".join(policy["sources"]),
+                               policy_temporal_basis=policy["temporal_basis"], policy_local_activation=policy["local_activation"],
+                               policy_official_effective_from=policy["official_effective_from"])
     writer = csv.DictWriter(output, fieldnames=columns, lineterminator="\n")
     writer.writeheader()
     descriptors = {item["session_key"]: item for item in report["sessions"]}
@@ -218,9 +252,10 @@ def render_csv(report: dict) -> str:
     for group in report["groups"]:
         session_key = group["session_key"]
         grouped_sessions.add(session_key)
-        row = {column: group.get(column, "") for column in CSV_COLUMNS}
+        row = {column: group.get(column, "") for column in local_columns}
         row["rate_card_version"] = report["rate_card_version"]
         row["session_status"] = descriptors.get(session_key, {}).get("status", "partial")
+        row.update(policy_metadata)
         if metric_columns:
             row["record_type"] = "local_estimate"
         for field in TOKEN_FIELDS:
@@ -234,6 +269,7 @@ def render_csv(report: dict) -> str:
             "session_key": descriptor["session_key"],
             "session_status": descriptor["status"],
             "agent_role": descriptor["agent_role"],
+            **policy_metadata,
             **({"record_type": "local_unavailable"} if metric_columns else {}),
         })
     if metric_columns:
