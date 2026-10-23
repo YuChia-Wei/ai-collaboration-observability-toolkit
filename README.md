@@ -102,7 +102,13 @@ Core 可用 `-f compose.yaml -f compose.debug.yaml`。詳見
   開啟的 user-prompt／exact-allowlisted MCP-response byte proxy；不產生
   LLM/token/cost 或 prompt effectiveness 資料。
 - Google Antigravity：direct Hooks 與 CLI status-line extension；usage 為
-  observed metadata，非帳務。
+  observed metadata，非帳務。先執行 `python scripts/install_antigravity.py`
+  預覽，再加 `--apply` 安裝使用者層級整合；啟動 stack 本身不會啟用 callbacks。
+  `python scripts/toolkit.py antigravity-quota --export --watch` 可在本機確認
+  CLI／桌面版同帳戶後，持續匯出官方帳戶 quota 快照；dashboard 會隱藏過期資料。
+  `antigravity-desktop-usage` 提供版本限定、無匯出的桌面 token/context 數值讀取驗證。
+  `antigravity-desktop-observe --export --watch` 可持續匯出原生 generation
+  去重累計及最近已觀測 context；來源時間與讀取時間分開，active conversation 暫緩。
 - Claude Code：原生 OpenTelemetry token metric、privacy-reviewed canonical
   mapping、synthetic fixture 與 context attribution dashboard。GitHub Copilot
   目前仍只有上游組織／企業 usage 文件，不宣稱 normalized support。

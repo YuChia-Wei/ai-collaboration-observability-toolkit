@@ -78,7 +78,17 @@ See [Operations](docs/OPERATIONS.md).
   provides an opt-in metadata-only `AGENT`/`TOOL` Phoenix trace experiment. It
   does not synthesize LLM, token/cost, or prompt-effectiveness data.
 - Google Antigravity: direct Hooks and CLI status-line extension; values are
-  observed metadata, not billing.
+  observed metadata, not billing. Preview user-level setup with
+  `python scripts/install_antigravity.py`, then add `--apply` to install it;
+  starting the stack alone does not enable callbacks.
+  `python scripts/toolkit.py antigravity-quota --export --watch` verifies the
+  local CLI/desktop account binding and exports official account quota snapshots;
+  the dashboard hides stale values.
+  `antigravity-desktop-usage` provides version-specific local token/context read
+  verification without telemetry export.
+  `antigravity-desktop-observe --export --watch` publishes deduplicated native
+  generation totals and the latest observed context, with separate source/read
+  times. Active conversation remains deferred.
 - Claude Code has upstream OpenTelemetry support and GitHub Copilot has upstream
   organization/enterprise usage metrics. This repository has documentation only;
   normalization is not claimed without a version-pinned fixture.

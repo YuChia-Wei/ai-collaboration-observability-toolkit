@@ -10,6 +10,1057 @@
   "liveNow": false,
   "panels": [
     {
+      "id": 11,
+      "title": "帳戶 Quota 剩餘比例（官方快照）",
+      "description": "官方 CLI /usage 的帳戶快照。逐模型群組、bucket 與週期顯示；不歸因單一桌面對話。超過 180 秒或未確認同帳戶時不顯示比率，缺值維持 No data。 每筆 bucket 的來源時間必須與本次快照一致（容忍 1 毫秒）；新快照省略的 bucket 不沿用舊值。不同服務、命名空間或 profile 分別判定。",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "No data",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "模型群組"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quota bucket"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "週期"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 50
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "剩餘比例"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(100 * antigravity_account_quota_remaining_ratio{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) and on (service_name, service_namespace, ai_observability_profile, source, scope, quota_group, bucket, window) (abs(timestamp(antigravity_account_quota_remaining_ratio{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source, scope) group_left antigravity_account_quota_snapshot_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source, scope) ((time() - antigravity_account_quota_snapshot_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) <= 180) and on (service_name, service_namespace, ai_observability_profile, source, scope) (antigravity_account_quota_identity_match{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} == 1)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "quota_group",
+                "bucket",
+                "window",
+                "Value"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "quota_group": 0,
+              "bucket": 1,
+              "window": 2,
+              "Value": 3
+            },
+            "renameByName": {
+              "quota_group": "模型群組",
+              "bucket": "Quota bucket",
+              "window": "週期",
+              "Value": "剩餘比例"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "帳戶 Quota 距離重置",
+      "description": "只顯示官方來源明確回報的重置時間距今秒數。沒有重置時間的 bucket 不補值；超過 180 秒的快照不顯示倒數。 每筆 bucket 的來源時間必須與本次快照一致（容忍 1 毫秒）；新快照省略的 bucket 不沿用舊值。不同服務、命名空間或 profile 分別判定。",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "noValue": "No data",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "模型群組"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quota bucket"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "週期"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 50
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "距離重置"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamp_min(antigravity_account_quota_reset_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} - time(), 0) and on (service_name, service_namespace, ai_observability_profile, source, scope, quota_group, bucket, window) (abs(timestamp(antigravity_account_quota_reset_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source, scope) group_left antigravity_account_quota_snapshot_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source, scope) ((time() - antigravity_account_quota_snapshot_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) <= 180) and on (service_name, service_namespace, ai_observability_profile, source, scope) (antigravity_account_quota_identity_match{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} == 1)",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "quota_group",
+                "bucket",
+                "window",
+                "Value"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "quota_group": 0,
+              "bucket": 1,
+              "window": 2,
+              "Value": 3
+            },
+            "renameByName": {
+              "quota_group": "模型群組",
+              "bucket": "Quota bucket",
+              "window": "週期",
+              "Value": "距離重置"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 180
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "id": 13,
+      "title": "官方 Quota 快照距今（超過 3 分鐘即過期）",
+      "description": "用來源快照的 Unix timestamp 計算 age；Exporter 停止後數值會繼續增加。過期不冒充最新數值，沒有快照時顯示 No data。",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamp_min(time() - antigravity_account_quota_snapshot_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, 0)",
+          "instant": true,
+          "range": false,
+          "legendFormat": "快照距今"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "未確認／不相符",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "同帳戶已確認",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "id": 14,
+      "title": "CLI 與桌面帳戶驗證",
+      "description": "只送出同帳戶判定，不送出帳戶識別或電子郵件。1 代表此快照已確認同帳戶；0 代表未確認或帳戶不相符。資料缺少或快照過期時顯示 No data。",
+      "gridPos": {
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_account_quota_identity_match{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source, scope) ((time() - antigravity_account_quota_snapshot_timestamp_seconds{tool=\"antigravity\",source=\"official-cli-report\",scope=\"account\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) <= 180)",
+          "instant": true,
+          "range": false,
+          "legendFormat": "同帳戶判定"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "官方帳戶快照與 CLI 對話資料",
+      "type": "text",
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "上方為 **官方 CLI /usage 的帳戶 Quota 快照**，與下方 CLI status-line 的對話 token/context 分開。每列保留模型群組、bucket 與週期。\n\n快照超過 **180 秒**即過期，剩餘比例與重置倒數停止顯示；最後更新距今會轉紅。缺值維持 **No data**，不補 0、不推估 token 或費用。\n\n每個 bucket 必須屬於**同一次來源快照**；本次缺漏的 bucket 不沿用舊值。不同服務、命名空間與 profile 的快照及帳戶判定各自配對。"
+      },
+      "description": "說明官方帳戶 Quota 快照與 CLI 對話觀測值的來源差異、同帳戶確認、過期門檻及缺值顯示方式。"
+    },
+    {
+      "id": 16,
+      "title": "桌面版 Metadata（獨立來源）",
+      "description": "說明桌面 token 去重累計與最後已保存 generation context 快照的來源、觀測時間及涵蓋範圍；目前對話與執行中狀態尚未整合。",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**來源：desktop-local-metadata**。Token 是觀測器持久化去重帳本自建立起接納的 generation metadata 累計，涵蓋範圍受讀取上限限制；不是逐回合用量或帳務。**thinking_output_tokens、response_output_tokens 是 total_output_tokens 的子集，六欄不能相加**。\n\nContext 的範圍是**本次讀回且與 RPC metadata 對齊的最後已保存 generation 快照（非目前對話）**。快照數值使用讀取觀測時間，原始 generation 時間另外顯示；較舊的來源可代表閒置中的歷史快照，不代表讀取失敗。超過 **180 秒未再讀取**才隱藏數值。容量未回報維持 **No data**。**桌面目前對話與執行中狀態尚未整合**。"
+      }
+    },
+    {
+      "id": 17,
+      "title": "桌面 Generation Token 去重累計（Metadata）",
+      "description": "自持久化去重帳本建立起接納的 generation metadata 累計；只顯示真正觀測到的 token 欄位，不補 0、不使用 rate 或跨欄加總。Thinking 與 response output 是 total output 子集。",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Token 欄位（子集勿加總）"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "已接納累計"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 105
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_generation_observed_tokens_total{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source, token_type) (abs(timestamp(antigravity_desktop_generation_observed_tokens_total{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source) group_left antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"}) <= 180) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_read_success{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"} == 1)",
+          "legendFormat": "{{token_type}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "token_type",
+                "Value"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "token_type": 0,
+              "Value": 1
+            },
+            "renameByName": {
+              "token_type": "Token 欄位（子集勿加總）",
+              "Value": "已接納累計"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "桌面最後已保存 Context（來源估計）",
+      "description": "本次讀回且與 RPC metadata 精確對齊的最後已保存 generation 快照，非桌面目前對話或執行中狀態。來源 generation 可以較舊，原始時間另列。超過 180 秒沒有新讀取、對齊未確認或本次欄位缺少時不沿用舊值。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 4,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_latest_context_estimated_tokens{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source) (abs(timestamp(antigravity_desktop_latest_context_estimated_tokens{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source) antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_latest_context_available{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"estimate\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_latest_generation_verified{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_read_success{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 180)",
+          "legendFormat": "桌面最後已保存 Context（來源估計）",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "最後已保存 Context 容量",
+      "description": "本次讀回且與 RPC metadata 精確對齊的最後已保存 generation 快照，非桌面目前對話或執行中狀態。來源 generation 可以較舊，原始時間另列。超過 180 秒沒有新讀取、對齊未確認或本次欄位缺少時不沿用舊值。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 18,
+        "w": 4,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_latest_context_capacity_tokens{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source) (abs(timestamp(antigravity_desktop_latest_context_capacity_tokens{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source) antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_latest_context_available{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"capacity\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_latest_generation_verified{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_read_success{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 180)",
+          "legendFormat": "最後已保存 Context 容量",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "最後已保存 Context 使用率",
+      "description": "本次讀回且與 RPC metadata 精確對齊的最後已保存 generation 快照，非桌面目前對話或執行中狀態。來源 generation 可以較舊，原始時間另列。超過 180 秒沒有新讀取、對齊未確認或本次欄位缺少時不沿用舊值。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 18,
+        "w": 4,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_latest_context_used_ratio{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source) (abs(timestamp(antigravity_desktop_latest_context_used_ratio{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source) antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_latest_context_available{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"ratio\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_latest_generation_verified{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_read_success{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"} == 1) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 180)",
+          "legendFormat": "最後已保存 Context 使用率",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "桌面 Generation 來源距今（歷史）",
+      "description": "最後已知 generation 的原始來源時間距今，與讀取觀測時間分開。來源較舊可代表最後已保存快照處於閒置狀態，不表示 producer 失效。Token 缺少可驗證來源時間時不送該值；非桌面目前對話狀態。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 180
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamp_min(time() - antigravity_desktop_latest_context_source_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, 0) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 180)",
+          "legendFormat": "Context 來源距今",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "clamp_min(time() - antigravity_desktop_generation_latest_source_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, 0) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"}) <= 180)",
+          "legendFormat": "Token 最新來源距今",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "最近 Generation 對齊驗證",
+      "description": "只有最近已觀測 generation 與 RPC metadata 精確對齊才顯示已確認；讀取失敗時立即關閉 gate。此驗證不判定桌面目前對話或執行中狀態。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 24,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "未確認",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "已確認",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_latest_generation_verified{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 180)",
+          "legendFormat": "Generation 對齊",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "最後已保存 Context 可用性",
+      "description": "本次讀取必須驗證最後已保存 generation 與 RPC metadata 對齊、來源時間已知且不是未來，以及合法估值；不因 generation 較舊就判定不可用。失敗或缺少估值立即關閉舊值。非桌面目前對話。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 24,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "快照不可用",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "可用",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_latest_context_available{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"estimate\"} and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"context\"}) <= 180)",
+          "legendFormat": "本次快照可用性",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "桌面 Metadata 讀取狀態",
+      "description": "本次 token/context 本機讀取是否成功；與來源資料的新舊分開。超過 180 秒沒有讀取就顯示 No data。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "讀取失敗",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "讀取完成",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_read_success{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source, component) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) <= 180)",
+          "legendFormat": "{{component}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "桌面讀取距今",
+      "description": "觀測器最後一次嘗試讀取 token/context 的時間距今。它不是 generation 來源時間，停止觀測後數值會持續增加。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 28,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 180
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamp_min(time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}, 0)",
+          "legendFormat": "{{component}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "title": "去重 Generation 數",
+      "description": "持久化帳本接納的唯一 native generation record 數；不是請求數或目前對話總量。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 28,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_generation_records_total{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source) (abs(timestamp(antigravity_desktop_generation_records_total{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source) antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"}) <= 180) and on (service_name, service_namespace, ai_observability_profile, source) (antigravity_desktop_read_success{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"} == 1)",
+          "legendFormat": "已接納記錄",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "title": "桌面 Token 讀取範圍",
+      "description": "本次 generation metadata 讀取是否觸及上限；未觸及上限也不代表完整帳戶用量。",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 28,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "本次未觸及上限",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "本次受上限限制",
+                  "color": "orange"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "antigravity_desktop_generation_read_limited{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"} and on (service_name, service_namespace, ai_observability_profile, source) (abs(timestamp(antigravity_desktop_generation_read_limited{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\"}) - on (service_name, service_namespace, ai_observability_profile, source) antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"}) <= 0.001) and on (service_name, service_namespace, ai_observability_profile, source) ((time() - antigravity_desktop_read_timestamp_seconds{tool=\"antigravity\",source=\"desktop-local-metadata\",service_namespace!~\"^ai-collaboration(-cost|-role)?-fixture$\",component=\"tokens\"}) <= 180)",
+          "legendFormat": "本次範圍",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
       "id": 1,
       "title": "觀測到的 Session Token（非帳務）",
       "description": "Antigravity CLI status line 的 token 總量；不是官方 credit 或發票資料。",
@@ -20,7 +1071,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 33,
         "w": 12,
         "h": 8
       },
@@ -60,7 +1111,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 0,
+        "y": 33,
         "w": 12,
         "h": 8
       },
@@ -100,7 +1151,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 41,
         "w": 6,
         "h": 7
       },
@@ -133,8 +1184,8 @@
     },
     {
       "id": 4,
-      "title": "剩餘 Quota（觀測值）",
-      "description": "Status line 可見的 quota 比例；不是帳務 ledger。",
+      "title": "CLI 對話 Quota（Status line 觀測值）",
+      "description": "CLI status line 的對話觀測比例；來源與上方官方帳戶 Quota 快照分開。不是帳務 ledger。",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
@@ -142,7 +1193,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 8,
+        "y": 41,
         "w": 6,
         "h": 7
       },
@@ -184,7 +1235,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 8,
+        "y": 41,
         "w": 6,
         "h": 7
       },
@@ -232,7 +1283,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 8,
+        "y": 41,
         "w": 6,
         "h": 7
       },
@@ -288,7 +1339,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 55,
         "w": 24,
         "h": 9
       },
@@ -325,7 +1376,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 48,
         "w": 6,
         "h": 7
       },
@@ -374,7 +1425,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 15,
+        "y": 48,
         "w": 6,
         "h": 7
       },
@@ -426,7 +1477,7 @@
       "type": "text",
       "gridPos": {
         "x": 12,
-        "y": 15,
+        "y": 48,
         "w": 12,
         "h": 7
       },
@@ -453,6 +1504,6 @@
   "timezone": "browser",
   "title": "Antigravity 用量（觀測值，非帳務）",
   "uid": "ai-antigravity-usage",
-  "version": 4,
-  "description": "以 metadata 為主的 Antigravity lifecycle 與 CLI status payload 檢視；token/context/quota 是 extension-observed gauges，不是逐回合 counter 或官方 credit；runtime fixture 命名空間預設排除。"
+  "version": 6,
+  "description": "Antigravity 官方帳戶 Quota、桌面去重 generation metadata 與最後已保存 Context 快照（非目前對話）、CLI status-line 各來源分開；來源時間與讀取觀測時間明確，缺值不補 0，runtime fixtures 預設排除。"
 }

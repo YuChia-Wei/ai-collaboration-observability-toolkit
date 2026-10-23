@@ -270,6 +270,32 @@ Antigravity status-line token/context/quota metrics remain instantaneous
 participate in cost estimation. Runtime smoke exports them under the dedicated
 \`ai-collaboration-fixture\` namespace, which usage dashboards exclude.
 
+Official account quota snapshots use a separate `antigravity_account_quota_*`
+gauge lane with `source=official-cli-report`, `scope=account`, and bounded
+`quota_group`/`bucket`/`window` dimensions. A local CLI/desktop identity match is
+required before exporting quota. No account value, identity hash, or credential
+is exported. Failed verification can publish only `identity_match=0`, without
+updating the quota observation time. The dashboard hides quota values after
+180 seconds or when identity is not confirmed. Each ratio/reset sample must
+belong to that same observation (1 ms timestamp tolerance), so omitted buckets
+do not inherit retained data. Gates are isolated by service, namespace, runtime
+profile, source, and scope. These are remaining account
+allowances, not conversation token counters or a monetary balance.
+
+The reviewed desktop observer uses a separate `antigravity_desktop_*` lane with
+`source=desktop-local-metadata`, `surface=desktop`, and exact bounded
+`token_type`/`component` dimensions. A durable private HMAC/numeric ledger
+deduplicates native generation IDs; cumulative values count discovered metadata
+since that ledger's start, not complete usage or charges. Source time comes from
+the same generation's native timestamp or first referenced step creation time.
+Context is the latest **observed generation**, with DB/RPC identity alignment;
+active conversation remains deferred. Snapshot point timestamps are observation
+times, while a separate gauge preserves generation source time. Poll freshness,
+read success, generation alignment and explicit field availability prevent old
+or missing data from being presented as a current observation. Historical source
+age remains visible, and missing values are never manufactured as zero. Native
+IDs, selectors and keyed hashes never enter telemetry labels or public reports.
+
 ## AI Context framework evidence
 
 \`ai_context.*\` is reserved for independently emitted framework/workflow

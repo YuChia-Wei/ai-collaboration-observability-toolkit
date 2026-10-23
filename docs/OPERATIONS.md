@@ -18,6 +18,35 @@ local files and write sanitized usage artifacts; they do not modify a running
 stack. See [session usage](SESSION-USAGE.md) for commands, private key handling,
 company report validation/deduplication, coverage, and pricing assumptions.
 
+## Antigravity account quota
+
+`python scripts/toolkit.py antigravity-quota` performs an official zero-turn
+quota read after locally confirming that the signed-in Windows CLI and running
+desktop app use the same account. Add `--export` to send the verified snapshot
+to the existing Collector, or `--watch --interval-seconds 120` to keep refreshing
+while the process runs. `--output` saves sanitized metadata; `--scratch-root`
+selects disposable task storage. No identity value or hash is reported. Missing
+or expired login, a stopped desktop app, and account changes fail closed. See
+[Antigravity integration](ANTIGRAVITY-INTEGRATION.md#official-account-quota-snapshots)
+for the source contract, platform boundary and dashboard freshness rules.
+
+## Antigravity desktop token/context read verification
+
+`python scripts/toolkit.py antigravity-desktop-usage --output artifacts/desktop-usage.json`
+reads bounded numeric metadata from the reviewed Windows desktop version without
+exporting telemetry. Exit one with `status=partial` means the JSON contains
+observations with missing coverage or unknown freshness; inspect the report
+before using its values. It does not update the CLI status-line dashboard panels.
+See [the desktop reader boundary](ANTIGRAVITY-INTEGRATION.md#desktop-token-and-context-read-verification).
+
+For continuous observation, use
+`python scripts/toolkit.py antigravity-desktop-observe --export --watch --interval-seconds 60 --output artifacts/desktop-observation.json`.
+Preserve its durable `--state-dir` across restarts: it holds private HMAC keys
+and numeric deduplication state, never native IDs or content. The latest observed
+generation context is separate from the deferred active-conversation feature.
+The dashboard shows generation source age separately from producer read age;
+reads older than 180 seconds hide values. See [the observer contract](ANTIGRAVITY-INTEGRATION.md#desktop-metadata-observer).
+
 ## Environment preparation
 
     Copy-Item .env.example .env
