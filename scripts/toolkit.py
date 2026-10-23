@@ -2905,21 +2905,8 @@ def session_command(args: argparse.Namespace) -> None:
 
 
 def main() -> int:
-    if str(ROOT) not in sys.path:
-        sys.path.insert(0, str(ROOT))
-    from scripts import antigravity_quota, antigravity_desktop, antigravity_desktop_observer
-
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-
-    quota_parser = sub.add_parser("antigravity-quota", help="Read official account quota after matching CLI and desktop accounts.")
-    antigravity_quota.add_arguments(quota_parser)
-
-    desktop_parser = sub.add_parser("antigravity-desktop-usage", help="Verify local desktop token/context metadata without exporting.")
-    antigravity_desktop.add_arguments(desktop_parser)
-
-    observer_parser = sub.add_parser("antigravity-desktop-observe", help="Publish deduplicated desktop generation metadata; active conversation is deferred.")
-    antigravity_desktop_observer.add_arguments(observer_parser)
 
     validate_parser = sub.add_parser("validate")
     validate_parser.add_argument(
@@ -2998,13 +2985,7 @@ def main() -> int:
 
     args = parser.parse_args()
     try:
-        if args.command == "antigravity-quota":
-            return antigravity_quota.run(args)
-        elif args.command == "antigravity-desktop-usage":
-            return antigravity_desktop.run(args)
-        elif args.command == "antigravity-desktop-observe":
-            return antigravity_desktop_observer.run(args)
-        elif args.command in {"session-key", "session-usage", "session-usage-merge"}:
+        if args.command in {"session-key", "session-usage", "session-usage-merge"}:
             session_command(args)
         elif args.command == "validate":
             validate(args.mode, static_only=args.static_only)
