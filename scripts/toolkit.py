@@ -13,6 +13,7 @@ import datetime as dt
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -1688,10 +1689,13 @@ def send_fixture(
     *,
     directory: Path | None = None,
     headers: dict[str, str] | None = None,
+    core_trace_id: str | None = None,
 ) -> None:
     port = os.getenv("OTLP_HTTP_PORT", "4318")
     fixture_directory = directory or ROOT / "examples/otlp"
     data = render_fixture(fixture_directory / filename)
+    if core_trace_id is not None:
+        data = data.replace(TRACE_CORE.encode(), core_trace_id.encode())
     status, body = http(
         "POST",
         f"http://127.0.0.1:{port}/v1/{signal}",
@@ -1890,6 +1894,7 @@ def phoenix_spans(trace_id: str) -> tuple[int, dict[str, Any], bytes]:
 @dataclass
 class SmokeReport:
     mode: str
+    core_trace_id: str = field(default_factory=lambda: secrets.token_hex(16))
     started_at: str = field(default_factory=utc_now)
     checks: list[dict[str, str]] = field(default_factory=list)
 
@@ -2240,14 +2245,13 @@ def _check_backend_data(
             "unpriced_cache_write=1000, subagent_output=200",
         )
 
-    # Distinct valid roles keep unknown models from collapsing into one
-    # canonical series after their raw model labels are removed.
+    # A new version retains its identity even when neither rate card covers it.
     for model, role in (
-        ("gpt-6-future", "unknown"),
-        ("gpt-6.1-sol-future", "subagent"),
+        ("gpt-6.8-sol", "unknown"),
+        ("gpt-6.9-astra", "subagent"),
     ):
         unknown_labels = (
-            f'model_id="unmapped",model_family="unmapped",agent_role="{role}",'
+            f'model_id="{model}",model_family="gpt-6",agent_role="{role}",'
             'service_namespace="ai-collaboration-role-fixture"'
         )
         checked_total(
@@ -2270,7 +2274,15 @@ def _check_backend_data(
         ):
             if prometheus_query(current_or_recent(f"{metric}{{{unknown_labels}}}")):
                 raise RuntimeError(f"unknown model {model} was unexpectedly priced")
-    report.pass_(prefix + "unknown GPT-6 model remains unmapped and unpriced")
+    # The two private fixture aliases share one label set after redaction.
+    # A Prometheus exporter otherwise retains just one of the simultaneous points.
+    namespace = 'service_namespace="ai-collaboration-role-fixture"'
+    checked_total("codex_turn_token_usage_sum", namespace + ',model="unmapped",token_type="output"', 400.0)
+    checked_total("ai_agent_turn_token_usage_sum", namespace + ',model_id="unmapped",agent_role="subagent",token_type="output"', 400.0)
+    for source in ("codex_turn_token_usage_sum", "ai_agent_turn_token_usage_sum"):
+        if "synthetic-private/" in json.dumps(prometheus_series(f"{source}{{{namespace}}}")):
+            raise RuntimeError("private model label leaked into token series")
+    report.pass_(prefix + "new model names and tokens retained without prices")
 
     claude_raw, claude_canonical = retry(
         "Claude raw/canonical request token reconciliation",
@@ -2312,7 +2324,7 @@ def _check_backend_data(
         expected = {
             "agent_role": "primary",
             "model_family": "claude-sonnet",
-            "model_id": "unmapped",
+            "model_id": "claude-sonnet-5",
             "evidence_class": "provider-reported",
         }
         if any(item.get(key) != value for key, value in expected.items()):
@@ -2428,11 +2440,20 @@ def _check_backend_data(
 
     status, body = retry(
         "Tempo core trace",
-        lambda: tempo_trace(TRACE_CORE),
+        lambda: tempo_trace(report.core_trace_id),
         lambda value: value[0] == 200,
     )
     if SENTINEL.encode() in body:
         raise RuntimeError("privacy sentinel leaked into Tempo core trace")
+    attributes = {
+        attr["key"]: attr["value"].get("stringValue")
+        for batch in json.loads(body).get("batches", [])
+        for scope in batch.get("scopeSpans", [])
+        for span in scope.get("spans", [])
+        for attr in span.get("attributes", [])
+    }
+    if (attributes.get("gen_ai.request.model"), attributes.get("gen_ai.response.model")) != ("gpt-6.8-sol", "gpt-6.9-astra"):
+        raise RuntimeError("Tempo request and response model evidence missing")
     report.pass_(prefix + "tempo core trace")
 
     status, codex_trace = retry(
@@ -2622,7 +2643,7 @@ def smoke(
         send_fixture("codex-gpt6-metrics.json", "metrics")
         send_fixture("claude-code-token-metrics.json", "metrics")
         send_antigravity_status_fixture(mode)
-        send_fixture("traces.json", "traces")
+        send_fixture("traces.json", "traces", core_trace_id=report.core_trace_id)
         codex_fixture = ROOT / "fixtures/codex/0.146.1"
         send_fixture("logs.sanitized.json", "logs", directory=codex_fixture)
         send_fixture("metrics.sanitized.json", "metrics", directory=codex_fixture)
@@ -2962,6 +2983,12 @@ def main() -> int:
     reset_parser.add_argument("--mode", choices=sorted(MODES), default="core")
     reset_parser.add_argument("--confirm")
 
+    prices = sub.add_parser("rate-card", help="Prepare or deploy a versioned pricing snapshot")
+    prices.add_argument("action", choices=("prepare", "deploy"))
+    prices.add_argument("--mode", choices=sorted(MODES), default="core")
+    prices.add_argument("--card", type=Path, default=ROOT / "config/pricing/public-2026-10-07.json")
+    prices.add_argument("--store", type=Path, required=True)
+
     key_parser = sub.add_parser("session-key", help="Create a local company reporting key.")
     key_parser.add_argument("--output", type=Path, required=True)
     session_parser = sub.add_parser("session-usage", help="Report local session usage metadata.")
@@ -2987,6 +3014,11 @@ def main() -> int:
     try:
         if args.command in {"session-key", "session-usage", "session-usage-merge"}:
             session_command(args)
+        elif args.command == "rate-card":
+            if str(ROOT) not in sys.path:
+                sys.path.insert(0, str(ROOT))
+            from scripts import pricing
+            pricing.command(args, sys.modules[__name__])
         elif args.command == "validate":
             validate(args.mode, static_only=args.static_only)
         elif args.command == "up":
@@ -3012,6 +3044,8 @@ def main() -> int:
         return 0
     except (
         RuntimeError,
+        OSError,
+        subprocess.CalledProcessError,
         urllib.error.URLError,
         ValueError,
         json.JSONDecodeError,

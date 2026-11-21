@@ -250,3 +250,20 @@ their initial RSS.
 5. Verify privacy, native/canonical reconciliation, dashboard UIDs, and
    persistence.
 6. Record exact results and all not-executed gates in the release report.
+
+## Upgrading an installation with retained usage
+
+Record the active Compose project, mode, image tags, retention settings and
+named volume mounts before upgrading. Use the same project name, mode and
+volumes when recreating services. Keep existing image pins when changing only
+Collector policy. Capture a fixed historical timestamp and query a known
+Prometheus sample and trace before and after the change. Check Loki, Grafana
+and the Phoenix PostgreSQL store in Evaluation as applicable. Historical
+`unmapped` series keep their original labels. Model attribution applies to
+new observations. Existing retention limits still expire old samples.
+
+A new Compose project allocates separate volumes. `down -v` and volume pruning
+can destroy history. For an image or database upgrade, take a restorable
+backup on durable storage and verify it separately before switching.
+
+For independently versioned JSON rates, follow [the deployment and rollback procedure](COST-ATTRIBUTION.md#deploy-a-versioned-json-price-snapshot).

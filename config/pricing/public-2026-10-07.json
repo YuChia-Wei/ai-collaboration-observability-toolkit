@@ -1,0 +1,124 @@
+{
+  "schema_version": "ai-agent-rate-card/v1",
+  "version": "public-2026-10-07",
+  "api_usd": {
+    "version": "openai-api-2026-10-07",
+    "verified_on": "2026-10-07",
+    "source": "https://developers.openai.com/api/docs/models/",
+    "scope": "base_standard_context",
+    "unit": "USD_per_million_tokens",
+    "official_effective_from": null,
+    "models": {
+      "gpt-5.6-sol": {
+        "input_uncached": "4",
+        "input_cached": "0.4",
+        "input_cache_write": "5",
+        "output": "20"
+      },
+      "gpt-5.6-terra": {
+        "input_uncached": "2",
+        "input_cached": "0.2",
+        "input_cache_write": "2.5",
+        "output": "12"
+      },
+      "gpt-5.6-luna": {
+        "input_uncached": "0.2",
+        "input_cached": "0.02",
+        "input_cache_write": "0.25",
+        "output": "1.2"
+      },
+      "gpt-6-astra": {
+        "input_uncached": "10",
+        "input_cached": "1",
+        "input_cache_write": "12.5",
+        "output": "50"
+      },
+      "gpt-6-sol": {
+        "input_uncached": "2",
+        "input_cached": "0.2",
+        "input_cache_write": "2.5",
+        "output": "10"
+      },
+      "gpt-6-luna": {
+        "input_uncached": "0.1",
+        "input_cached": "0.01",
+        "input_cache_write": "0.125",
+        "output": "0.5"
+      },
+      "gpt-6.1-sol": {
+        "input_uncached": "2",
+        "input_cached": "0.1",
+        "input_cache_write": "2.5",
+        "output": "10"
+      }
+    }
+  },
+  "credits_official_effective_from": null,
+  "codex_credits": {
+    "schema_version": "codex-credit-rate-card/v2",
+    "version": "openai-codex-credits-2026-10-07",
+    "source": "https://learn.chatgpt.com/docs/pricing#token-rates",
+    "verified_on": "2026-10-07",
+    "scope": "published_token_classes",
+    "models": {
+      "gpt-5.6-sol": {
+        "input_uncached": "100",
+        "input_cached": "10",
+        "output": "500"
+      },
+      "gpt-5.6-terra": {
+        "input_uncached": "50",
+        "input_cached": "5",
+        "output": "300"
+      },
+      "gpt-5.6-luna": {
+        "input_uncached": "5",
+        "input_cached": "0.5",
+        "output": "30"
+      },
+      "gpt-6-astra": {
+        "input_uncached": "250",
+        "input_cached": "25",
+        "output": "1250"
+      },
+      "gpt-6-sol": {
+        "input_uncached": "50",
+        "input_cached": "5",
+        "output": "250"
+      },
+      "gpt-6-luna": {
+        "input_uncached": "2.5",
+        "input_cached": "0.25",
+        "output": "12.5"
+      },
+      "gpt-6.1-sol": {
+        "input_uncached": "50",
+        "input_cached": "2.5",
+        "output": "250"
+      }
+    },
+    "speed_multipliers": {
+      "standard": "1",
+      "fast": "2",
+      "ultrafast": "6"
+    },
+    "ultrafast_models": [
+      "gpt-6-astra"
+    ],
+    "operation_policy": {
+      "schema_version": "codex-operation-pricing-policy/v1",
+      "version": "codex-auto-review-chatgpt-credits-2026-10-07",
+      "operation": "approval_auto_review",
+      "charge_class": "non_billable",
+      "scope": "chatgpt_personal_and_enterprise_credits",
+      "sources": [
+        "https://help.openai.com/en/articles/11481834",
+        "https://help.openai.com/en/articles/11369540"
+      ],
+      "verified_on": "2026-10-07",
+      "official_effective_from": null,
+      "local_activation": "2026-10-07T13:21:21Z",
+      "temporal_basis": "local_activation"
+    }
+  }
+}

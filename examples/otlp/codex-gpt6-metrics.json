@@ -742,7 +742,7 @@
                       {
                         "key": "model",
                         "value": {
-                          "stringValue": "gpt-6-future"
+                          "stringValue": "gpt-6.8-sol"
                         }
                       },
                       {
@@ -810,7 +810,81 @@
                       {
                         "key": "model",
                         "value": {
-                          "stringValue": "gpt-6.1-sol-future"
+                          "stringValue": "gpt-6.9-astra"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      },
+                      {
+                        "key": "agent_role",
+                        "value": {
+                          "stringValue": "subagent"
+                        }
+                      }
+                    ],
+                    "count": "1",
+                    "sum": 200,
+                    "bucketCounts": [
+                      "0",
+                      "1",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      100,
+                      1000,
+                      10000
+                    ]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "synthetic-private/account-a"
+                        }
+                      },
+                      {
+                        "key": "token_type",
+                        "value": {
+                          "stringValue": "output"
+                        }
+                      },
+                      {
+                        "key": "agent_role",
+                        "value": {
+                          "stringValue": "subagent"
+                        }
+                      }
+                    ],
+                    "count": "1",
+                    "sum": 200,
+                    "bucketCounts": [
+                      "0",
+                      "1",
+                      "0",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      100,
+                      1000,
+                      10000
+                    ]
+                  },
+                  {
+                    "startTimeUnixNano": "{{START_TIME_UNIX_NANO}}",
+                    "timeUnixNano": "{{TIME_UNIX_NANO}}",
+                    "attributes": [
+                      {
+                        "key": "model",
+                        "value": {
+                          "stringValue": "synthetic-private/account-b"
                         }
                       },
                       {

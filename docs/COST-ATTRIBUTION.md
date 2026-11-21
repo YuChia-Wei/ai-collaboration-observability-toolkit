@@ -274,6 +274,47 @@ A cumulative last value must not be presented as the selected-range cost.
 A first-ever counter sample has no preceding baseline, so wait for another
 sample before treating an `increase()` result as a complete interval.
 
+## Deploy a versioned JSON price snapshot
+
+The bundled deployment card is `config/pricing/public-2026-10-07.json`.
+It contains independent base-context API USD and Codex credits schedules.
+Amounts are decimal strings per million tokens. Keep the scope, sources,
+verification date, and explicit unknown official effective dates. Change the
+component version when its data changes, and give the complete snapshot a
+new version. The engine supplies usage-class arithmetic and the separately
+reviewed auto-review policy. It keeps historical v2 rules and emits new v3
+estimates only for exact provider, model and class matches.
+
+For a deployment using Evaluation, choose a durable directory, separate
+from the checkout and backend data volumes. Set `PROMETHEUS_RULES_DIR` in
+the deployment's existing `.env` to its absolute `active` subdirectory.
+Use the same Compose project, image pins, ports and mode as the running stack.
+For example, with `PROMETHEUS_RULES_DIR=D:/observability/pricing/active`:
+
+```powershell
+python scripts/toolkit.py rate-card prepare --mode evaluation --store D:/observability/pricing --card D:/cards/prices-A.json
+python scripts/toolkit.py rate-card deploy --mode evaluation --store D:/observability/pricing --card D:/cards/prices-A.json
+```
+
+Run deploy with card B to switch, or select the archived A JSON to switch back.
+For a fresh project, start the backend stack with the bundled rules before
+the first switch. The CLI validates both rule files with the selected image's
+promtool, archives immutable JSON under `snapshots/<version>/card.json`,
+atomically replaces the active v3 rules, starts or reconciles the project's
+Prometheus service and requests a reload. Use one store per deployment.
+The stable `active` directory lets ordinary Compose restarts retain the choice.
+`activations/` records the project, card digest, request time and the first
+observed evaluation after selection. The supplied official effective date,
+verification date and local evaluation timestamp have independent meanings.
+
+Existing v3 samples retain their recorded rate and version. The two-minute
+rate window still smooths the transition. A missing rate leaves the model and
+tokens visible as unpriced, independently for USD and credits. To reproduce a
+signed session report, use its original credits snapshot with `--rate-card`.
+The command also accepts the deployment JSON and selects its credits section.
+Re-export under B produces a new estimate. Store the original reports and
+snapshots for as long as they are needed beyond backend retention.
+
 ## Rate-card update procedure
 
 1. Fetch the exact official table and policy; record scope, review date, and

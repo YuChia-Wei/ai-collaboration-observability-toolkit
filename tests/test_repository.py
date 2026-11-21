@@ -466,74 +466,25 @@ class RepositoryTests(unittest.TestCase):
             )
 
     def test_agent_role_and_exact_model_are_mapped_before_raw_model_is_removed(self) -> None:
-        expected = {
-            "gpt-5.6-sol": "gpt-5.6-sol",
-            "gpt-5.6-terra": "gpt-5.6-terra",
-            "gpt-5.6-luna": "gpt-5.6-luna",
-            "gpt-6-astra": "gpt-6-astra",
-            "gpt-6-sol": "gpt-6-sol",
-            "gpt-6.1-sol": "gpt-6.1-sol",
-            "gpt-6-luna": "gpt-6-luna",
-        }
-        expected_families = {
-            "gpt-5.6": "gpt-5.6",
-            "gpt-6-astra": "gpt-6",
-            "gpt-6-sol": "gpt-6",
-            "gpt-6.1-sol": "gpt-6",
-            "gpt-6-luna": "gpt-6",
-        }
-        for path in sorted((ROOT / "config/otel-collector").glob("*.yaml")):
-            text = path.read_text(encoding="utf-8")
-            self.assertIn('set(attributes["model_id"], "unmapped")', text)
-            self.assertIn('set(attributes["agent_role"], "unknown")', text)
-            delete_index = text.index('delete_key(attributes, "model")')
-            for source, model_id in expected.items():
-                statement = f'set(attributes["model_id"], "{model_id}")'
-                self.assertIn(statement, text, (path.name, source))
-                self.assertLess(text.index(statement), delete_index, (path.name, source))
-                mapping = next(line for line in text.splitlines() if statement in line)
-                self.assertIn(f'attributes["model"] == "{source}"', mapping)
-            for source, family in expected_families.items():
-                statement = f'set(attributes["model_family"], "{family}")'
-                self.assertIn(statement, text, (path.name, source))
-                self.assertLess(text.index(statement), delete_index, (path.name, source))
-                if family == "gpt-6":
-                    self.assertTrue(
-                        any(
-                            statement in line
-                            and f'attributes["model"] == "{source}"' in line
-                            for line in text.splitlines()
-                        ),
-                        (path.name, source),
-                    )
-            reviewer = 'set(attributes["agent_role"], "approval_reviewer")'
-            primary = 'set(attributes["agent_role"], "primary")'
-            self.assertIn(reviewer, text, path.name)
-            self.assertIn(primary, text, path.name)
-            self.assertLess(text.index(reviewer), delete_index, path.name)
-            self.assertLess(text.index(primary), delete_index, path.name)
-            primary_mapping = next(
-                line for line in text.splitlines()
-                if primary in line and 'resource.attributes["service.name"] == "codex-app-server"' in line
-            )
-            self.assertIn('attributes["agent_role"] == "unknown"', primary_mapping)
-            for model in ("gpt-6-sol", "gpt-6.1-sol", "gpt-6-luna"):
-                self.assertIn(f'attributes["model"] == "{model}"', primary_mapping)
-            self.assertNotRegex(text, r'IsMatch\(attributes\["model"\], "\^gpt-6')
-            self.assertNotIn(
-                'set(attributes["model_id"], "codex-auto-review")', text, path.name
-            )
-            self.assertNotIn(
-                'set(attributes["model_family"], "codex-auto-review")', text, path.name
-            )
-            self.assertIn('"agent_role"', text, path.name)
+        from scripts.session_usage import MODEL_NAME
+
+        for path in (ROOT / "config/otel-collector").glob("*.yaml"):
+            processors = toolkit.yaml_load(path)["processors"]
+            statements = processors["transform/privacy_initial"]["metric_statements"][-1]["statements"]
+            admission = next(line for line in statements if 'set(attributes["model"], "unmapped")' in line)
+            self.assertIn(f'"^{MODEL_NAME.pattern}$"', admission)
+            self.assertIn('resource.attributes["service.name"] == "codex-app-server"', admission)
+            mapping = processors["transform/ai_agent"]["metric_statements"][-1]["statements"]
+            copy = next(line for line in mapping if 'set(attributes["model_id"], attributes["model"])' in line)
+            self.assertLess(mapping.index(copy), mapping.index(next(line for line in mapping if 'delete_key(attributes, "model")' in line)))
+            self.assertIn('attributes["model"] != "codex-auto-review"', copy)
 
     def test_prometheus_rate_card_is_versioned_and_exact_model_only(self) -> None:
         prometheus = toolkit.yaml_load(ROOT / "config/prometheus/prometheus.yml")
         self.assertEqual(prometheus["rule_files"], ["/etc/prometheus/rules/*.yml"])
         compose = toolkit.yaml_load(ROOT / "compose.yaml")
         self.assertIn(
-            "./config/prometheus/rules:/etc/prometheus/rules:ro",
+            "${PROMETHEUS_RULES_DIR:-./config/prometheus/rules}:/etc/prometheus/rules:ro",
             compose["services"]["prometheus"]["volumes"],
         )
 
@@ -863,11 +814,12 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(attributes["token_type"], "output")
             self.assertEqual(point["sum"], 200)
             observed_roles[attributes["model"]] = attributes.get("agent_role")
-        self.assertEqual(len(role_points), 5)
+        self.assertEqual(len(role_points), 7)
         self.assertEqual(observed_roles, {
             "gpt-6-sol": "subagent", "gpt-6.1-sol": "subagent",
-            "gpt-6-luna": "subagent", "gpt-6-future": None,
-            "gpt-6.1-sol-future": "subagent",
+            "gpt-6-luna": "subagent", "gpt-6.8-sol": None,
+            "gpt-6.9-astra": "subagent",
+            "synthetic-private/account-a": "subagent", "synthetic-private/account-b": "subagent",
         })
 
     def test_loki_only_indexes_approved_low_cardinality_attributes(self) -> None:

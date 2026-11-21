@@ -20,7 +20,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from scripts.session_usage import EFFORTS, MODELS
+from scripts.session_usage import EFFORTS, normalize_model
 
 PLANS = frozenset({
     "free", "go", "plus", "pro", "prolite", "team",
@@ -172,7 +172,7 @@ def normalize_thread_usage(raw: Any) -> dict[str, Any] | None:
                 raise _Invalid()
             model, effort, speed = (raw_group.get(name) for name in ("model", "reasoningEffort", "speed"))
             group = {
-                "model_id": model if isinstance(model, str) and model in MODELS else "unmapped",
+                "model_id": normalize_model(model),
                 "reasoning_effort": effort if isinstance(effort, str) and effort in EFFORTS else "unknown",
                 "speed": speed if isinstance(speed, str) and speed in ("standard", "fast", "ultrafast") else "unknown",
                 "estimated_usage_credits_micros": _integer(raw_group.get("estimatedUsageCreditsMicros")),

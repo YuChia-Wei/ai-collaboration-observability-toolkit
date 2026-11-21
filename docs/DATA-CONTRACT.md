@@ -38,9 +38,13 @@ for 0.1.x producers. New integrations should use \`ai_observability.profile\`.
 Canonical metric datapoints may use only reviewed bounded dimensions:
 
 - \`operation\`: \`turn\`, \`tool\`, \`mcp\`, \`api\`, \`compaction\`, \`thread\`.
-- \`model_id\`: an exact, reviewed model identifier used only for bounded
-  accounting/rate-card joins. Unknown or non-exact values become \`unmapped\`;
-  raw provider values are never promoted automatically.
+- `model_id` retains the exact bounded version reported on the metric. Codex
+  accepts `gpt-M[.m][-variant]` with major 1–9, optional minor 0–9 and
+  optional sol/astra/terra/luna/mini/nano/pro/codex (891 possible names).
+  Claude token metrics accept opus/sonnet/haiku plus a major and optional minor
+  version. Missing or unsupported names share `unmapped`. Token totals remain
+  visible when one or both price dimensions are missing. Model attributes on
+  a span describe that call only. Request and response names remain separate.
 - \`model_family\`: normalized family, not a request/session identifier.
 - \`agent_role\`: execution role independent of model: \`primary\`,
   \`approval_reviewer\`, \`subagent\`, or \`unknown\`. A producer-supplied bounded

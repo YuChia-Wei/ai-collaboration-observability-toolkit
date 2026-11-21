@@ -342,6 +342,13 @@ class AccountUsageNormalizerTests(unittest.TestCase):
         raw["groups"][0]["cachedInputTokens"] = 301
         self.assertIsNone(usage.normalize_thread_usage(raw))
 
+    def test_new_reported_model_retains_the_provider_token_count(self) -> None:
+        raw = provider_thread()
+        raw["groups"][0]["model"] = "gpt-6.2-astra"
+        group = usage.normalize_thread_usage(raw)["groups"][0]
+        self.assertEqual(group["model_id"], "gpt-6.2-astra")
+        self.assertEqual(group["total_tokens"], raw["groups"][0]["totalTokens"])
+
     def test_unknown_model_effort_and_speed_never_leak_or_infer(self) -> None:
         raw = provider_thread()
         raw["groups"][0].update(model="gpt-6.1-sol-future", reasoningEffort="SYNTHETIC_PRIVATE_USERNAME", speed="priority")

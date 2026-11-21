@@ -307,6 +307,16 @@ class SessionUsageTests(unittest.TestCase):
         for text in ("SYNTHETIC_PRIVATE_MODEL_IDENTIFIER", "SYNTHETIC_PRIVATE_REASONING_EFFORT"):
             self.assertNotIn(text, json.dumps(report))
 
+    def test_new_model_retains_unpriced_tokens(self) -> None:
+        for model in ("gpt-6.2-sol", "gpt-6.2-astra"):
+            rows = self.first_turn_rows()
+            rows[3]["payload"]["model"] = model
+            report = self.collect(rows)
+            row = report["responses"][0]
+            self.assertEqual((row["model_id"], row["configured_model_id"], row["actual_model_id"]), (model, model, "unmapped"))
+            self.assertEqual((row["unpriced_tokens"], row["estimated_credits"]), (12000, None))
+            self.assertEqual(report["diagnostics"]["unknown_model_records"], 0)
+
     def test_unreviewed_model_suffix_is_unpriced(self) -> None:
         rows = self.first_turn_rows()
         rows[3]["payload"]["model"] = "gpt-6.1-sol-future"
