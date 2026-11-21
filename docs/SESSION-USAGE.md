@@ -351,3 +351,5 @@ notice, access controls, retention/deletion rules, and key management described
 in [privacy policy](PRIVACY.md). This command provides the file format and
 local minimization boundary; it does not deploy those organizational controls.
 Rotate keys through that policy and keep reports separated by key identity.
+
+Session and account model groups use the bounded Codex model identifier syntax in DATA-CONTRACT.md. A new version can have a configured name and a complete token count while its credits estimate remains unavailable. A report signed under an archived card keeps its original model attribution and estimate.

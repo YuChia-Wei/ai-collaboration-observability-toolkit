@@ -139,6 +139,24 @@
                   "value": {
                     "stringValue": "C:\\Sensitive\\Project\\secret.cs"
                   }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "gpt-6.8-sol"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.model",
+                  "value": {
+                    "stringValue": "gpt-6.9-astra"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.body",
+                  "value": {
+                    "stringValue": "AI_OBSERVABILITY_SECRET_SENTINEL_7F3B9D"
+                  }
                 }
               ],
               "events": [

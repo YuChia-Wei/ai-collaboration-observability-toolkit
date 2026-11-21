@@ -28,10 +28,7 @@ TOKEN_FIELDS = (
     "input_tokens", "cached_input_tokens", "cache_write_input_tokens",
     "output_tokens", "reasoning_output_tokens", "total_tokens",
 )
-MODELS = frozenset({
-    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-6-astra",
-    "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol",
-})
+MODEL_NAME = re.compile(r"gpt-[1-9]([.][0-9])?(-(sol|astra|terra|luna|mini|nano|pro|codex))?")
 EFFORTS = frozenset({"none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"})
 DIAGNOSTIC_FIELDS = (
     "files_scanned", "invalid_json_lines", "invalid_usage_records",
@@ -96,11 +93,24 @@ def _decimal(value: Any) -> Decimal:
     return result
 
 
+def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ReportError("duplicate_rate_card_key")
+        result[key] = value
+    return result
+
+
 def load_rate_card(path: Path = DEFAULT_RATE_CARD) -> dict[str, Any]:
     try:
-        card = json.loads(path.read_text(encoding="utf-8"))
+        card = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_keys)
     except (OSError, ValueError):
         raise ReportError("rate_card_read_failed") from None
+    if isinstance(card, dict) and card.get("schema_version") == "ai-agent-rate-card/v1":
+        from scripts.pricing import validate_card
+        validate_card(card)
+        card = card["codex_credits"]
     return _validate_card(card)
 
 
@@ -117,12 +127,13 @@ def _validate_card(card: Any) -> dict[str, Any]:
         raise ReportError("invalid_rate_card")
     if (card["schema_version"] not in ("codex-credit-rate-card/v1", "codex-credit-rate-card/v2")
             or not isinstance(card["version"], str)
-            or not re.fullmatch(r"openai-codex-credits-\d{4}-\d{2}-\d{2}", card["version"])
+            or not re.fullmatch(r"openai-codex-credits-\d{4}-\d{2}-\d{2}(-r[1-9][0-9]*)?", card["version"])
             or card["source"] != "https://learn.chatgpt.com/docs/pricing#token-rates"
             or card["scope"] != "published_token_classes"
             or not isinstance(card["models"], dict) or not card["models"]
-            or not set(card["models"]).issubset(MODELS)
-            or card["ultrafast_models"] != ["gpt-6-astra"]):
+            or any(normalize_model(name) == "unmapped" for name in card["models"])
+            or not isinstance(card["ultrafast_models"], list)
+            or any(not isinstance(name, str) or name not in card["models"] for name in card["ultrafast_models"])):
         raise ReportError("invalid_rate_card")
     try:
         dt.date.fromisoformat(card["verified_on"])
@@ -133,7 +144,9 @@ def _validate_card(card: Any) -> dict[str, Any]:
             raise ReportError("invalid_rate_card")
         for value in rates.values():
             _decimal(value)
-    if card["speed_multipliers"] != {"standard": "1", "fast": "2", "ultrafast": "6"}:
+    multipliers = card["speed_multipliers"]
+    if (not isinstance(multipliers, dict) or set(multipliers) != {"standard", "fast", "ultrafast"}
+            or multipliers["standard"] != "1" or any(_decimal(v) <= 0 for v in multipliers.values())):
         raise ReportError("invalid_rate_card")
     if modern:
         _validate_operation_policy(card["operation_policy"])
@@ -214,8 +227,8 @@ def _tier(value: Any) -> str:
     return "ultrafast" if value == "ultrafast" else "unknown"
 
 
-def _model(value: Any) -> str:
-    return value if isinstance(value, str) and value in MODELS else "unmapped"
+def normalize_model(value: Any) -> str:
+    return value if isinstance(value, str) and MODEL_NAME.fullmatch(value) else "unmapped"
 
 
 def _effort(value: Any) -> str:
@@ -315,7 +328,7 @@ def _scan(path: Path, diagnostics: dict[str, int], *, include_account_usage: boo
                     settings = mode.get("settings") if isinstance(mode, dict) else None
                     settings = settings if isinstance(settings, dict) else {}
                     events.append({"kind": kind, "turn": _identity(payload.get("turn_id")),
-                                   "model": _model(payload.get("model", settings.get("model"))),
+                                   "model": normalize_model(payload.get("model", settings.get("model"))),
                                    "reviewer": payload.get("model", settings.get("model")) == "codex-auto-review",
                                    "effort": _effort(payload.get("effort", settings.get("reasoning_effort")))})
                 elif kind == "token_usage_record":

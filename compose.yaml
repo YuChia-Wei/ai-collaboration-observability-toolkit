@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     volumes:
     - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    - ./config/prometheus/rules:/etc/prometheus/rules:ro
+    - ${PROMETHEUS_RULES_DIR:-./config/prometheus/rules}:/etc/prometheus/rules:ro
     - prometheus-data:/prometheus
     depends_on:
     - otel-collector
